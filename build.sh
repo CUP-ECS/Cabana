@@ -1,9 +1,8 @@
 # TODO: YOU, THE USER, SHOULD CHANGE THESE TO YOUR DESIRED PATHS
-export KOKKOS_INSTALL_DIR=$(pwd)/kokkos/build/install
-export CABANA_INSTALL_DIR=$(pwd)/Cabana/build/install
+export KOKKOS_INSTALL_DIR=$(pwd)/build/install
+export CABANA_INSTALL_DIR=$(pwd)/build/install
 
-cd ./Cabana
-mkdir - build/install
+mkdir -p build/install
 
 cd build
 cmake \
