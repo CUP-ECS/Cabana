@@ -1,5 +1,5 @@
 # TODO: YOU, THE USER, SHOULD CHANGE THESE TO YOUR DESIRED PATHS
-export KOKKOS_INSTALL_DIR=$(pwd)/build/install
+export KOKKOS_INSTALL_DIR=$(spack location -i kokkos)
 export CABANA_INSTALL_DIR=$(pwd)/build/install
 
 mkdir -p build/install
