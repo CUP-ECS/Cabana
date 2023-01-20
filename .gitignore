@@ -1,3 +1,10 @@
+# Ignore MacOS files
 *.DS_Store
+
+# Ignore editor-generated files
 *~
 *.swp
+.nova
+
+# Ignore build directory
+build/

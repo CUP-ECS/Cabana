@@ -35,7 +35,7 @@ namespace Cabana
   decomposition to another uniquely owned decomposition.
 
   \tparam DeviceType Device type for which the data for this class will be
-  allocated and where parallel compuations will be executed.
+  allocated and where parallel computations will be executed.
 
   The Distributor allows data to be migrated to an entirely new
   decomposition. Only uniquely-owned decompositions are handled (i.e. each
@@ -57,6 +57,7 @@ namespace Cabana
   user must allocate their own destination data structure.
 
 */
+
 template <class DeviceType>
 class Distributor : public CommunicationPlan<DeviceType>
 {
@@ -183,6 +184,7 @@ void distributeData(
 
     // Get the number of neighbors.
     int num_n = distributor.numNeighbor();
+    printf("num_comm_partners - %d", num_n);
 
     // Calculate the number of elements that are staying on this rank and
     // therefore can be directly copied. If any of the neighbor ranks are this
@@ -257,6 +259,10 @@ void distributeData(
         recv_range.first = recv_range.second;
     }
 
+    // holds the total size of data to be sent (nremote)
+    // this is logged for benchmarking instrumentation
+    int nremote = 0;
+
     // Do blocking sends.
     std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
@@ -268,15 +274,25 @@ void distributeData(
 
             auto send_subview = Kokkos::subview( send_buffer, send_range );
 
+            // calculates message size in bytes (blocksize)
+            int send_size = send_subview.size() * sizeof(typename AoSoA_t::tuple_type);
+
+            // add each block being sent to nremote total
+            nremote += send_size;
+            // log blocksize
+            printf("blocksize - %d", send_size);
+
             MPI_Send( send_subview.data(),
-                      send_subview.size() *
-                          sizeof( typename AoSoA_t::tuple_type ),
+                      send_size,
                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
                       distributor.comm() );
 
             send_range.first = send_range.second;
         }
     }
+
+    // log nremote total for benchmarking instrumentation
+    printf("nremote - %d", nremote);
 
     // Wait on non-blocking receives.
     std::vector<MPI_Status> status( requests.size() );
@@ -450,6 +466,7 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
 
     // Get the number of neighbors.
     int num_n = distributor.numNeighbor();
+    printf("num_comm_partners - %d", num_n);
 
     // Calculate the number of elements that are staying on this rank and
     // therefore can be directly copied. If any of the neighbor ranks are this
@@ -532,6 +549,10 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
         recv_range.first = recv_range.second;
     }
 
+    // holds the total size of data to be sent (nremote)
+    // this is logged for benchmarking instrumentation
+    int nremote = 0;
+
     // Do blocking sends.
     std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
@@ -544,15 +565,26 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
             auto send_subview =
                 Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
+            // calculates message size in bytes (blocksize)
+            int send_size = send_subview.size() * sizeof( typename Slice_t::value_type );
+
+            // add each block being sent to nremote total
+            nremote += send_size;
+
+            // log blocksize
+            printf("blocksize - %d", send_size);
+
             MPI_Send( send_subview.data(),
-                      send_subview.size() *
-                          sizeof( typename Slice_t::value_type ),
+                      send_size,
                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
                       distributor.comm() );
 
             send_range.first = send_range.second;
         }
     }
+
+    // log nremote total for benchmarking instrumentation
+    printf("nremote - %d", nremote);
 
     // Wait on non-blocking receives.
     std::vector<MPI_Status> status( requests.size() );
