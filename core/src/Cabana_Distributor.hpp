@@ -497,6 +497,11 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
     // Get the steering vector for the sends.
     auto steering = distributor.getExportSteering();
 
+    // instrumentation for benchmarking
+    // get total size of data belonging to process (size of data in steering vector)
+    int nowned = distributor.totalNumExport() * sizeof( typename Slice_t::value_type );
+    printf("nowned - %d", nowned);
+
     // Gather from the source Slice into the contiguous send buffer or,
     // if it is part of the local copy, put it directly in the destination
     // Slice.
@@ -505,6 +510,8 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
         auto s_src = Slice_t::index_type::s( steering( i ) );
         auto a_src = Slice_t::index_type::a( steering( i ) );
         std::size_t src_offset = s_src * src.stride( 0 ) + a_src;
+        // log stride when send buffer is being built
+        printf("stride - %d", src.stride(0));
         if ( i < num_stay )
             for ( std::size_t n = 0; n < num_comp; ++n )
                 recv_buffer( i, n ) =
