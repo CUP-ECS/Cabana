@@ -213,6 +213,11 @@ void distributeData(
     // Get the steering vector for the sends.
     auto steering = distributor.getExportSteering();
 
+    // instrumentation for benchmarking
+    // get total size of data belonging to process (size of data in steering vector)
+    int nowned = distributor.totalNumExport() * sizeof( typename Slice_t::value_type );
+    printf("PARAM: nowned - %d\n", nowned);
+
     // Gather the exports from the source AoSoA into the tuple-contiguous send
     // buffer or the receive buffer if the data is staying. We know that the
     // steering vector is ordered such that the data staying on this rank
