@@ -215,7 +215,7 @@ void distributeData(
 
     // instrumentation for benchmarking
     // get total size of data belonging to process (size of data in steering vector)
-    int nowned = distributor.totalNumExport() * sizeof( typename Slice_t::value_type );
+    int nowned = distributor.totalNumExport() * sizeof( typename AoSoA_t::tuple_type );
     printf("PARAM: nowned - %d\n", nowned);
 
     // Gather the exports from the source AoSoA into the tuple-contiguous send
