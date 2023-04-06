@@ -26,6 +26,8 @@
 
 #include <exception>
 #include <vector>
+#include <sstream>
+#include <iostream>
 
 namespace Cabana
 {
@@ -184,7 +186,9 @@ void distributeData(
 
     // Get the number of neighbors.
     int num_n = distributor.numNeighbor();
-    printf("PARAM: num_comm_partners - %d\n", num_n);
+    std::stringstream my_stream;                                /* DEREK */
+    my_stream << "distributeData:" << my_rank << "|" << num_n;  /* DEREK */
+    // printf("PARAM: num_comm_partners - %d\n", num_n);
 
     // Calculate the number of elements that are staying on this rank and
     // therefore can be directly copied. If any of the neighbor ranks are this
@@ -216,7 +220,8 @@ void distributeData(
     // instrumentation for benchmarking
     // get total size of data belonging to process (size of data in steering vector)
     int nowned = distributor.totalNumExport() * sizeof( typename AoSoA_t::tuple_type );
-    printf("PARAM: nowned - %d\n", nowned);
+    my_stream << "|" << nowned; /* DEREK */
+    //printf("PARAM: nowned - %d\n", nowned);
 
     // Gather the exports from the source AoSoA into the tuple-contiguous send
     // buffer or the receive buffer if the data is staying. We know that the
@@ -267,6 +272,7 @@ void distributeData(
     // holds the total size of data to be sent (nremote)
     // this is logged for benchmarking instrumentation
     int nremote = 0;
+    my_stream << "|"; /* DEREK */
 
     // Do blocking sends.
     std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
@@ -284,12 +290,14 @@ void distributeData(
 
             // add each block being sent to nremote total
             nremote += send_size;
-            // log blocksize
-            printf("PARAM: blocksize - %d\n", send_size);
+            // log blocksize and to who
+            auto who = distributor.neighborRank(n);         /* DEREK */
+            my_stream << send_size << ":" << who << ",";    /* DEREK */
+            //printf("PARAM: blocksize - %d\n", send_size);
 
             MPI_Send( send_subview.data(),
                       send_size,
-                      MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
+                      MPI_BYTE, who, mpi_tag,               /* DEREK */
                       distributor.comm() );
 
             send_range.first = send_range.second;
@@ -297,7 +305,8 @@ void distributeData(
     }
 
     // log nremote total for benchmarking instrumentation
-    printf("PARAM: nremote - %d\n", nremote);
+    //printf("PARAM: nremote - %d\n", nremote);
+    my_stream << std::endl; // /* DEREK */
 
     // Wait on non-blocking receives.
     std::vector<MPI_Status> status( requests.size() );
@@ -317,6 +326,8 @@ void distributeData(
                           extract_recv_buffer_policy,
                           extract_recv_buffer_func );
     Kokkos::fence();
+
+    std::cout << my_stream.rdbuf(); /* DEREK */
 
     // Barrier before completing to ensure synchronization.
     MPI_Barrier( distributor.comm() );
@@ -471,7 +482,9 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
 
     // Get the number of neighbors.
     int num_n = distributor.numNeighbor();
-    printf("PARAM: num_comm_partners - %d\n", num_n);
+    std::stringstream my_stream;                         /* DEREK */
+    my_stream << "migrate:" << my_rank << "|" << num_n;  /* DEREK */
+    //printf("PARAM: num_comm_partners - %d\n", num_n);
 
     // Calculate the number of elements that are staying on this rank and
     // therefore can be directly copied. If any of the neighbor ranks are this
@@ -505,7 +518,8 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
     // instrumentation for benchmarking
     // get total size of data belonging to process (size of data in steering vector)
     int nowned = distributor.totalNumExport() * sizeof( typename Slice_t::value_type );
-    printf("PARAM: nowned - %d\n", nowned);
+    my_stream << nowned << "|"; /* DEREK */
+    //printf("PARAM: nowned - %d\n", nowned);
 
     // Gather from the source Slice into the contiguous send buffer or,
     // if it is part of the local copy, put it directly in the destination
@@ -516,7 +530,8 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
         auto a_src = Slice_t::index_type::a( steering( i ) );
         std::size_t src_offset = s_src * src.stride( 0 ) + a_src;
         // log stride when send buffer is being built
-        printf("PARAM: stride - %d\n", src.stride(0));
+        //printf("PARAM: stride - %d\n", src.stride(0));
+        my_stream << src.stride(0) << ","; /* DEREK */
         if ( i < num_stay )
             for ( std::size_t n = 0; n < num_comp; ++n )
                 recv_buffer( i, n ) =
@@ -584,11 +599,13 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
             nremote += send_size;
 
             // log blocksize
-            printf("PARAM: blocksize - %d\n", send_size);
+            // printf("PARAM: blocksize - %d\n", send_size);
+            auto who = distributor.neighborRank(n);         /* DEREK */
+            my_stream << send_size << ":" << who << ",";    /* DEREK */
 
             MPI_Send( send_subview.data(),
                       send_size,
-                      MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
+                      MPI_BYTE, who, mpi_tag, /* DEREK */
                       distributor.comm() );
 
             send_range.first = send_range.second;
@@ -596,7 +613,8 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
     }
 
     // log nremote total for benchmarking instrumentation
-    printf("PARAM: nremote - %d\n", nremote);
+    // printf("PARAM: nremote - %d\n", nremote); /* DEREK */
+    my_stream << std::endl; /* DEREK */
 
     // Wait on non-blocking receives.
     std::vector<MPI_Status> status( requests.size() );
@@ -621,7 +639,7 @@ void migrate( const Distributor_t& distributor, const Slice_t& src,
                           extract_recv_buffer_policy,
                           extract_recv_buffer_func );
     Kokkos::fence();
-
+    std::cout << my_stream.rdbuf(); /* DEREK */
     // Barrier before completing to ensure synchronization.
     MPI_Barrier( distributor.comm() );
 }
