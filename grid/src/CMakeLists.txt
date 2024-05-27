@@ -44,6 +44,12 @@ set(HEADERS_PUBLIC
   Cabana_Grid_Types.hpp
   )
 
+if(Cabana_ENABLE_MPISTREAM)
+  list(APPEND HEADERS_PUBLIC
+    Cabana_Grid_StreamHalo.hpp
+    )
+endif()
+
 if(Cabana_ENABLE_HYPRE)
   list(APPEND HEADERS_PUBLIC
     Cabana_Grid_Hypre.hpp

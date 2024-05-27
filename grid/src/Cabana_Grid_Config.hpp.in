@@ -12,6 +12,8 @@
 #ifndef CABANA_GRID_CONFIG_HPP
 #define CABANA_GRID_CONFIG_HPP
 
+#cmakedefine Cabana_ENABLE_MPISTREAM
+
 #cmakedefine Cabana_ENABLE_HYPRE
 
 #cmakedefine Cabana_ENABLE_HEFFTE

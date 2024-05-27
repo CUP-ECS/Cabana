@@ -46,6 +46,10 @@
 #include <Cabana_Grid_Splines.hpp>
 #include <Cabana_Grid_Types.hpp>
 
+#ifdef Cabana_ENABLE_MPISTREAM
+#include <Cabana_Grid_StreamHalo.hpp>
+#endif
+
 #ifdef Cabana_ENABLE_HYPRE
 #include <Cabana_Grid_Hypre.hpp>
 #include <Cabana_Grid_HypreSemiStructuredSolver.hpp>

@@ -905,14 +905,18 @@ class Halo
     }
 
   private:
-    // The ranks we will send/receive from.
-    std::vector<int> _neighbor_ranks;
-
-    // The tag we use for sending to each neighbor.
+    // The tag we use in this class for sending to each neighbor.
     std::vector<int> _send_tags;
 
-    // The tag we use for receiving from each neighbor.
+    // The tag we use in this class for receiving from each neighbor.
     std::vector<int> _receive_tags;
+
+  protected:
+    // The following variables in accessible in subclasses that want to implement
+    // different communication strategies.
+
+    // The ranks we will send/receive from.
+    std::vector<int> _neighbor_ranks;
 
     // For each neighbor, send/receive buffers for data we own.
     std::vector<Kokkos::View<char*, memory_space>> _owned_buffers;
