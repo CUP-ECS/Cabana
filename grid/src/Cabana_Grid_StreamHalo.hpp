@@ -87,9 +87,10 @@ class StreamHalo
         auto r = static_cast<Derived *>(this)->createStreamHaloRequest(exec_space, 
             super_type::_owned_buffers, super_type::_ghosted_buffers );
 
+	// Start receives
         r->enqueueRecvAll( );
 
-        // Pack and send owned data to ghosts
+        // Pack and start sending owned data to ghosts
         for ( int n = 0; n < num_n; ++n )
         {
             // Only process this neighbor if there is work to do.
@@ -299,7 +300,7 @@ class MPICHStreamHaloRequest
     using view_type = Kokkos::View<char*, MemorySpace>;
 
   public:
-    MPICHStreamHaloRequest( const MPI_Comm &comm, const std::vector<int> ranks,
+    MPICHStreamHaloRequest( const MPI_Comm &comm, const std::vector<int>& ranks,
                           const std::vector<view_type>& sendviews, 
                           const std::vector<view_type>& receiveviews )
         : _comm(comm), _ranks(ranks), _sendviews(sendviews), _receiveviews(receiveviews),
@@ -308,18 +309,22 @@ class MPICHStreamHaloRequest
     }
     void enqueueSend( int n )
     {
-        if ( 0 < _sendviews[n].size() )
+        if ( _sendviews[n].size() <= 0 )
 	    return;
 	
-        MPIX_Send_enqueue( _sendviews[n].data(), _sendviews[n].size(),
+        //MPIX_Send_enqueue( _sendviews[n].data(), _sendviews[n].size(),
+        //                  MPI_BYTE, _ranks[n], 1234, _comm ); // XXX Get a real tag
+        MPI_Send( _sendviews[n].data(), _sendviews[n].size(),
                           MPI_BYTE, _ranks[n], 1234, _comm ); // XXX Get a real tag
     }
     void enqueueRecv( int n )
     {
-        if ( 0 < _receiveviews[n].size() ) 
+        if ( _receiveviews[n].size() <= 0 ) 
 	    return;
 	
-        MPIX_Irecv_enqueue( _receiveviews[n].data(), _receiveviews[n].size(),
+        //MPIX_Irecv_enqueue( _receiveviews[n].data(), _receiveviews[n].size(),
+        //                   MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] );
+        MPI_Irecv( _receiveviews[n].data(), _receiveviews[n].size(),
                            MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] );
 
     }
@@ -337,7 +342,8 @@ class MPICHStreamHaloRequest
     }
     void enqueueWaitAll( )
     {
-        MPIX_Waitall_enqueue( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        //MPIX_Waitall_enqueue( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        MPI_Waitall( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
     }
 
   private:
