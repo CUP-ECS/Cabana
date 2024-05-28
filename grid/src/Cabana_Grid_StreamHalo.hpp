@@ -24,6 +24,8 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Profiling_ScopedRegion.hpp>
 
+#include <Cuda/Kokkos_Cuda.hpp>
+
 #include <mpi.h>
 
 #include <algorithm>
@@ -299,33 +301,50 @@ class MPICHStreamHaloRequest
     MPICHStreamHaloRequest( const MPI_Comm &comm, const std::vector<int> ranks,
                           const std::vector<view_type> sendviews, 
                           const std::vector<view_type> receiveviews )
-        : _comm(comm), _ranks(ranks), _sendviews(sendviews), _receiveviews(receiveviews)
+        : _comm(comm), _ranks(ranks), _sendviews(sendviews), _receiveviews(receiveviews),
+	  _requests(receiveviews.size(), MPI_REQUEST_NULL)
     {
     }
   public:
     void enqueueSend( int n )
     {
+        if ( 0 < _sendviews[n].size() )
+	    return;
+	
+        MPI_Send_enqueue( _sendviews[n].data(), _sendviews[n].size(),
+                          MPI_BYTE, _ranks[n], 1234, _comm ); // XXX Get a real tag
     }
     void enqueueRecv( int n )
     {
-    }
-    void enqueueWait( int n )
-    {
+        if ( 0 < _receiveviews[n].size() ) 
+	    return;
+	
+        MPI_Irecv_enqueue( _receiveviews[n].data(), _receiveviews[n].size(),
+                           MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] );
+
     }
     void enqueueSendAll( )
     {
+        for (int i = 0; i < _sendviews.size(); i++) {
+	    enqueueSend( i );
+	}  
     }
     void enqueueRecvAll( )
     {
+        for (int i = 0; i < _receiveviews.size(); i++) {
+	    enqueueRecv( i );
+	}  
     }
     void enqueueWaitAll( )
     {
+        MPI_Waitall_enqueue( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
     }
 
   private:
     const MPI_Comm &_comm;
     const std::vector<int>& _ranks; 
-    const std::vector<view_type>& _sendviews, _receiveviews; 
+    const std::vector<view_type>& _sendviews, _receiveviews;
+    const std::vector<MPI_Request> _requests;
 };
 
 // Backend for one-sided stream-based communication using 
@@ -346,18 +365,46 @@ class MPICHStreamHalo
 					       sendviews, receiveviews );
     }
 
+
+    // Generic stream creation function for when we don't know how to get the underlying
+    // device stream
+    template <class ExecSpace> void
+    createMPIXStream(const ExecSpace & exec_space)
+    {
+        MPIX_Stream_create(MPI_INFO_NULL, &_stream);
+    }
+
+#ifdef KOKKOS_ENABLE_CUDA   
+    // Functions to create the stream communicator specialized for ones we know how to
+    // access the device stream
+    template <>
+    void
+    createMPIXStream(Kokkos::Cuda & exec_space)
+    {
+        MPI_Info i;
+	cudaStream_t stream = exec_space.cuda_stream();
+        MPI_Info_create(&i);
+	MPI_Info_set(i, "type", "cudaStream_t");
+        MPIX_Info_set_hex(i, "value", &stream, sizeof(stream));
+        MPIX_Stream_create(i, &_stream);
+        MPI_Info_free(&i);
+    }
+#endif
+   
     template <class ExecSpace, class Pattern, class... ArrayTypes>
     MPICHStreamHalo( const ExecSpace &exec_space, 
                      const Pattern& pattern, const int width, const ArrayTypes&... arrays )
        : StreamHalo<MemorySpace, MPICHStreamHalo<MemorySpace>>(pattern, width, arrays...)
     {
+        createMPIXStream(exec_space);
+        MPIX_Stream_comm_create(Halo<MemorySpace>::getComm(arrays...), _stream, &_comm);
         // Initialize the MPI_Stream from the exec_space
         // Create the stream communicator MPICH uses
     }
-  private:
+
+private:
     MPIX_Stream _stream;
     MPI_Comm _comm;
-
 };
 
 template <class ExecSpace, class Pattern, class... ArrayTypes>
