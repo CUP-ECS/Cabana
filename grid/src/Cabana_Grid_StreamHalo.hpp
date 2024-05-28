@@ -74,7 +74,7 @@ class StreamHalo
     */
     template <class ExecutionSpace, class... ArrayTypes>
     void enqueueGather( const ExecutionSpace& exec_space,
-                        const ArrayTypes&... arrays ) const
+                        const ArrayTypes&... arrays )
     {
         Kokkos::Profiling::ScopedRegion region( "Cabana::Grid::StreamHalo::enqueueGather" );
 
@@ -84,11 +84,10 @@ class StreamHalo
             return;
 
         // Initialize sends and receives, either point to point or collective
-        auto r = static_cast<Derived *>(this)->createBackendRequest(exec_space, 
-            super_type::_neighbor_ranks, super_type::_owned_buffers, 
-            super_type::_ghosted_buffers );
+        auto r = static_cast<Derived *>(this)->createStreamHaloRequest(exec_space, 
+            super_type::_owned_buffers, super_type::_ghosted_buffers );
 
-        r->enqueueRecvsReady( );
+        r->enqueueRecvAll( );
 
         // Pack and send owned data to ghosts
         for ( int n = 0; n < num_n; ++n )
@@ -99,11 +98,11 @@ class StreamHalo
                 // Pack the send buffer.
                 enqueuePackBuffer( exec_space, super_type::_owned_buffers[n], 
                                    super_type::_owned_steering[n], arrays.view()... );
-                r->enqueueSendReady(n); 
+                r->enqueueSend(n); 
             }
         }
      
-        r->enqueueWaitall( );
+        r->enqueueWaitAll( );
 
         // Launch kernels to unpack receive buffers.
         for ( int n = 0; n < num_n; ++n )
@@ -124,7 +123,7 @@ class StreamHalo
     */
     template <class ExecutionSpace, class ReduceOp, class... ArrayTypes>
     void enqueueScatter( const ExecutionSpace& exec_space, const ReduceOp& reduce_op,
-                  const ArrayTypes&... arrays ) const
+                  const ArrayTypes&... arrays )
     {
         Kokkos::Profiling::ScopedRegion region( "Cabana::Grid::StreamHalo::enqueueScatter" );
 
@@ -134,10 +133,9 @@ class StreamHalo
             return;
 
         // Initialize sends and receives, either point to point or collective
-        auto r = static_cast<Derived *>(this)->createBackendRequest(exec_space, 
-            super_type::_neighbor_ranks, super_type::_owned_buffers, 
-            super_type::_ghosted_buffers );
-        r->enqueueRecvsReady( );
+        auto r = static_cast<Derived *>(this)->createStreamHaloRequest(exec_space, 
+            super_type::_owned_buffers, super_type::_ghosted_buffers );
+        r->enqueueRecvAll( );
 
         // Pack and send ghost data back to owner. XXX Would be good to explore a single
         // fused pack kernel
@@ -149,11 +147,11 @@ class StreamHalo
                 // Pack the send buffer.
                 enqueuePackBuffer( exec_space, super_type::_ghosted_buffers[n], 
                                    super_type::_ghosted_steering[n], arrays.view()... );
-                r->enqueueSendReady(n); 
+                r->enqueueSend(n); 
             }
         }
      
-        r->enqueueWaitall( );
+        r->enqueueWaitAll( );
 
         // Launch kernels to unpack receive buffers. XXX We should make a single 
         // fused unpack kernel
@@ -223,13 +221,13 @@ class HPEStreamHaloRequest
 {
     using view_type = Kokkos::View<char*, MemorySpace>;
 
+  public:
     HPEStreamHaloRequest( const MPI_Queue &queue, const std::vector<int> ranks,
                           const std::vector<view_type> sendviews, 
                           const std::vector<view_type> receiviews )
         : _queue(queue), _ranks(ranks), _sendviews(sendviews), _receiveviews(receiveviews)
     {
     }
-  public:
     void enqueueSend( int n )
     {
     }
@@ -266,9 +264,11 @@ class HPEStreamHalo
     template <class ExecSpace>
     std::unique_ptr<request_type> 
     createStreamHaloRequest(const ExecSpace & exec_space, 
-                            view_type sendviews, view_type recvviews)
+                            std::vector<view_type>& sendviews,
+			    std::vector<view_type> & recvviews)
     {
-        return std::make_unique<request_type>( queue, Halo::_ranks, sendviews, recvviews );l
+        return std::make_unique<request_type>( queue, Halo::_neighbor_ranks,
+					       sendviews, recvviews );l
     }
 
     template <class ExecSpace, class Pattern, class ArrayTypes...>
@@ -298,20 +298,20 @@ class MPICHStreamHaloRequest
 {
     using view_type = Kokkos::View<char*, MemorySpace>;
 
+  public:
     MPICHStreamHaloRequest( const MPI_Comm &comm, const std::vector<int> ranks,
-                          const std::vector<view_type> sendviews, 
-                          const std::vector<view_type> receiveviews )
+                          const std::vector<view_type>& sendviews, 
+                          const std::vector<view_type>& receiveviews )
         : _comm(comm), _ranks(ranks), _sendviews(sendviews), _receiveviews(receiveviews),
 	  _requests(receiveviews.size(), MPI_REQUEST_NULL)
     {
     }
-  public:
     void enqueueSend( int n )
     {
         if ( 0 < _sendviews[n].size() )
 	    return;
 	
-        MPI_Send_enqueue( _sendviews[n].data(), _sendviews[n].size(),
+        MPIX_Send_enqueue( _sendviews[n].data(), _sendviews[n].size(),
                           MPI_BYTE, _ranks[n], 1234, _comm ); // XXX Get a real tag
     }
     void enqueueRecv( int n )
@@ -319,7 +319,7 @@ class MPICHStreamHaloRequest
         if ( 0 < _receiveviews[n].size() ) 
 	    return;
 	
-        MPI_Irecv_enqueue( _receiveviews[n].data(), _receiveviews[n].size(),
+        MPIX_Irecv_enqueue( _receiveviews[n].data(), _receiveviews[n].size(),
                            MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] );
 
     }
@@ -337,14 +337,15 @@ class MPICHStreamHaloRequest
     }
     void enqueueWaitAll( )
     {
-        MPI_Waitall_enqueue( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        MPIX_Waitall_enqueue( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
     }
 
   private:
     const MPI_Comm &_comm;
     const std::vector<int>& _ranks; 
-    const std::vector<view_type>& _sendviews, _receiveviews;
-    const std::vector<MPI_Request> _requests;
+    const std::vector<view_type>& _sendviews;
+    const std::vector<view_type>& _receiveviews;
+    std::vector<MPI_Request> _requests;
 };
 
 // Backend for one-sided stream-based communication using 
@@ -359,9 +360,10 @@ class MPICHStreamHalo
     template <class ExecSpace>
     std::unique_ptr<request_type> 
     createStreamHaloRequest(const ExecSpace & exec_space, 
-                            view_type sendviews, view_type receiveviews)
+                            std::vector<view_type> & sendviews,
+			    std::vector<view_type> & receiveviews)
     {
-        return std::make_unique<request_type>( _comm, Halo<MemorySpace>::_ranks,
+        return std::make_unique<request_type>( _comm, Halo<MemorySpace>::_neighbor_ranks,
 					       sendviews, receiveviews );
     }
 
