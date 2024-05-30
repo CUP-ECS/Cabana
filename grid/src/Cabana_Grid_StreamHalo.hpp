@@ -376,8 +376,18 @@ class MPICHStreamHalo
 
     // Generic stream creation function for when we don't know how to get the underlying
     // device stream
-    template <class ExecSpace> void
+    template <typename ExecSpace> 
+    void
     createMPIXStream(const ExecSpace & exec_space)
+        requires (std::same_as<ExecSpace, Kokkos::Serial>
+#ifdef KOKKOS_ENABLE_OPENMP
+                  || std::same_as<ExecSpace, Kokkos::OpenMP> 
+#endif
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+                  || std::same_as<ExecSpace, Kokkos::OpenMPTarget> 
+#endif
+    //              || std::same_as<ExecSpace, Kokkos::DefaultExecutionSpace> 
+        ) // end requires
     {
         MPIX_Stream_create(MPI_INFO_NULL, &_stream);
     }
@@ -385,9 +395,10 @@ class MPICHStreamHalo
 #ifdef KOKKOS_ENABLE_CUDA   
     // Functions to create the stream communicator specialized for ones we know how to
     // access the device stream
-    template <>
+    template <typename ExecSpace>
     void
-    createMPIXStream(Kokkos::Cuda & exec_space)
+    createMPIXStream(const ExecSpace & exec_space)
+        requires (std::same_as<ExecSpace, Kokkos::Cuda>) 
     {
         MPI_Info i;
 	cudaStream_t stream = exec_space.cuda_stream();
