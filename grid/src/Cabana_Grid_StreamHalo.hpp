@@ -300,6 +300,7 @@ template <class MemorySpace>
 class VanillaStreamHalo
    : public StreamHalo<MemorySpace, VanillaStreamHalo<MemorySpace>>
 {
+  public:
     using view_type = Kokkos::View<char*, MemorySpace>;
     using request_type = VanillaStreamHaloRequest<MemorySpace>;
 
