@@ -44,7 +44,15 @@ set(HEADERS_PUBLIC
   Cabana_Grid_Types.hpp
   )
 
+option(Cabana_ENABLE_MPISTREAM "Support from Stream-triggered Grid Halos" OFF )
+option(Cabana_ENABLE_MPISTREAM_VANILLA "Vanilla MPI backend emulating stream triggering" ON )
+option(Cabana_ENABLE_MPISTREAM_MPICH "MPICH MPIX_Stream triggering backend" OFF )
+option(Cabana_ENABLE_MPISTREAM_HPE "HPE two-sided stream triggering backend" OFF )
+option(Cabana_ENABLE_MPISTREAM_MPIADVANCE "MPI Advance stream triggering backend" OFF )
+
 if(Cabana_ENABLE_MPISTREAM)
+  set(Cabana_ENABLE_MPISTREAM_VANILLA ON)
+  set(Cabana_ENABLE_MPISTREAM_MPICH ON)
   list(APPEND HEADERS_PUBLIC
     Cabana_Grid_StreamHalo.hpp
     )

@@ -13,6 +13,10 @@
 #define CABANA_GRID_CONFIG_HPP
 
 #cmakedefine Cabana_ENABLE_MPISTREAM
+#cmakedefine Cabana_ENABLE_MPISTREAM_VANILLA
+#cmakedefine Cabana_ENABLE_MPISTREAM_MPICH
+#cmakedefine Cabana_ENABLE_MPISTREAM_HPE
+#cmakedefine Cabana_ENABLE_MPISTREAM_MPIADVANCE
 
 #cmakedefine Cabana_ENABLE_HYPRE
 
