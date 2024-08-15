@@ -16,7 +16,7 @@
 #cmakedefine Cabana_ENABLE_MPISTREAM_VANILLA
 #cmakedefine Cabana_ENABLE_MPISTREAM_MPICH
 #cmakedefine Cabana_ENABLE_MPISTREAM_HPE
-#cmakedefine Cabana_ENABLE_MPISTREAM_MPIADVANCE
+#cmakedefine Cabana_ENABLE_MPISTREAM_ADVANCE
 
 #cmakedefine Cabana_ENABLE_HYPRE
 
