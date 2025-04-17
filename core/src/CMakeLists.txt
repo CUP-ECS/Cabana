@@ -81,6 +81,11 @@ if(Cabana_ENABLE_SILO)
   target_link_libraries(Core INTERFACE SILO::silo)
 endif()
 
+if(Cabana_ENABLE_MPI-ADVANCE)
+  target_link_libraries(Core INTERFACE MPI-ADVANCE::mpi-advance)
+  target_compile_definitions(Core PUBLIC CABANA_ENABLE_MPI_ADVANCE)
+endif()
+
 if(Cabana_ENABLE_HDF5)
   # FIXME: remove when requiring newer CMake
   if(CMAKE_VERSION VERSION_LESS 3.26)
