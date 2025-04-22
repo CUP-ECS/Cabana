@@ -115,9 +115,8 @@ Cabana_add_dependency( PACKAGE mpi-advance )
 set_package_properties(mpi-advance PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
 
 if(Cabana_ENABLE_MPI-ADVANCE)
-  message(STATUS "Cabana will use mpi-advance")
+  message(STATUS "Cabana will include mpi-advance")
 endif()
-
 
 # find Silo
 Cabana_add_dependency( PACKAGE SILO )
