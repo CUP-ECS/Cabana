@@ -26,7 +26,8 @@
 namespace Test
 {
 //---------------------------------------------------------------------------//
-class CommPlanTester : public Cabana::CommunicationPlan<TEST_MEMSPACE>
+template <class TEST_COMMPLAN>
+class CommPlanTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COMMPLAN>
 {
   public:
     using memory_space = TEST_MEMSPACE;
@@ -96,10 +97,11 @@ class CommPlanTester : public Cabana::CommunicationPlan<TEST_MEMSPACE>
 };
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test1( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_tmp( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_tmp( MPI_COMM_WORLD );
     auto comm_plan = comm_tmp;
 
     // Get my rank.
@@ -148,10 +150,11 @@ void test1( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test2( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -210,10 +213,11 @@ void test2( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test3( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -267,10 +271,11 @@ void test3( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test4( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -385,10 +390,11 @@ void test4( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test5( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -470,10 +476,11 @@ void test5( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test6( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -540,10 +547,11 @@ void test6( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test7( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -619,10 +627,11 @@ void testTopology()
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test8( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -685,10 +694,11 @@ void test8( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test9( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -762,10 +772,11 @@ void test9( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test10( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -855,10 +866,11 @@ void test10( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMPLAN>
 void test11( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommPlanTester<TEST_COMMPLAN> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -956,8 +968,26 @@ void test11( const bool use_topology )
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
+template <typename TEST_COMMPLAN>
+class CommunicationPlanTypedTest : public ::testing::Test
+{
+  public:
+    using CommPlanType = TEST_COMMPLAN;
+};
+
+using CommPlanTypes = ::testing::Types<Cabana::CommPlans::MPI
+    #ifdef Cabana_ENABLE_MPI_ADVANCE
+        , Cabana::CommPlans::MPIAdvance
+    #endif
+    >;
+
+TYPED_TEST_SUITE(CommunicationPlanTypedTest, CommPlanTypes);
 
 // Export tests
+TYPED_TEST(CommunicationPlanTypedTest, Test1WithTopology)
+{
+    test1<TypeParam>( true );
+}
 TEST( CommPlan, Test1 ) { test1( true ); }
 
 TEST( CommPlan, Test2 ) { test2( true ); }

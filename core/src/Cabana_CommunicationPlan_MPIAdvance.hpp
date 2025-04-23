@@ -10,11 +10,11 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_CommunicationPlan.hpp
-  \brief Multi-node communication patterns
+  \file CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP.hpp
+  \brief Multi-node communication patterns using MPI Advance
 */
-#ifndef CABANA_COMMUNICATIONPLAN_HPP
-#define CABANA_COMMUNICATIONPLAN_HPP
+#ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
+#define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 
 #include <Cabana_Utils.hpp>
 
@@ -22,6 +22,8 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
+
+#include <mpi_advance.h>
 
 #include <mpi.h>
 
@@ -61,7 +63,7 @@ namespace Cabana
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace, class CommPlan=CommPlans::MPI>
+template <class MemorySpace, class CommPlan=CommPlans::MPIAdvance>
 class CommunicationPlan
 {
   public:
@@ -1224,4 +1226,4 @@ class CommunicationPlan
 
 } // end namespace Cabana
 
-#endif // end CABANA_COMMUNICATIONPLAN_HPP
+#endif // end CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
