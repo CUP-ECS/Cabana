@@ -43,12 +43,17 @@ endif()
 
 if(Cabana_ENABLE_MPI)
   list(APPEND HEADERS_PUBLIC
+    Cabana_CommunicationPlanHelpers.hpp
     Cabana_CommunicationPlan.hpp
     Cabana_Collector.hpp
     Cabana_Distributor.hpp
     Cabana_Halo.hpp
     )
 endif()
+
+# if(Cabana_ENABLE_MPI_ADVANCE)
+#   list(APPEND HEADERS_PUBLIC Cabana_CommunicationPlan_MPIAdvance.hpp)
+# endif()
 
 if(Cabana_ENABLE_SILO)
   list(APPEND HEADERS_PUBLIC Cabana_SiloParticleOutput.hpp)
@@ -83,7 +88,6 @@ endif()
 
 if(Cabana_ENABLE_MPI-ADVANCE)
   target_link_libraries(Core INTERFACE mpi-advance::mpi_advance)
-  target_compile_definitions(Core INTERFACE CABANA_ENABLE_MPI_ADVANCE)
 endif()
 
 if(Cabana_ENABLE_HDF5)
