@@ -82,7 +82,7 @@ if(Cabana_ENABLE_SILO)
 endif()
 
 if(Cabana_ENABLE_MPI-ADVANCE)
-  target_link_libraries(Core INTERFACE mpi-advance::mpi-advance)
+  target_link_libraries(Core INTERFACE mpi-advance::mpi_advance)
   target_compile_definitions(Core INTERFACE CABANA_ENABLE_MPI_ADVANCE)
 endif()
 

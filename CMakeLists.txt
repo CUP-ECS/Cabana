@@ -114,8 +114,11 @@ endif()
 Cabana_add_dependency( PACKAGE mpi-advance )
 set_package_properties(mpi-advance PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
 
-if(Cabana_ENABLE_MPI-ADVANCE)
+if(mpi-advance_FOUND)
+  # find_package(mpi-advance REQUIRED)
   message(STATUS "Cabana will include mpi-advance")
+  # get_target_property(_loc mpi-advance::mpi_advance LOCATION)
+  # message(STATUS "mpi-advance location: ${_loc}")
 endif()
 
 # find Silo
