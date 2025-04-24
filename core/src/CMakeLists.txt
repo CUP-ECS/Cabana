@@ -50,6 +50,10 @@ if(Cabana_ENABLE_MPI)
     )
 endif()
 
+if(Cabana_ENABLE_MPIADVANCE)
+  list(APPEND HEADERS_PUBLIC Cabana_CommunicationPlan_MPIAdvance.hpp)
+endif()
+
 if(Cabana_ENABLE_SILO)
   list(APPEND HEADERS_PUBLIC Cabana_SiloParticleOutput.hpp)
 endif()

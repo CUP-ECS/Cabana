@@ -11,6 +11,12 @@
 
 #include <Cabana_AoSoA.hpp>
 #include <Cabana_CommunicationPlan.hpp>
+
+#// Only include if mpiadvance is enabled
+#ifdef Cabana_ENABLE_MPIADVANCE
+#include <Cabana_CommunicationPlan_MPIAdvance.hpp>
+#endif
+
 #include <Cabana_DeepCopy.hpp>
 
 #include <Kokkos_Core.hpp>

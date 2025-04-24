@@ -10,22 +10,22 @@
  ****************************************************************************/
 
 /*!
-  \file CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP.hpp
-  \brief Multi-node communication patterns using MPI Advance
+  \file Cabana_CommunicationPlan.hpp
+  \brief Multi-node communication patterns
 */
 #ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 #define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 
 #include <Cabana_Utils.hpp>
 
-#include <Cabana_CommunicationPlanHelpers.hpp>
+#include <Cabana_CommunicationPlan.hpp>
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
 
-#include <mpi_advance.h>
-
 #include <mpi.h>
+
+#include <mpi_advance.h>
 
 #include <algorithm>
 #include <exception>
@@ -63,8 +63,8 @@ namespace Cabana
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace, class CommPlan=CommPlans::MPIAdvance>
-class CommunicationPlan
+template <class MemorySpace>
+class CommunicationPlan<MemorySpace, CommPlans::MPIAdvance>
 {
   public:
     // FIXME: extracting the self type for backwards compatibility with previous
@@ -85,6 +85,9 @@ class CommunicationPlan
     // next release.
     //! Size type.
     using size_type = typename memory_space::memory_space::size_type;
+
+    //! Communication plan type
+    using plan_type = CommPlans::MPIAdvance;
 
     /*!
       \brief Constructor.
@@ -244,6 +247,7 @@ class CommunicationPlan
     createFromExportsAndTopology( ExecutionSpace exec_space,
                                   const ViewType& element_export_ranks,
                                   const std::vector<int>& neighbor_ranks )
+        requires std::is_same_v<plan_type, CommPlans::MPIAdvance>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -363,6 +367,7 @@ class CommunicationPlan
     Kokkos::View<size_type*, memory_space>
     createFromExportsAndTopology( const ViewType& element_export_ranks,
                                   const std::vector<int>& neighbor_ranks )
+        requires std::is_same_v<plan_type, CommPlans::MPIAdvance>
     {
         // Use the default execution space.
         return createFromExportsAndTopology(
@@ -403,6 +408,7 @@ class CommunicationPlan
     Kokkos::View<size_type*, memory_space>
     createFromExportsOnly( ExecutionSpace exec_space,
                            const ViewType& element_export_ranks )
+        requires std::is_same_v<plan_type, CommPlans::MPIAdvance>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -567,6 +573,7 @@ class CommunicationPlan
     template <class ViewType>
     Kokkos::View<size_type*, memory_space>
     createFromExportsOnly( const ViewType& element_export_ranks )
+        requires std::is_same_v<plan_type, CommPlans::MPIAdvance>
     {
         // Use the default execution space.
         return createFromExportsOnly( execution_space{}, element_export_ranks );
@@ -620,6 +627,7 @@ class CommunicationPlan
                                    typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>>
+        requires std::is_same_v<plan_type, CommPlans::MPIAdvance>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -847,6 +855,7 @@ class CommunicationPlan
                                    typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>>
+        requires std::is_same_v<plan_type, CommPlans::MPIAdvance>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
