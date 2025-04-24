@@ -51,7 +51,7 @@ if(Cabana_ENABLE_MPI)
     )
 endif()
 
-if(Cabana_ENABLE_MPI_ADVANCE)
+if(Cabana_ENABLE_MPIADVANCE)
   list(APPEND HEADERS_PUBLIC Cabana_CommunicationPlan_MPIAdvance.hpp)
 endif()
 
@@ -86,8 +86,9 @@ if(Cabana_ENABLE_SILO)
   target_link_libraries(Core INTERFACE SILO::silo)
 endif()
 
-if(Cabana_ENABLE_MPI-ADVANCE)
-  target_link_libraries(Core INTERFACE mpi-advance::mpi_advance)
+if(Cabana_ENABLE_MPIADVANCE)
+  target_link_libraries(Core INTERFACE mpiadvance::mpi_advance)
+  target_compile_definitions(Core INTERFACE Cabana_ENABLE_MPIADVANCE)
 endif()
 
 if(Cabana_ENABLE_HDF5)

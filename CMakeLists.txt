@@ -110,15 +110,20 @@ if(HEFFTE_FOUND)
   endif()
 endif()
 
-# find mpi-advance
-Cabana_add_dependency( PACKAGE mpi-advance )
-set_package_properties(MPI_ADVANCE PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
+# find mpiadvance
+Cabana_add_dependency( PACKAGE mpiadvance )
+set_package_properties(MPIADVANCE PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
+if(Cabana_ENABLE_MPIADVANCE)
+  message(STATUS "Cabana_ENABLE_MPIADVANCE is set")
+else()
+  message(STATUS "Cabana_ENABLE_MPIADVANCE is NOT set")
+endif()
 
-# if(mpi-advance_FOUND)
-  # find_package(mpi-advance REQUIRED)
-  # message(STATUS "Cabana will include mpi-advance")
-  # get_target_property(_loc mpi-advance::mpi_advance LOCATION)
-  # message(STATUS "mpi-advance location: ${_loc}")
+# if(mpiadvance_FOUND)
+  # find_package(mpiadvance REQUIRED)
+  # message(STATUS "Cabana will include mpiadvance")
+  # get_target_property(_loc mpiadvance::mpi_advance LOCATION)
+  # message(STATUS "mpiadvance location: ${_loc}")
 # endif()
 
 # find Silo
