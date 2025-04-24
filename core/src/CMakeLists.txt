@@ -43,16 +43,11 @@ endif()
 
 if(Cabana_ENABLE_MPI)
   list(APPEND HEADERS_PUBLIC
-    Cabana_CommunicationPlanHelpers.hpp
     Cabana_CommunicationPlan.hpp
     Cabana_Collector.hpp
     Cabana_Distributor.hpp
     Cabana_Halo.hpp
     )
-endif()
-
-if(Cabana_ENABLE_MPIADVANCE)
-  list(APPEND HEADERS_PUBLIC Cabana_CommunicationPlan_MPIAdvance.hpp)
 endif()
 
 if(Cabana_ENABLE_SILO)
