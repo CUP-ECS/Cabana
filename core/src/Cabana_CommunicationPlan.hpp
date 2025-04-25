@@ -599,7 +599,6 @@ class CommunicationPlan
     createFromExportsAndTopology( ExecutionSpace exec_space,
                                   const ViewType& element_export_ranks,
                                   const std::vector<int>& neighbor_ranks )
-        requires std::is_same_v<plan_type, CommPlans::MPI>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -719,7 +718,6 @@ class CommunicationPlan
     Kokkos::View<size_type*, memory_space>
     createFromExportsAndTopology( const ViewType& element_export_ranks,
                                   const std::vector<int>& neighbor_ranks )
-        requires std::is_same_v<plan_type, CommPlans::MPI>
     {
         // Use the default execution space.
         return createFromExportsAndTopology(
@@ -760,7 +758,6 @@ class CommunicationPlan
     Kokkos::View<size_type*, memory_space>
     createFromExportsOnly( ExecutionSpace exec_space,
                            const ViewType& element_export_ranks )
-        requires std::is_same_v<plan_type, CommPlans::MPI>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -925,7 +922,6 @@ class CommunicationPlan
     template <class ViewType>
     Kokkos::View<size_type*, memory_space>
     createFromExportsOnly( const ViewType& element_export_ranks )
-        requires std::is_same_v<plan_type, CommPlans::MPI>
     {
         // Use the default execution space.
         return createFromExportsOnly( execution_space{}, element_export_ranks );
@@ -979,7 +975,6 @@ class CommunicationPlan
                                    typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>>
-        requires std::is_same_v<plan_type, CommPlans::MPI>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -1207,7 +1202,6 @@ class CommunicationPlan
                                    typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>,
                       Kokkos::View<int*, typename ViewType::memory_space>>
-        requires std::is_same_v<plan_type, CommPlans::MPI>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
