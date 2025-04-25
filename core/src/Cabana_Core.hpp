@@ -42,6 +42,10 @@
 #include <Cabana_Distributor.hpp>
 #include <Cabana_Halo.hpp>
 
+#ifdef Cabana_ENABLE_MPI_ADVANCE
+#include <Cabana_CommunicationPlan_MPIAdvance.hpp>
+#endif
+
 #ifdef Cabana_ENABLE_SILO
 #include <Cabana_SiloParticleOutput.hpp>
 #endif
