@@ -1037,10 +1037,6 @@ class CommunicationPlan<MemorySpace, CommPlans::MPIAdvance>
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
 
-        // Copy indices_send to device mempry before returning
-        // auto export_indices_d = Kokkos::create_mirror_view_and_copy(
-        //     memory_space(), export_indices );
-
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
     }
