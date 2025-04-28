@@ -42,7 +42,7 @@
 #include <Cabana_Distributor.hpp>
 #include <Cabana_Halo.hpp>
 
-#ifdef Cabana_ENABLE_MPI_ADVANCE
+#ifdef Cabana_ENABLE_MPIADVANCE
 #include <Cabana_CommunicationPlan_MPIAdvance.hpp>
 #endif
 
