@@ -113,18 +113,6 @@ endif()
 # find mpiadvance
 Cabana_add_dependency( PACKAGE mpiadvance )
 set_package_properties(MPIADVANCE PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
-if(Cabana_ENABLE_MPIADVANCE)
-  message(STATUS "Cabana_ENABLE_MPIADVANCE is set")
-else()
-  message(STATUS "Cabana_ENABLE_MPIADVANCE is NOT set")
-endif()
-
-# if(mpiadvance_FOUND)
-  # find_package(mpiadvance REQUIRED)
-  # message(STATUS "Cabana will include mpiadvance")
-  # get_target_property(_loc mpiadvance::mpi_advance LOCATION)
-  # message(STATUS "mpiadvance location: ${_loc}")
-# endif()
 
 # find Silo
 Cabana_add_dependency( PACKAGE SILO )
