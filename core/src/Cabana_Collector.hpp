@@ -54,8 +54,8 @@ namespace Cabana
   in the forward communication plan, call totalNumExport() on the
   collector.
 */
-template <class MemorySpace>
-class Collector : public CommunicationPlan<MemorySpace>
+template <class MemorySpace, class CommPlan=CommPlans::MPI>
+class Collector : public CommunicationPlan<MemorySpace, CommPlan>
 {
   public:
     /*!
