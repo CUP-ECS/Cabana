@@ -993,50 +993,50 @@ TYPED_TEST_SUITE(CommunicationPlanTypedTest, CommPlanTypes);
 // Export tests
 TYPED_TEST(CommunicationPlanTypedTest, Test1) { test1<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test2) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test2) { test2<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test3) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test3) { test3<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test4) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test4) { test4<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test5) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test5) { test5<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test6) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test6) { test6<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test7) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test7) { test7<TypeParam>( true ); }
 
 TYPED_TEST(CommunicationPlanTypedTest, Test1NoTopo) { test1<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test2NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test2NoTopo) { test2<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test3NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test3NoTopo) { test3<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test4NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test4NoTopo) { test4<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test5NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test5NoTopo) { test5<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test6NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test6NoTopo) { test6<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test7NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test7NoTopo) { test7<TypeParam>( false ); }
 
 TEST( CommPlan, TestTopology ) { testTopology(); }
 
 // Import tests
-TYPED_TEST(CommunicationPlanTypedTest, Test8) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test8) { test8<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test9) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test9) { test9<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test10) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test10) { test10<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test11) { test1<TypeParam>( true ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test11) { test11<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test8NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test8NoTopo) { test8<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test9NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test9NoTopo) { test9<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test10NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test10NoTopo) { test10<TypeParam>( false ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test11NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST(CommunicationPlanTypedTest, Test11NoTopo) { test11<TypeParam>( false ); }
 
 //---------------------------------------------------------------------------//
 

@@ -458,7 +458,7 @@ class CommunicationPlan<MemorySpace, CommPlans::MPIAdvance>
             {
                 std::swap( _neighbors[n], _neighbors[0] );
                 std::swap( _num_export[n], _num_export[0] );
-                _num_import[0] = _num_export[0];
+                // _num_import[0] = _num_export[0];
                 self_send = true;
                 break;
         
@@ -470,17 +470,16 @@ class CommunicationPlan<MemorySpace, CommPlans::MPIAdvance>
         MPIX_Info_init(&xinfo);
 
         int num_import_rank = -1;
-        int *src, *import_sizes;
+        int *src;
+        unsigned long* import_sizes;
         // std::vector<std::size_t> import_sizes( comm_size );
         MPIX_Alltoall_crs(num_export_rank, _neighbors.data(), 1, MPI_UNSIGNED_LONG, _num_export.data(),
                           &num_import_rank, &src, 1, MPI_UNSIGNED_LONG, (void**)&import_sizes,
                           xinfo, xcomm);
-
+        
         MPIX_Info_free(&xinfo);
         MPIX_Comm_free(&xcomm);
-
-        // Compute the total number of imports.
-        _total_num_import = std::accumulate(import_sizes, import_sizes + num_import_rank, 0);
+        _total_num_import = std::accumulate(import_sizes, import_sizes + num_import_rank, 0UL);
             
         // Extract the imports. If we did self sends we already know what
         // imports we got from that.
