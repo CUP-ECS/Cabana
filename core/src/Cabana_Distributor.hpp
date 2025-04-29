@@ -58,8 +58,8 @@ namespace Cabana
   user must allocate their own destination data structure.
 
 */
-template <class MemorySpace, class CommPlan=CommPlans::MPI>
-class Distributor : public CommunicationPlan<MemorySpace, CommPlan>
+template <class MemorySpace, class CommSpace=CommSpaces::MPI>
+class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
     /*!

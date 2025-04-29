@@ -64,7 +64,7 @@ namespace Cabana
   is being exported will appear first in the steering vector.
 */
 template <class MemorySpace>
-class CommunicationPlan<MemorySpace, CommPlans::MPIAdvance>
+class CommunicationPlan<MemorySpace, CommSpaces::MPIAdvance>
 {
   public:
     // FIXME: extracting the self type for backwards compatibility with previous
@@ -87,7 +87,7 @@ class CommunicationPlan<MemorySpace, CommPlans::MPIAdvance>
     using size_type = typename memory_space::memory_space::size_type;
 
     //! Communication plan type
-    using plan_type = CommPlans::MPIAdvance;
+    using plan_type = CommSpaces::MPIAdvance;
 
     /*!
       \brief Constructor.

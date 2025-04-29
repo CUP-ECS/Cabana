@@ -415,7 +415,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace, class CommPlan=CommPlans::MPI>
+template <class MemorySpace, class CommSpace=CommSpaces::MPI>
 class CommunicationPlan
 {
   public:
@@ -439,7 +439,7 @@ class CommunicationPlan
     using size_type = typename memory_space::memory_space::size_type;
 
     //! Communication plan type
-    using plan_type = CommPlans::MPI;
+    using plan_type = CommSpaces::MPI;
 
     /*!
       \brief Constructor.
@@ -1693,12 +1693,12 @@ struct CommunicationDataSlice
 /*!
   \brief Store communication plan and communication buffers.
 */
-template <class CommPlanType, class CommDataType>
+template <class CommSpaceType, class CommDataType>
 class CommunicationData
 {
   public:
     //! Communication plan type (Halo, Distributor)
-    using plan_type = CommPlanType;
+    using plan_type = CommSpaceType;
     //! Kokkos execution space.
     using execution_space = typename plan_type::execution_space;
     //! Kokkos execution policy.
@@ -1720,7 +1720,7 @@ class CommunicationData
       \param overallocation An optional factor to keep extra space in the
       buffers to avoid frequent resizing.
     */
-    CommunicationData( const CommPlanType& comm_plan,
+    CommunicationData( const CommSpaceType& comm_plan,
                        const particle_data_type& particles,
                        const double overallocation = 1.0 )
         : _comm_plan( comm_plan )
@@ -1784,7 +1784,7 @@ class CommunicationData
     void apply( ExecutionSpace );
 
     //! \cond Impl
-    void reserveImpl( const CommPlanType& comm_plan,
+    void reserveImpl( const CommSpaceType& comm_plan,
                       const particle_data_type particles,
                       const std::size_t total_send,
                       const std::size_t total_recv,
@@ -1797,7 +1797,7 @@ class CommunicationData
 
         reserveImpl( comm_plan, particles, total_send, total_recv );
     }
-    void reserveImpl( const CommPlanType& comm_plan,
+    void reserveImpl( const CommSpaceType& comm_plan,
                       const particle_data_type particles,
                       const std::size_t total_send,
                       const std::size_t total_recv )

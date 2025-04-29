@@ -22,7 +22,7 @@
 
 namespace Cabana
 {
-namespace CommPlans
+namespace CommSpaces
 {
 //---------------------------------------------------------------------------//
 // Communication plan types.
@@ -40,7 +40,7 @@ struct MPI
 struct MPIAdvance
 {
 };
-} // end namespace CommPlans
+} // end namespace CommSpaces
 
 //---------------------------------------------------------------------------//
 // Memory access tags.
