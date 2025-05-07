@@ -22,6 +22,7 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
+#include <Kokkos_Sort.hpp>
 
 #include <mpi.h>
 
