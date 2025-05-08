@@ -32,12 +32,12 @@
 namespace Test
 {
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
-class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_CommSpace>
+template <class TEST_COMMSPACE>
+class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COMMSPACE>
 {
   public:
     using memory_space = TEST_MEMSPACE;
-    using plan_type = TEST_CommSpace;
+    using plan_type = TEST_COMMSPACE;
     using size_type = typename TEST_MEMSPACE::size_type;
 
     CommSpaceTester( MPI_Comm comm )
@@ -104,11 +104,11 @@ class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_Com
 };
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test1( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_tmp( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_tmp( MPI_COMM_WORLD );
     auto comm_plan = comm_tmp;
 
     // Get my rank.
@@ -157,11 +157,11 @@ void test1( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test2( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -220,11 +220,11 @@ void test2( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test3( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -278,11 +278,11 @@ void test3( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test4( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -397,11 +397,11 @@ void test4( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test5( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -483,11 +483,11 @@ void test5( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test6( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -554,11 +554,11 @@ void test6( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test7( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -634,11 +634,11 @@ void testTopology()
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test8( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -701,11 +701,11 @@ void test8( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test9( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -779,11 +779,11 @@ void test9( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test10( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -873,11 +873,11 @@ void test10( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_CommSpace>
+template <class TEST_COMMSPACE>
 void test11( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_CommSpace> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -975,11 +975,11 @@ void test11( const bool use_topology )
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-template <typename TEST_CommSpace>
+template <typename TEST_COMMSPACE>
 class CommunicationPlanTypedTest : public ::testing::Test
 {
   public:
-    using CommSpaceType = TEST_CommSpace;
+    using CommSpaceType = TEST_COMMSPACE;
 };
 
 using CommSpaceTypes = ::testing::Types<Cabana::CommSpaces::MPI
