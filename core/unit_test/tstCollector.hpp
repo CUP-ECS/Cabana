@@ -29,6 +29,7 @@ namespace Test
 {
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test1( const bool use_topology )
 {
     // Make a communication plan.
@@ -111,6 +112,7 @@ void test1( const bool use_topology )
 }
 
 // //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test2( const bool use_topology )
 {
     // Make a communication plan.
@@ -195,6 +197,7 @@ void test2( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test3( const bool use_topology )
 {
     // Make a communication plan.
@@ -296,6 +299,7 @@ void test3( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test4( const bool use_topology )
 {
     // Make a communication plan.
@@ -412,6 +416,7 @@ void test4( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test5( const bool use_topology )
 {
     // Make a communication plan.
@@ -512,6 +517,7 @@ void test5( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test6( const bool use_topology )
 {
     // Make a communication plan.
@@ -618,6 +624,7 @@ void test6( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
 void test7( const bool use_topology )
 {
     // Make a communication plan.
@@ -733,33 +740,48 @@ void test7( const bool use_topology )
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST( Collector, Test1 ) { test1( true ); }
+template <typename TEST_COMMSPACE>
+class CollectorTypedTest : public ::testing::Test
+{
+  public:
+    using CommSpaceType = TEST_COMMSPACE;
+};
 
-TEST( Collector, Test2 ) { test2( true ); }
+using CommSpaceTypes = ::testing::Types<Cabana::CommSpaces::MPI
+    #ifdef Cabana_ENABLE_MPIADVANCE
+        , Cabana::CommSpaces::MPIAdvance
+    #endif
+    >;
 
-TEST( Collector, Test3 ) { test3( true ); }
+TYPED_TEST_SUITE( CollectorTypedTest, CommSpaceTypes);
 
-TEST( Collector, Test4 ) { test4( true ); }
+TYPED_TEST( CollectorTypedTest, Test1 ) { test1<TypeParam>( true ); }
 
-TEST( Collector, Test5 ) { test5( true ); }
+TYPED_TEST( CollectorTypedTest, Test2 ) { test2<TypeParam>( true ); }
 
-TEST( Collector, Test6 ) { test6( true ); }
+TYPED_TEST( CollectorTypedTest, Test3 ) { test3<TypeParam>( true ); }
 
-TEST( Collector, Test7 ) { test7( true ); }
+TYPED_TEST( CollectorTypedTest, Test4 ) { test4<TypeParam>( true ); }
 
-TEST( Collector, Test1NoTopo ) { test1( false ); }
+TYPED_TEST( CollectorTypedTest, Test5 ) { test5<TypeParam>( true ); }
 
-TEST( Collector, Test2NoTopo ) { test2( false ); }
+TYPED_TEST( CollectorTypedTest, Test6 ) { test6<TypeParam>( true ); }
 
-TEST( Collector, Test3NoTopo ) { test3( false ); }
+TYPED_TEST( CollectorTypedTest, Test7 ) { test7<TypeParam>( true ); }
 
-TEST( Collector, Test4NoTopo ) { test4( false ); }
+TYPED_TEST( CollectorTypedTest, Test1NoTopo ) { test1<TypeParam>( false ); }
 
-TEST( Collector, Test5NoTopo ) { test5( false ); }
+TYPED_TEST( CollectorTypedTest, Test2NoTopo ) { test2<TypeParam>( false ); }
 
-TEST( Collector, Test6NoTopo ) { test6( false ); }
+TYPED_TEST( CollectorTypedTest, Test3NoTopo ) { test3<TypeParam>( false ); }
 
-TEST( Collector, Test7NoTopo ) { test7( false ); }
+TYPED_TEST( CollectorTypedTest, Test4NoTopo ) { test4<TypeParam>( false ); }
+
+TYPED_TEST( CollectorTypedTest, Test5NoTopo ) { test5<TypeParam>( false ); }
+
+TYPED_TEST( CollectorTypedTest, Test6NoTopo ) { test6<TypeParam>( false ); }
+
+TYPED_TEST( CollectorTypedTest, Test7NoTopo ) { test7<TypeParam>( false ); }
 
 //---------------------------------------------------------------------------//
 
