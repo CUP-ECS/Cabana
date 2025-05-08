@@ -258,9 +258,27 @@ class CommunicationPlan<MemorySpace, CommSpaces::MPIAdvance>
         _neighbors = getUniqueTopology( comm(), neighbor_ranks );
         int num_n = _neighbors.size();
 
+        // Create a neighbor communicator
+        // Assume we send to and receive from each neighbor
+        MPIX_Request* neighbor_request;
+
+        MPIX_Info* xinfo;
+        MPIX_Info_init(&xinfo);
+
+        MPIX_Dist_graph_create_adjacent(comm(),
+            num_n,
+            _neighbors.data(), 
+            MPI_UNWEIGHTED,
+            num_n, 
+            _neighbors.data(),
+            MPI_UNWEIGHTED,
+            MPI_INFO_NULL, 
+            0,
+            &_neighbor_comm);
+
         // Get the size of this communicator.
         int comm_size = -1;
-        MPI_Comm_size( comm(), &comm_size );
+        MPI_Comm_size( _neighbor_comm, &comm_size );
 
         // Get the MPI rank we are currently on.
         int my_rank = -1;
@@ -288,6 +306,44 @@ class CommunicationPlan<MemorySpace, CommSpaces::MPIAdvance>
         // Get the export counts.
         for ( int n = 0; n < num_n; ++n )
             _num_export[n] = neighbor_counts_host( _neighbors[n] );
+
+
+
+        /*
+        MPIX_Dist_graph_create_adjacent(MPI_COMM_WORLD,
+            recv_data.num_msgs, 
+            recv_data.procs.data(), 
+            recv_data.counts.data(),
+            send_data.num_msgs, 
+            send_data.procs.data(),
+            send_data.counts.data(),
+            MPI_INFO_NULL, 
+            0, 
+            &neighbor_comm);
+
+        int MPIX_Neighbor_alltoallv_init(
+            const void* sendbuffer,
+            const int sendcounts[],
+            const int sdispls[],
+            MPI_Datatype sendtype,
+            void* recvbuffer,
+            const int recvcounts[],
+            const int rdispls[],
+            MPI_Datatype recvtype,
+            MPIX_Comm* comm,
+            MPIX_Info* info,
+            MPIX_Request** request_ptr)
+        
+        */
+
+
+
+
+
+
+
+
+
 
         // Post receives for the number of imports we will get.
         std::vector<MPI_Request> requests;
@@ -1180,6 +1236,9 @@ class CommunicationPlan<MemorySpace, CommSpaces::MPIAdvance>
     std::vector<std::size_t> _num_import;
     std::size_t _num_export_element;
     Kokkos::View<std::size_t*, memory_space> _export_steering;
+
+    // MPIX variables
+    MPIX_Comm* _neighbor_comm;
 };
 
 } // end namespace Cabana
