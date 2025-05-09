@@ -9,6 +9,14 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+ /*
+ Do we want to force building a new neighbor communicator in CommunicaitonPlan?
+ Should we be able to pass a neighbor communicator to CommunicationPlan if we know the topology hasn't changed,
+    instead of generating a new one each time?
+    - Should we do this instead of passing neighbor ranks?
+ 
+ 
+ */
 /*!
   \file Cabana_CommunicationPlan.hpp
   \brief Multi-node communication patterns
