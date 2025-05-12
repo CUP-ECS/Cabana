@@ -41,66 +41,7 @@ namespace Grid
 namespace Impl
 {
 
-#ifdef Cabana_ENABLE_MPISTREAM_MPICH
-
-// Backend for stream triggered halos using MPICH MPIX_Stream primitive
-
-template <class MemorySpace>
-class MPICHStreamHaloRequest
-{
-    using view_type = Kokkos::View<char*, MemorySpace>;
-
-  public:
-    MPICHStreamHaloRequest( const MPI_Comm &comm, const std::vector<int>& ranks,
-                          const std::vector<view_type>& sendviews, 
-                          const std::vector<view_type>& receiveviews )
-        : _comm(comm), _ranks(ranks), _sendviews(sendviews), _receiveviews(receiveviews),
-	  _requests(receiveviews.size(), MPI_REQUEST_NULL)
-    {
-    }
-    void enqueueSend( int n )
-    {
-        if ( _sendviews[n].size() <= 0 )
-	    return;
-	
-        MPIX_Send_enqueue( _sendviews[n].data(), _sendviews[n].size(),
-                          MPI_BYTE, _ranks[n], 1234, _comm ); // XXX Get a real tag
-    }
-    void enqueueRecv( int n )
-    {
-        if (  _receiveviews[n].size() <= 0 ) {
-            _requests[n] = MPI_REQUEST_NULL;
-	    return;
-        }
-	
-        MPIX_Irecv_enqueue( _receiveviews[n].data(), _receiveviews[n].size(),
-                           MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] );
-
-    }
-    void enqueueSendAll( )
-    {
-        for (int i = 0; i < _sendviews.size(); i++) {
-	    enqueueSend( i );
-	}  
-    }
-    void enqueueRecvAll( )
-    {
-        for (int i = 0; i < _receiveviews.size(); i++) {
-	    enqueueRecv( i );
-	}  
-    }
-    void enqueueWaitAll( )
-    {
-        MPIX_Waitall_enqueue( _receiveviews.size(), _requests.data(), MPI_STATUSES_IGNORE );
-    }
-
-  private:
-    const MPI_Comm &_comm;
-    const std::vector<int>& _ranks; 
-    const std::vector<view_type>& _sendviews;
-    const std::vector<view_type>& _receiveviews;
-    std::vector<MPI_Request> _requests;
-};
+#ifdef Cabana_ENABLE_MPICH
 
 template <class MemorySpace>
 class MPICHStreamHalo
@@ -108,18 +49,45 @@ class MPICHStreamHalo
 {
   public:
     using view_type = Kokkos::View<char*, MemorySpace>;
-    using request_type = MPICHStreamHaloRequest<MemorySpace>;
+    using halo_type = Cabana:Grid:Halo<MemorySpace>;
 
-    template <class ExecSpace>
-    std::unique_ptr<request_type> 
-    createStreamHaloRequest(const ExecSpace & exec_space, 
-                            std::vector<view_type> & sendviews,
-			    std::vector<view_type> & receiveviews)
+  protected:
+    virtual void enqueueSend( Kokkos::View<char*, MemorySpace> sendview, int rank ) override
     {
-        return std::make_unique<request_type>( _comm, Halo<MemorySpace>::_neighbor_ranks,
-					       sendviews, receiveviews );
+        if ( sendview.size() <= 0 )
+	    return;
+	
+        MPIX_Send_enqueue( sendview.data(), sendview.size(),
+                          MPI_BYTE, rank, 1234, _comm ); // XXX Get a real tag
     }
 
+    virtual void void enqueueRecv( Kokkos::View<char*, MemorySpace> receiveview, int rank ) override
+    {
+        if (  receiveviews <= 0 ) {
+            _requests[n] = MPI_REQUEST_NULL;
+	    return;
+        }
+	
+        MPIX_Irecv_enqueue( receiveview.data(), receiveviews.size(),
+                           MPI_BYTE, rank, 1234, _comm, &_requests[n] );
+
+    }
+    virtual void enqueueSendAll( std::vector<Kokkos::View<char*, MemorySpace>> & sendviews) override
+    {
+        for (int i = 0; i < sendviews.size(); i++) {
+	    enqueueSend( sendviews[i], i );
+	}  
+    }
+    virtual void enqueueRecvAll( std::vector<Kokkos::View<char*, MemorySpace>> & recvviews) override
+    {
+        for (int i = 0; i < receiveviews.size(); i++) {
+	    enqueueRecv( recvviews[i], i );
+	}  
+    }
+    virtual void enqueueWaitAll( ) override
+    {
+        MPIX_Waitall_enqueue( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+    }
 
     // Generic stream creation function for when we don't know how to get the underlying
     // device stream
@@ -157,20 +125,23 @@ class MPICHStreamHalo
     }
 #endif
    
+  public:
     template <class ExecSpace, class Pattern, class... ArrayTypes>
     MPICHStreamHalo( const ExecSpace &exec_space, 
                      const Pattern& pattern, const int width, const ArrayTypes&... arrays )
-       : StreamHalo<MemorySpace, MPICHStreamHalo<MemorySpace>>(pattern, width, arrays...)
+       : StreamHalo<MemorySpace>(pattern, width, arrays...),
+         _requests(halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL)
     {
         // Initialize the MPI_Stream from the exec_space
         createMPIXStream(exec_space);
         // Create the stream communicator MPICH uses
-        MPIX_Stream_comm_create(Halo<MemorySpace>::getComm(arrays...), _stream, &_comm);
+        MPIX_Stream_comm_create(halo_type::getComm(arrays...), _stream, &_comm);
     }
 
-private:
+  private:
     MPIX_Stream _stream;
     MPI_Comm _comm;
+    std::vector<MPI_Request> _requests;
 };
 
 template <class ExecSpace, class Pattern, class... ArrayTypes>

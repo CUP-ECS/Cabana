@@ -47,13 +47,12 @@ namespace Grid
   shared data between blocks. The Derived template class is the subclass implementing the
   stream halo for a given stream triggered communication backend.
 */
-template <class MemorySpace, class Derived>
+template <class MemorySpace>
 class StreamHalo
   : public Cabana::Grid::Halo<MemorySpace>
 {
   public:
     using memory_space = MemorySpace;
-    using backend_type = Derived;
     using super_type = Cabana::Grid::Halo<memory_space>;
 
     template <class Pattern, class... ArrayTypes>
@@ -83,23 +82,19 @@ class StreamHalo
         if ( 0 == num_n )
             return;
 
-        // Initialize sends and receives, either point to point or collective
-        auto r = static_cast<Derived *>(this)->createStreamHaloRequest(exec_space, 
-            super_type::_owned_buffers, super_type::_ghosted_buffers );
-
 	// Start receives
-        r->enqueueRecvAll( );
+        r->enqueueRecvAll( super_type::_ghosted_buffers );
 
         // Pack and start sending owned data to ghosts
         for ( int n = 0; n < num_n; ++n )
         {
             // Only process this neighbor if there is work to do.
-            if ( 0 < super_type::_ghosted_buffers[n].size() )
+            if ( 0 < super_type::_owned_buffers[n].size() )
             {
                 // Pack the send buffer.
                 enqueuePackBuffer( exec_space, super_type::_owned_buffers[n], 
                                    super_type::_owned_steering[n], arrays.view()... );
-                r->enqueueSend(n); 
+                r->enqueueSend( super_type::_owned_buffers[n], n); 
             }
         }
      
@@ -134,21 +129,19 @@ class StreamHalo
             return;
 
         // Initialize sends and receives, either point to point or collective
-        auto r = static_cast<Derived *>(this)->createStreamHaloRequest(exec_space, 
-            super_type::_owned_buffers, super_type::_ghosted_buffers );
-        r->enqueueRecvAll( );
+        r->enqueueRecvAll( super_type::_owned_buffers);
 
         // Pack and send ghost data back to owner. XXX Would be good to explore a single
         // fused pack kernel
         for ( int n = 0; n < num_n; ++n )
         {
             // Only process this neighbor if there is work to do.
-            if ( 0 < super_type::_owned_buffers[n].size() )
+            if ( 0 < super_type::_ghosted_buffers[n].size() )
             {
                 // Pack the send buffer.
                 enqueuePackBuffer( exec_space, super_type::_ghosted_buffers[n], 
                                    super_type::_ghosted_steering[n], arrays.view()... );
-                r->enqueueSend(n); 
+                r->enqueueSend(super_type::_ghosted_buffers[n], n); 
             }
         }
      
@@ -208,22 +201,28 @@ class StreamHalo
                     pp );
             } );
     }
+  protected:
+    virtual void enqueueSend( Kokkos::View<char*, MemorySpace> sendview, int rank ) = 0;
+    virtual void void enqueueRecv( Kokkos::View<char*, MemorySpace> receiveview, int rank ) = 0;
+    virtual void enqueueSendAll( std::vector<Kokkos::View<char*, MemorySpace>> & sendviews) = 0;
+    virtual void enqueueRecvAll( std::vector<Kokkos::View<char*, MemorySpace>> & recvviews) = 0;
+    virtual void enqueueWaitall() = 0;
 };
 
 } // namespace Grid
 } // namespace Cabana
 
-#ifdef Cabana_ENABLE_MPISTREAM_VANILLA
+#ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Grid_VanillaStreamHalo.hpp>
-#endif // MPISTREAM_VANILLA
-#ifdef Cabana_ENABLE_MPISTREAM_MPICH
+#endif // MPI
+#ifdef Cabana_ENABLE_MPICH
 #include <impl/Cabana_Grid_VanillaStreamHalo.hpp>
-#endif // MPISTREAM_MPICH
-#ifdef Cabana_ENABLE_MPISTREAM_HPE
+#endif // MPICH
+#ifdef Cabana_ENABLE_HPE
 #include <impl/Cabana_Grid_HPEStreamHalo.hpp>
-#endif // MPISTREAM_HPE
-#ifdef Cabana_ENABLE_MPISTREAM_ADVANCE
+#endif // HPE
+#ifdef Cabana_ENABLE_MPIADVANCE
 #include <impl/Cabana_Grid_MPIAdvanceStreamHalo.hpp>
-#endif // MPISTREAM_ADVANCE
+#endif // MPIADVANCE
 
 #endif // end CABANA_GRID_STREAMHALO_HPP
