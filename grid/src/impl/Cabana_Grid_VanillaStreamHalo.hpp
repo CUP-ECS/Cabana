@@ -59,69 +59,7 @@ class VanillaStreamHaloRequest
     {
     
     }
-    void enqueueSend( int n )
-    {
-        // just fence and isend
-        if ( _sendviews[n].size() <= 0 ) {
-            _requests[n] = MPI_REQUEST_NULL;
-	    return;
-        }
-	
-        Kokkos::fence(); // XXX Should be able to pass in an execution space instance
-        MPI_Isend( _sendviews[n].data(), _sendviews[n].size(),
-                          MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] ); // XXX Get a real tag
-    }
-    void enqueueRecv( int n )
-    {
-        int nsends = _sendviews.size();
 
-        if ( _receiveviews[n].size() <= 0 ) {
-            _requests[nsends + n] = MPI_REQUEST_NULL;
-	    return;
-	}
-
-        Kokkos::fence(); // XXX Should be able to pass in an execution space instance
-        MPI_Irecv( _receiveviews[n].data(), _receiveviews[n].size(),
-                           MPI_BYTE, _ranks[n], 1234, _comm, &_requests[nsends + n] );
-    }
-    void enqueueSendAll( )
-    {
-        Kokkos::fence(); // XXX Should be able to pass in an execution space instance
-        for (int n = 0; n < _sendviews.size(); n++) {
-            if ( _sendviews[n].size() <= 0 ) {
-                _requests[n] = MPI_REQUEST_NULL;
-	        continue; 
-            }
-            MPI_Isend( _sendviews[n].data(), _sendviews[n].size(),
-                       MPI_BYTE, _ranks[n], 1234, _comm, &_requests[n] ); // XXX Get a real tag
-	}  
-    }
-    void enqueueRecvAll( )
-    {
-        int nsends = _sendviews.size();
-        Kokkos::fence(); // XXX Should be able to pass in an execution space instance
-        for (int n = 0; n < _receiveviews.size(); n++) {
-            if ( _receiveviews[n].size() <= 0 ) {
-                _requests[nsends + n] = MPI_REQUEST_NULL;
-	       continue;
-            }
-            MPI_Irecv( _receiveviews[n].data(), _receiveviews[n].size(),
-                       MPI_BYTE, _ranks[n], 1234, _comm, &_requests[nsends + n] );
-	}  
-    }
-    void enqueueWaitAll( )
-    {
-        Kokkos::fence();
-        MPI_Waitall( _sendviews.size() + _receiveviews.size(), 
-                     _requests.data(), MPI_STATUSES_IGNORE );
-    }
-  private:
-    const MPI_Comm &_comm;
-    const std::vector<int>& _ranks; 
-    const std::vector<view_type>& _sendviews;
-    const std::vector<view_type>& _receiveviews;
-    std::vector<MPI_Request> _requests;
-};
 
 template <class MemorySpace>
 class VanillaStreamHalo
@@ -131,26 +69,51 @@ class VanillaStreamHalo
     using view_type = Kokkos::View<char*, MemorySpace>;
     using request_type = VanillaStreamHaloRequest<MemorySpace>;
 
-    template <class ExecSpace>
-    std::unique_ptr<request_type> 
-    createStreamHaloRequest(const ExecSpace & exec_space, 
-                            std::vector<view_type>& sendviews,
-			    std::vector<view_type> & recvviews)
+  protected:
+    virtual void enqueueSendAll( std::vector<Kokkos::View<char*, MemorySpace>> & sendviews) override
     {
-        return std::make_unique<request_type>( _comm, Halo<MemorySpace>::_neighbor_ranks,
-					       sendviews, recvviews );
+        Kokkos::fence(); // XXX Should be able to pass in an execution space instance
+        for (int n = 0; n < _sendviews.size(); n++) {
+            if ( sendviews[n].size() <= 0 ) {
+                _requests[n] = MPI_REQUEST_NULL;
+	        continue; 
+            }
+            MPI_Isend( sendviews[n].data(), sendviews[n].size(),
+                       MPI_BYTE, halo_type::_neighbor_ranks[n], 1234, _comm, &_requests[n] ); // XXX Get a real tag
+	}  
+    }
+    virtual void enqueueRecvAll( std::vector<Kokkos::View<char*, MemorySpace>> & recvviews) override
+    {
+        int nsends = _sendviews.size();
+        Kokkos::fence(); // XXX Should be able to pass in an execution space instance
+        for (int n = 0; n < _receiveviews.size(); n++) {
+            if ( _receiveviews[n].size() <= 0 ) {
+                _requests[nsends + n] = MPI_REQUEST_NULL;
+	       continue;
+            }
+            MPI_Irecv( _receiveviews[n].data(), _receiveviews[n].size(),
+                       MPI_BYTE, halo_type::_neighbor_ranks[n], 1234, _comm, &_requests[nsends + n] );
+	}  
+    }
+    void enqueueWaitAll( )
+    {
+        Kokkos::fence();
+        MPI_Waitall( _sendviews.size() + _receiveviews.size(), 
+                     _requests.data(), MPI_STATUSES_IGNORE );
     }
 
     template <class ExecSpace, class Pattern, class... ArrayTypes>
     VanillaStreamHalo( const ExecSpace &exec_space, const Pattern& pattern, 
                        const int width, const ArrayTypes&... arrays )
-       : StreamHalo<MemorySpace, VanillaStreamHalo<MemorySpace>>(pattern, width, arrays...)
+       : StreamHalo<MemorySpace, VanillaStreamHalo<MemorySpace>>(pattern, width, arrays...),
+         _requests(2 * halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL)
     {
         _comm = Halo<MemorySpace>::getComm(arrays...);
     }
 
-private:
-    MPI_Comm _comm;
+  private:
+    const MPI_Comm _comm;
+    std::vector<MPI_Request> _requests;
 };
 
 template <class ExecSpace, class Pattern, class... ArrayTypes>

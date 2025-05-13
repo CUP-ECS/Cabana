@@ -52,7 +52,7 @@ class MPICHStreamHalo
     using halo_type = Cabana:Grid:Halo<MemorySpace>;
 
   protected:
-    virtual void enqueueSend( Kokkos::View<char*, MemorySpace> sendview, int rank ) override
+    void enqueueSend( Kokkos::View<char*, MemorySpace> sendview, int rank )
     {
         if ( sendview.size() <= 0 )
 	    return;
@@ -61,7 +61,7 @@ class MPICHStreamHalo
                           MPI_BYTE, rank, 1234, _comm ); // XXX Get a real tag
     }
 
-    virtual void void enqueueRecv( Kokkos::View<char*, MemorySpace> receiveview, int rank ) override
+    void enqueueRecv( Kokkos::View<char*, MemorySpace> receiveview, int rank ) 
     {
         if (  receiveviews <= 0 ) {
             _requests[n] = MPI_REQUEST_NULL;
@@ -75,13 +75,13 @@ class MPICHStreamHalo
     virtual void enqueueSendAll( std::vector<Kokkos::View<char*, MemorySpace>> & sendviews) override
     {
         for (int i = 0; i < sendviews.size(); i++) {
-	    enqueueSend( sendviews[i], i );
+	    enqueueSend( sendviews[i], halo_type::_neighbor_ranks[i] );
 	}  
     }
     virtual void enqueueRecvAll( std::vector<Kokkos::View<char*, MemorySpace>> & recvviews) override
     {
         for (int i = 0; i < receiveviews.size(); i++) {
-	    enqueueRecv( recvviews[i], i );
+	    enqueueRecv( recvviews[i], halo_type::_neighbor_ranks[i] );
 	}  
     }
     virtual void enqueueWaitAll( ) override
@@ -130,7 +130,7 @@ class MPICHStreamHalo
     MPICHStreamHalo( const ExecSpace &exec_space, 
                      const Pattern& pattern, const int width, const ArrayTypes&... arrays )
        : StreamHalo<MemorySpace>(pattern, width, arrays...),
-         _requests(halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL)
+         _requests(2*halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL)
     {
         // Initialize the MPI_Stream from the exec_space
         createMPIXStream(exec_space);

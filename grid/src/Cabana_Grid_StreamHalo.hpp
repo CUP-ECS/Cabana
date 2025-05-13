@@ -83,31 +83,17 @@ class StreamHalo
             return;
 
 	// Start receives
-        r->enqueueRecvAll( super_type::_ghosted_buffers );
+        enqueueRecvAll( super_type::_ghosted_buffers );
+        // Pack and send the data.
+        enqueuePackBuffers( exec_space, super_type::_owned_buffers, 
+                           super_type::_owned_steering, arrays.view()... );
+        enqueueSendAll( super_type::_owned_buffers ); 
 
-        // Pack and start sending owned data to ghosts
-        for ( int n = 0; n < num_n; ++n )
-        {
-            // Only process this neighbor if there is work to do.
-            if ( 0 < super_type::_owned_buffers[n].size() )
-            {
-                // Pack the send buffer.
-                enqueuePackBuffer( exec_space, super_type::_owned_buffers[n], 
-                                   super_type::_owned_steering[n], arrays.view()... );
-                r->enqueueSend( super_type::_owned_buffers[n], n); 
-            }
-        }
-     
-        r->enqueueWaitAll( );
-
-        // Launch kernels to unpack receive buffers.
-        for ( int n = 0; n < num_n; ++n )
-        {
-            if ( 0 < super_type::_ghosted_buffers[n].size() ) 
-                enqueueUnpackBuffer( ScatterReduce::Replace(), exec_space,
-                                     super_type::_ghosted_buffers[n], 
-                                     super_type::_ghosted_steering[n], arrays.view()... );
-        }
+	// Wait for and unpack all received data
+        enqueueWaitAll( );
+        enqueueUnpackBuffers( ScatterReduce::Replace(), exec_space,
+                              super_type::_ghosted_buffers, 
+                              super_type::_ghosted_steering, arrays.view()... );
     }
 
     /*!
@@ -129,81 +115,75 @@ class StreamHalo
             return;
 
         // Initialize sends and receives, either point to point or collective
-        r->enqueueRecvAll( super_type::_owned_buffers);
+        enqueueRecvAll( super_type::_owned_buffers);
 
-        // Pack and send ghost data back to owner. XXX Would be good to explore a single
-        // fused pack kernel
-        for ( int n = 0; n < num_n; ++n )
-        {
-            // Only process this neighbor if there is work to do.
-            if ( 0 < super_type::_ghosted_buffers[n].size() )
-            {
-                // Pack the send buffer.
-                enqueuePackBuffer( exec_space, super_type::_ghosted_buffers[n], 
-                                   super_type::_ghosted_steering[n], arrays.view()... );
-                r->enqueueSend(super_type::_ghosted_buffers[n], n); 
-            }
-        }
-     
-        r->enqueueWaitAll( );
+        // Pack and send ghost data back to owner. 
+        enqueuePackBuffers( exec_space, super_type::_ghosted_buffers, 
+                                   super_type::_ghosted_steering, arrays.view()... );
+        enqueueSendAll(super_type::_ghosted_buffers); 
 
-        // Launch kernels to unpack receive buffers. XXX We should make a single 
-        // fused unpack kernel
-        for ( int n = 0; n < num_n; ++n )
-        {
-            if ( 0 < super_type::_owned_buffers[n].size() ) 
-                enqueueUnpackBuffer( reduce_op, exec_space,
-                                     super_type::_owned_buffers[n], 
-                                     super_type::_owned_steering[n], arrays.view()... );
-        }
+	// Wait for and unpack all received data into the owned buffers
+        enqueueWaitAll( );
+        enqueueUnpackBuffers( reduce_op, exec_space, super_type::_owned_buffers, 
+                              super_type::_owned_steering, arrays.view()... );
     }
 
   public:
     //! Enqueue operations to pack arrays into a buffer. Calling code must fence.
     template <class ExecutionSpace, class... ArrayViews>
-    void enqueuePackBuffer( const ExecutionSpace& exec_space,
-                            const Kokkos::View<char*, memory_space>& buffer,
-                            const Kokkos::View<int**, memory_space>& steering,
-                            ArrayViews... array_views ) const
+    void enqueuePackBuffers( const ExecutionSpace& exec_space,
+                             const std::vector<Kokkos::View<char*, memory_space>>& buffers,
+                             const std::vector<Kokkos::View<int**, memory_space>>& steerings,
+                             ArrayViews... array_views ) const
     {
         auto pp = Cabana::makeParameterPack( array_views... );
-        Kokkos::parallel_for(
-            "Cabana::Grid::Halo::pack_buffer",
-            Kokkos::RangePolicy<ExecutionSpace>( exec_space, 0,
-                                                 steering.extent( 0 ) ),
-            KOKKOS_LAMBDA( const int i ) {
-                super_type::packArray(
-                    buffer, steering, i,
-                    std::integral_constant<std::size_t,
-                                           sizeof...( ArrayViews ) - 1>(),
-                    pp );
-            } );
+        /* Figure out how to refactor this to fuse these kernel launches. Note
+         * that the steering vectors can be of different lengths! XXX */
+        for (int n = 0; n < buffers.size(); n++) {
+            Kokkos::View<char *, memory_space> buffer = buffers[n];
+            Kokkos::View<char *, memory_space> steering = steerings[n];
+            Kokkos::parallel_for(
+                "Cabana::Grid::StreamHalo::pack_buffer",
+                Kokkos::RangePolicy<ExecutionSpace>( exec_space, 0,
+                                                     steering[n].extent( 0 ) ),
+                KOKKOS_LAMBDA( const int i ) {
+                    super_type::packArray(
+                        buffer, steering, i,
+                        std::integral_constant<std::size_t,
+                                               sizeof...( ArrayViews ) - 1>(),
+                        pp );
+                } );
+        }
     }
 
     //! Enqueue operations to unpack buffer into arrays. Calling code must fence.
     template <class ExecutionSpace, class ReduceOp, class... ArrayViews>
-    void enqueueUnpackBuffer( const ReduceOp& reduce_op,
+    void enqueueUnpackBuffers( const ReduceOp& reduce_op,
                               const ExecutionSpace& exec_space,
-                              const Kokkos::View<char*, memory_space>& buffer,
-                              const Kokkos::View<int**, memory_space>& steering,
+                              const std::vector<Kokkos::View<char*, memory_space>>& buffers,
+                              const std::vector<Kokkos::View<int**, memory_space>>& steerings,
                               ArrayViews... array_views ) const
     {
         auto pp = Cabana::makeParameterPack( array_views... );
-        Kokkos::parallel_for(
-            "Cabana::Grid::Halo::unpack_buffer",
-            Kokkos::RangePolicy<ExecutionSpace>( exec_space, 0,
-                                                 steering.extent( 0 ) ),
-            KOKKOS_LAMBDA( const int i ) {
-                super_type::unpackArray(
-                    reduce_op, buffer, steering, i,
-                    std::integral_constant<std::size_t,
-                                           sizeof...( ArrayViews ) - 1>(),
-                    pp );
-            } );
+        /* Figure out how to refactor this to fuse these kernel launches. Note
+         * that the steering vectors can be of different lengths! XXX */
+        for (int n = 0; n < buffers.size(); n++) {
+            Kokkos::View<char *, memory_space> buffer = buffers[n];
+            Kokkos::View<char *, memory_space> steering = steerings[n];
+            Kokkos::parallel_for(
+                "Cabana::Grid::StreamHalo::unpack_buffer",
+                Kokkos::RangePolicy<ExecutionSpace>( exec_space, 0,
+                                                     steering.extent( 0 ) ),
+                KOKKOS_LAMBDA( const int i ) {
+                    super_type::unpackArray(
+                        reduce_op, buffer, steering, i,
+                        std::integral_constant<std::size_t,
+                                               sizeof...( ArrayViews ) - 1>(),
+                        pp );
+                } );
+        }
     }
   protected:
-    virtual void enqueueSend( Kokkos::View<char*, MemorySpace> sendview, int rank ) = 0;
-    virtual void void enqueueRecv( Kokkos::View<char*, MemorySpace> receiveview, int rank ) = 0;
     virtual void enqueueSendAll( std::vector<Kokkos::View<char*, MemorySpace>> & sendviews) = 0;
     virtual void enqueueRecvAll( std::vector<Kokkos::View<char*, MemorySpace>> & recvviews) = 0;
     virtual void enqueueWaitall() = 0;
@@ -216,7 +196,7 @@ class StreamHalo
 #include <impl/Cabana_Grid_VanillaStreamHalo.hpp>
 #endif // MPI
 #ifdef Cabana_ENABLE_MPICH
-#include <impl/Cabana_Grid_VanillaStreamHalo.hpp>
+#include <impl/Cabana_Grid_MPICHStreamHalo.hpp>
 #endif // MPICH
 #ifdef Cabana_ENABLE_HPE
 #include <impl/Cabana_Grid_HPEStreamHalo.hpp>
