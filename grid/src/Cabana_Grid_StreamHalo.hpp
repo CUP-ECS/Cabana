@@ -77,7 +77,6 @@ class StreamHaloBase
                             const Kokkos::View<int**, memory_space>& steering,
                             ArrayViews... array_views ) const
     {
-        std::cerr << "Packing a buffer of size " + buffer.size() << "\n";
         auto pp = Cabana::makeParameterPack( array_views... );
         Kokkos::parallel_for(
             "Cabana::Grid::StreamHalo::pack_buffer",
@@ -100,13 +99,11 @@ class StreamHaloBase
                              const std::vector<Kokkos::View<int**, memory_space>>& steerings,
                              ArrayViews... array_views ) const
     {
-        std::cerr << "In Pack Buffers.\n";
         /* Figure out how to refactor this to fuse these kernel launches. Note
          * that the steering vectors can be of different lengths! XXX */
         for (int n = 0; n < buffers.size(); n++) {
             Kokkos::View<char *, memory_space> buffer = buffers[n];
             Kokkos::View<int **, memory_space> steering = steerings[n];
-            std::cerr << "Calling to pack buffer " << n << " (size " << buffers[n].size() << ")\n";
             if (buffers[n].size() > 0) 
                 enqueuePackBuffer(buffer, steering, array_views...);
         }
@@ -147,7 +144,8 @@ class StreamHaloBase
         for (int n = 0; n < buffers.size(); n++) {
             Kokkos::View<char *, memory_space> buffer = buffers[n];
             Kokkos::View<int **, memory_space> steering = steerings[n];
-            enqueueUnpackBuffer(reduce_op, buffer, steering, array_views...);
+            if (buffers[n].size() > 0) 
+                enqueueUnpackBuffer(reduce_op, buffer, steering, array_views...);
         }
     }
  
@@ -188,52 +186,43 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MPI>
         if ( 0 == num_n )
             return;
 
-        std::cerr << "Enqueueing gather on " << num_n << " neighbors\n";
-
         // We fence before posting receives in case the stream 
         // is already using our buffers.
-        Kokkos::fence();
-        //this->_exec_space.fence();
-        std::cerr << "Enqueue gather posting ireceives\n";
+        this->_exec_space.fence();
         for (int n = 0; n < num_n; n++) {
-            if ( halo_type::_owned_buffers[n].size()  <= 0 ) {
+            if ( halo_type::_ghosted_buffers[n].size()  <= 0 ) {
                 _requests[num_n + n] = MPI_REQUEST_NULL;
-               continue;
+            } else {
+                MPI_Irecv( halo_type::_ghosted_buffers[n].data(), 
+                           halo_type::_ghosted_buffers[n].size(),
+                           MPI_BYTE, halo_type::_neighbor_ranks[n], 
+                           1234 + halo_type::_receive_tags[n], _comm, 
+                           &_requests[num_n + n] );
             }
-            MPI_Irecv( halo_type::_owned_buffers[n].data(), 
-                       halo_type::_owned_buffers[n].size(),
-                       MPI_BYTE, halo_type::_neighbor_ranks[n], 1234, _comm, 
-                       &_requests[num_n + n] );
         }
 
-        std::cerr << "Enqueuing gather buffer packing\n";
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_owned_buffers, 
-                                       halo_type::_owned_steering, arrays.view()... );
-        Kokkos::fence();
-        //base_type::_exec_space.fence(); 
+                                  halo_type::_owned_steering, arrays.view()... );
+        this->_exec_space.fence(); 
 
-        std::cerr << "Enqueu gather posting isends\n";
         for (int n = 0; n < num_n; n++) {
-            if ( halo_type::_ghosted_buffers[n].size() <= 0 ) {
+            if ( halo_type::_owned_buffers[n].size() <= 0 ) {
                 _requests[n] = MPI_REQUEST_NULL;
-               continue;
+            } else {
+                MPI_Isend( halo_type::_owned_buffers[n].data(), 
+                           halo_type::_owned_buffers[n].size(), 
+                           MPI_BYTE, halo_type::_neighbor_ranks[n], 
+                           1234 + halo_type::_send_tags[n], _comm, 
+                           &_requests[n] ); // XXX Get a real tag
             }
-            MPI_Isend( halo_type::_ghosted_buffers[n].data(), 
-                       halo_type::_ghosted_buffers[n].size(), 
-                       MPI_BYTE, halo_type::_neighbor_ranks[n], 1234, _comm, 
-                       &_requests[n] ); // XXX Get a real tag
         }
-
-        std::cerr << "Enqueue gather waiting for isends and irecvs\n";
         MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
 
-        std::cerr << "Enqueue gather buffer unpacking\n";
-        base_type::enqueueUnpackBuffers( ScatterReduce::Replace(),
-                                         halo_type::_ghosted_buffers, 
-                                         halo_type::_ghosted_steering, 
-                                         arrays.view()... );
-        std::cerr << "Enqueue gather done.\n";
+        this->enqueueUnpackBuffers( ScatterReduce::Replace(),
+                                    halo_type::_ghosted_buffers, 
+                                    halo_type::_ghosted_steering, 
+                                    arrays.view()... );
     }
 
     /*!
@@ -246,7 +235,50 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MPI>
     template <class ReduceOp, class... ArrayTypes>
     void enqueueScatter( const ReduceOp& reduce_op, const ArrayTypes&... arrays )
     {
-        Kokkos::Profiling::ScopedRegion region( "Cabana::Grid::StreamHalo::scatter" );
+        Kokkos::Profiling::ScopedRegion region( "Cabana::Grid::StreamHalo<Commspace::MPI>::scatter" );
+
+        // Get the number of neighbors. Return if we have none.
+        int num_n = halo_type::_neighbor_ranks.size();
+        if ( 0 == num_n )
+            return;
+
+        // We fence before posting receives in case the stream 
+        // is already using our buffers.
+        this->_exec_space.fence();
+        for (int n = 0; n < num_n; n++) {
+            if ( halo_type::_owned_buffers[n].size()  <= 0 ) {
+                _requests[num_n + n] = MPI_REQUEST_NULL;
+               continue;
+            }
+            MPI_Irecv( halo_type::_owned_buffers[n].data(), 
+                       halo_type::_owned_buffers[n].size(),
+                       MPI_BYTE, halo_type::_neighbor_ranks[n], 
+                       1234 + halo_type::_receive_tags[n], _comm, 
+                       &_requests[num_n + n] );
+        }
+
+        // Pack and send the data.
+        this->enqueuePackBuffers( halo_type::_ghosted_buffers, 
+                                  halo_type::_ghosted_steering, arrays.view()... );
+        this->_exec_space.fence(); 
+
+        for (int n = 0; n < num_n; n++) {
+            if ( halo_type::_ghosted_buffers[n].size() <= 0 ) {
+                _requests[n] = MPI_REQUEST_NULL;
+               continue;
+            }
+            MPI_Isend( halo_type::_ghosted_buffers[n].data(), 
+                       halo_type::_ghosted_buffers[n].size(), 
+                       MPI_BYTE, halo_type::_neighbor_ranks[n], 
+                       1234 + halo_type::_send_tags[n], _comm, 
+                       &_requests[n] ); 
+        }
+
+        MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+
+        this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers, 
+                                    halo_type::_owned_steering, 
+                                    arrays.view()... );
     }
 
     template <class Pattern, class... ArrayTypes>

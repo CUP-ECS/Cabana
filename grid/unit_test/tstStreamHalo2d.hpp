@@ -188,16 +188,18 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
         ArrayOp::assign( *array, 1.0, Own() );
 
         // Create a halo.
-        auto halo = createHalo( NodeHaloPattern<2>(), halo_width, *array );
+        auto halo = createStreamHalo( TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *array );
 
         // Gather into the ghosts.
-        halo->gather( TEST_EXECSPACE(), *array );
+        halo->enqueueGather( *array );
+        TEST_EXECSPACE().fence();
 
         // Check the gather.
         checkGather( is_dim_periodic, halo_width, *array );
 
         // Scatter from the ghosts back to owned.
-        halo->scatter( TEST_EXECSPACE(), ScatterReduce::Sum(), *array );
+        halo->enqueueScatter( ScatterReduce::Sum(), *array );
+        TEST_EXECSPACE().fence();
 
         // Check the scatter.
         checkScatter( is_dim_periodic, halo_width, *array );
@@ -357,7 +359,8 @@ void scatterReduceTest( const ReduceFunc& reduce )
                                   *array );
 
     // Scatter.
-    halo->scatter( TEST_EXECSPACE(), reduce, *array );
+    halo->enqueueScatter( reduce, *array );
+    TEST_EXECSPACE().fence();
 
     // Check the reduction.
     auto host_array = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(),

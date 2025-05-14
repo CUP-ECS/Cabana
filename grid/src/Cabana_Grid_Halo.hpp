@@ -904,16 +904,15 @@ class Halo
             } );
     }
 
-  private:
+  protected:
+    // The following variables in accessible in subclasses that want to implement
+    // different communication strategies.
+
     // The tag we use in this class for sending to each neighbor.
     std::vector<int> _send_tags;
 
     // The tag we use in this class for receiving from each neighbor.
     std::vector<int> _receive_tags;
-
-  protected:
-    // The following variables in accessible in subclasses that want to implement
-    // different communication strategies.
 
     // The ranks we will send/receive from.
     std::vector<int> _neighbor_ranks;
