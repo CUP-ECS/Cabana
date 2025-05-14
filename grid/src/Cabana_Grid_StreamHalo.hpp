@@ -152,7 +152,7 @@ class StreamHaloBase
     }
  
   protected:
-    const execution_space& _exec_space;
+    const execution_space _exec_space; // not a reference - we want the copy here.
 };
 
 template <class ExecutionSpace, class MemorySpace, class CommSpace = Cabana::CommSpace::MPI>
