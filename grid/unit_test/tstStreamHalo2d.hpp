@@ -13,6 +13,7 @@
 #include <Cabana_Grid_GlobalGrid.hpp>
 #include <Cabana_Grid_GlobalMesh.hpp>
 #include <Cabana_Grid_Halo.hpp>
+#include <Cabana_Grid_StreamHalo.hpp>
 #include <Cabana_Grid_Partitioner.hpp>
 #include <Cabana_Grid_Types.hpp>
 
@@ -352,7 +353,8 @@ void scatterReduceTest( const ReduceFunc& reduce )
     pattern.setNeighbors( neighbors );
 
     // Create a halo.
-    auto halo = createStreamHalo<TEST_EXECSPACE>( pattern, array_halo_width, *array );
+    auto halo = createStreamHalo( TEST_EXECSPACE(), pattern, array_halo_width,
+                                  *array );
 
     // Scatter.
     halo->scatter( TEST_EXECSPACE(), reduce, *array );
