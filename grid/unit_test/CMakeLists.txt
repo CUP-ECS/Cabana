@@ -44,6 +44,7 @@ set(MPI_TESTS
   SparseDimPartitioner
   SparseHalo
   SparseLocalGrid
+  StreamHalo2d
   )
 
 if(Kokkos_ENABLE_SYCL) #FIXME_SYCL

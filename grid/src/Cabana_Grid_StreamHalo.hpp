@@ -147,7 +147,6 @@ class StreamHaloBase
     exec_space& _exec_space;
 };
 
-
 template <class ExecutionSpace, class MemorySpace, class CommSpace = Cabana::CommSpace::Mpi>
 class StreamHalo
   : public StreamHaloBase<ExecutionSpace, MemorySpace>;
@@ -231,7 +230,7 @@ class StreamHalo<Cabana::CommSpace::Mpi>
     }
 
     template <class Pattern, class... ArrayTypes>
-    VanillaStreamHalo( const ExecutionSpace &exec_space, const Pattern& pattern,
+    StreamHalo<Mpi>( const ExecutionSpace &exec_space, const Pattern& pattern,
                        const int width, const ArrayTypes&... arrays )
        : StreamHaloBase<ExecutionSpace, MemorySpace>(exec_space, pattern, width, arrays...),
          _requests(2 * halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL)
