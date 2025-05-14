@@ -10,8 +10,8 @@
  ****************************************************************************/
 
 #include <Cabana_AoSoA.hpp>
-#include <Cabana_Collector.hpp>
 #include <Cabana_DeepCopy.hpp>
+#include <Cabana_Migrate.hpp>
 #include <Cabana_Parallel.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -599,7 +599,7 @@ void test6( const bool use_topology )
     // Check the change in size and import counts.
     if ( my_rank == 0 )
     {
-        EXPECT_EQ( data.size(), 4 ) << "Rank " << my_rank << "\n";
+        EXPECT_EQ( data.size(), my_size ) << "Rank " << my_rank << "\n";
         EXPECT_EQ( collector->totalNumImport(), 0 )
             << "Rank " << my_rank << "\n";
     }
