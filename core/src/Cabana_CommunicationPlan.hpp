@@ -415,7 +415,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace, class CommSpace=CommSpaces::MPI>
+template <class MemorySpace, class CommSpace=CommSpace::MPI>
 class CommunicationPlan
 {
   public:
@@ -439,7 +439,7 @@ class CommunicationPlan
     using size_type = typename memory_space::memory_space::size_type;
 
     //! Communication plan type
-    using plan_type = CommSpaces::MPI;
+    using plan_type = CommSpace::MPI;
 
     /*!
       \brief Constructor.

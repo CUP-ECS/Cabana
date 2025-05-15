@@ -747,9 +747,9 @@ class CollectorTypedTest : public ::testing::Test
     using CommSpaceType = TEST_COMMSPACE;
 };
 
-using CommSpaceTypes = ::testing::Types<Cabana::CommSpaces::MPI
+using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::MPI
     #ifdef Cabana_ENABLE_MPIADVANCE
-        , Cabana::CommSpaces::MPIAdvance
+        , Cabana::CommSpace::MPIAdvance
     #endif
     >;
 
