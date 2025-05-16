@@ -39,19 +39,15 @@ namespace Cabana
 {
 namespace Grid
 {
-
-// XXX We should move this to the Experimental namespace
+namespace Experimental
+{
 
 //---------------------------------------------------------------------------//
 // StreamHalo
 // ---------------------------------------------------------------------------//
 /*!
   Stream-triggered multiple array halo communication plan for migrating 
-  shared data between blocks. The Derived template class is the subclass 
-  implementing the stream halo for a given stream triggered communication backend.
-  Should we use private inheritance because we need access to the guts of Halo 
-  (for buffer packing), but out semantics are different from the original 
-  Grid::Halo?
+  shared data between blocks. 
 */
 template <class ExecutionSpace, class MemorySpace>
 class StreamHaloBase
@@ -158,12 +154,12 @@ class StreamHalo;
 
 template <class ExecutionSpace, class MemorySpace>
 class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MPI>
-  : public Cabana::Grid::StreamHaloBase<ExecutionSpace, MemorySpace>
+  : public StreamHaloBase<ExecutionSpace, MemorySpace>
 {
     using execution_space = ExecutionSpace;
     using memory_space = MemorySpace;
     using halo_type = Cabana::Grid::Halo<memory_space>;
-    using base_type = Cabana::Grid::StreamHaloBase<execution_space, memory_space>;
+    using base_type = StreamHaloBase<execution_space, memory_space>;
 
   public:
     /*!
@@ -319,7 +315,7 @@ auto createStreamHalo( const ExecutionSpace& exec_space,
     return std::make_shared<StreamHalo<ExecutionSpace, memory_space, CommSpace::MPI>>(exec_space, pattern, width, arrays...);
 #endif
 }
-
+} // namespace Experimental
 } // namespace Grid
 } // namespace Cabana
 

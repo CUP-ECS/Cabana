@@ -53,7 +53,7 @@ option(Cabana_ENABLE_MPISTREAM "Support from Stream-triggered Grid Halos" ON )
 
 include(CMakeDependentOption)
 cmake_dependent_option(Cabana_ENABLE_MPICH "MPICH stream triggering backend" OFF "Cabana_ENABLE_MPISTREAM" OFF )
-cmake_dependent_option(Cabana_ENABLE_HPE "HPE stream triggering backend" OFF "Cabana_ENABLE_MPISTREAM" OFF )
+cmake_dependent_option(Cabana_ENABLE_CRAYMPI "HPE stream triggering backend" OFF "Cabana_ENABLE_MPISTREAM" OFF )
 cmake_dependent_option(Cabana_ENABLE_MPIADVANCE "MPI Advance optimizations for Cabana" OFF "Cabana_ENABLE_MPISTREAM" OFF )
 
 if(Cabana_ENABLE_MPISTREAM)
