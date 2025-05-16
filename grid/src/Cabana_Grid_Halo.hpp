@@ -905,8 +905,8 @@ class Halo
     }
 
   protected:
-    // The following variables in accessible in subclasses that want to implement
-    // different communication strategies.
+    // The following variables in accessible in subclasses that want to
+    // implement different communication strategies.
 
     // The tag we use in this class for sending to each neighbor.
     std::vector<int> _send_tags;

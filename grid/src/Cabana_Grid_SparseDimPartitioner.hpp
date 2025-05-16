@@ -406,8 +406,7 @@ class SparseDimPartitioner : public BlockPartitioner<NumSpaceDim>
                     auto key = sparseMap.key_at( i );
                     int ti, tj, tk;
                     sparseMap.key2ijk( key, ti, tj, tk );
-                    Kokkos::atomic_inc(
-                        &workload( ti + 1, tj + 1, tk + 1 ) );
+                    Kokkos::atomic_inc( &workload( ti + 1, tj + 1, tk + 1 ) );
                 }
             } );
         Kokkos::fence();
@@ -721,7 +720,7 @@ class SparseDimPartitioner : public BlockPartitioner<NumSpaceDim>
                         break;
                     }
                 } // end while (optimization for the current rank)
-            }     // end for (all partition/rank in the optimized dimension)
+            } // end for (all partition/rank in the optimized dimension)
             Kokkos::deep_copy( _rectangle_partition_dev, rec_mirror );
         } // end for (3 dimensions)
     }

@@ -60,15 +60,10 @@ if(Cabana_ENABLE_MPISTREAM)
   list(APPEND HEADERS_PUBLIC
     Cabana_Grid_StreamHalo.hpp
     )
-  if(Cabana_ENABLE_MPI)
-    list(APPEND HEADERS_IMPL
-      impl/Cabana_Grid_VanillaStreamHalo.hpp
-    )
-  endif()
   if(Cabana_ENABLE_MPICH)
     list(APPEND HEADERS_IMPL
       impl/Cabana_Grid_MPICHStreamHalo.hpp
-    )
+      )
   endif()
 endif()
 

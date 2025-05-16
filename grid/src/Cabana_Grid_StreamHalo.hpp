@@ -35,6 +35,7 @@
 #include <iostream>
 #include <type_traits>
 #include <vector>
+
 namespace Cabana
 {
 namespace Grid
@@ -315,6 +316,28 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MPI>
     std::vector<MPI_Request> _requests;
 }; // StreamHalo<Commspace::MPI>
 
+} // namespace Experimental
+} // namespace Grid
+} // namespace Cabana
+
+// Include further specializations of StreamHalo if enabled.
+#ifdef Cabana_ENABLE_MPICH
+#include <impl/Cabana_Grid_MPICHStreamHalo.hpp>
+#endif // MPICH
+#ifdef Cabana_ENABLE_CRAYPICH
+#include <impl/Cabana_Grid_HPEStreamHalo.hpp>
+#endif // HPE
+#ifdef Cabana_ENABLE_MPIADVANCE
+#include <impl/Cabana_Grid_MPIAdvanceStreamHalo.hpp>
+#endif // MPIADVANCE
+
+namespace Cabana
+{
+namespace Grid
+{
+namespace Experimental
+{
+
 /*!
   \brief Halo creation function.
   \param pattern The pattern to build the halo from.
@@ -346,20 +369,9 @@ auto createStreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
         exec_space, pattern, width, arrays... );
 #endif
 }
+
 } // namespace Experimental
 } // namespace Grid
 } // namespace Cabana
-
-// Include further specializations of StreamHalo if enabled.
-
-#ifdef Cabana_ENABLE_MPICH
-#include <impl/Cabana_Grid_MPICHStreamHalo.hpp>
-#endif // MPICH
-#ifdef Cabana_ENABLE_CRAYPICH
-#include <impl/Cabana_Grid_HPEStreamHalo.hpp>
-#endif // HPE
-#ifdef Cabana_ENABLE_MPIADVANCE
-#include <impl/Cabana_Grid_MPIAdvanceStreamHalo.hpp>
-#endif // MPIADVANCE
 
 #endif // end CABANA_GRID_STREAMHALO_HPP

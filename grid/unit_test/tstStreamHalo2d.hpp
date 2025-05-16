@@ -14,8 +14,8 @@
 #include <Cabana_Grid_GlobalMesh.hpp>
 #include <Cabana_Grid_Halo.hpp>
 #include <Cabana_Grid_Partitioner.hpp>
-#include <Cabana_Grid_Types.hpp>
 #include <Cabana_Grid_StreamHalo.hpp>
+#include <Cabana_Grid_Types.hpp>
 
 #include <Kokkos_Core.hpp>
 
@@ -188,7 +188,8 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
         ArrayOp::assign( *array, 1.0, Own() );
 
         // Create a halo.
-        auto halo = Experimental::createStreamHalo( TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *array );
+        auto halo = Experimental::createStreamHalo(
+            TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *array );
 
         // Gather into the ghosts.
         halo->enqueueGather( *array );
@@ -244,14 +245,14 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
         ArrayOp::assign( *face_j_array, 1.0, Own() );
 
         // Create a multihalo.
-        auto halo = Experimental::createStreamHalo( TEST_EXECSPACE(),
-                                NodeHaloPattern<2>(), halo_width, *cell_array,
-                                *node_array, *face_i_array, *face_j_array );
+        auto halo = Experimental::createStreamHalo(
+            TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *cell_array,
+            *node_array, *face_i_array, *face_j_array );
 
         // Gather into the ghosts.
         halo->enqueueGather( *cell_array, *node_array, *face_i_array,
-                      *face_j_array );
-	TEST_EXECSPACE().fence();
+                             *face_j_array );
+        TEST_EXECSPACE().fence();
 
         // Check the gather.
         checkGather( is_dim_periodic, halo_width, *cell_array );
@@ -260,8 +261,8 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
         checkGather( is_dim_periodic, halo_width, *face_j_array );
 
         // Scatter from the ghosts back to owned.
-        halo->enqueueScatter( ScatterReduce::Sum(), *cell_array,
-                       *node_array, *face_i_array, *face_j_array );
+        halo->enqueueScatter( ScatterReduce::Sum(), *cell_array, *node_array,
+                              *face_i_array, *face_j_array );
         TEST_EXECSPACE().fence();
 
         // Check the scatter.
@@ -355,8 +356,8 @@ void scatterReduceTest( const ReduceFunc& reduce )
     pattern.setNeighbors( neighbors );
 
     // Create a halo.
-    auto halo = Experimental::createStreamHalo( TEST_EXECSPACE(), pattern, array_halo_width,
-                                  *array );
+    auto halo = Experimental::createStreamHalo( TEST_EXECSPACE(), pattern,
+                                                array_halo_width, *array );
 
     // Scatter.
     halo->enqueueScatter( reduce, *array );

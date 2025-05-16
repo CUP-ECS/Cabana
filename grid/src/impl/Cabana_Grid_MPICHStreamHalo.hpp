@@ -51,23 +51,21 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
   public:
     using view_type = Kokkos::View<char*, MemorySpace>;
     using halo_type = Cabana::Grid::Halo<MemorySpace>;
-  using base_type = Cabana::Grid::StreamHaloBase<ExecutionSpace, MemorySpace>
 
-      public :
-      /*!
-        \brief Vanilla MPI Stream-triggered version to gather data into our
-        ghosts from their owners. Note that this fences to emulate stream
-        semantics.
+    /*!
+      \brief Vanilla MPI Stream-triggered version to gather data into our
+      ghosts from their owners. Note that this fences to emulate stream
+      semantics.
 
-        \param exec_space The execution space to use for pack/unpack.
+      \param exec_space The execution space to use for pack/unpack.
 
-        \param arrays The arrays to gather. NOTE: These arrays must be given in
-        the same order as in the constructor. These could technically be
-        different arrays, they just need to have the same layouts and data types
-        as the input arrays.
-      */
-      template <class... ArrayTypes>
-      void enqueueGather( const ArrayTypes&... arrays )
+      \param arrays The arrays to gather. NOTE: These arrays must be 
+      given in the same order as in the constructor. These could technically 
+      be different arrays, they just need to have the same layouts and data 
+      types as the input arrays.
+    */
+    template <class... ArrayTypes>
+    void enqueueGather( const ArrayTypes&... arrays )
     {
         Kokkos::Profiling::ScopedRegion region(
             "Cabana::Grid::StreamHalo<Commspace::MPI>::gather" );
@@ -185,8 +183,6 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
 #ifdef KOKKOS_ENABLE_OPENMPTARGET
                   || std::same_as<ExecSpace, Kokkos::OpenMPTarget>
 #endif
-                  //              || std::same_as<ExecSpace,
-                  //              Kokkos::DefaultExecutionSpace>
                   ) // end requires
     {
         MPIX_Stream_create( MPI_INFO_NULL, &_stream );
