@@ -41,11 +41,8 @@ namespace Grid
 namespace Experimental
 {
 
-#ifdef Cabana_ENABLE_MPICH
-
 template <class ExecutionSpace, class MemorySpace>
-class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
-                      Cabana::ComSpace::MPICH>
+class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
     : public StreamHaloBase<ExecutionSpace, MemorySpace>
 {
   public:
@@ -143,7 +140,7 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
                 _requests[n] = MPI_REQUEST_NULL;
                 continue;
             }
-            MPI_Irecv_enqueue( halo_type::_owned_buffers[n].data(),
+            MPIX_Irecv_enqueue( halo_type::_owned_buffers[n].data(),
                                halo_type::_owned_buffers[n].size(), MPI_BYTE,
                                halo_type::_neighbor_ranks[n],
                                1234 + halo_type::_receive_tags[n], _comm,
@@ -159,13 +156,13 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
         {
             if ( halo_type::_ghosted_buffers[n].size() > 0 )
             {
-                MPI_Send_enqueue( halo_type::_ghosted_buffers[n].data(),
+                MPIX_Send_enqueue( halo_type::_ghosted_buffers[n].data(),
                                   halo_type::_ghosted_buffers[n].size(),
                                   MPI_BYTE, halo_type::_neighbor_ranks[n],
                                   1234 + halo_type::_send_tags[n], _comm );
             }
         }
-        MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        MPI_Waitall_enqueue( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
 
         this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
                                     halo_type::_owned_steering,
@@ -207,8 +204,8 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
 
   public:
     template <class Pattern, class... ArrayTypes>
-    MPICHStreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
-                     const int width, const ArrayTypes&... arrays )
+    StreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
+                const int width, const ArrayTypes&... arrays )
         : StreamHaloBase<ExecutionSpace, MemorySpace>( exec_space, pattern,
                                                        width, arrays... )
         , _requests( halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL )
@@ -220,7 +217,7 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
                                  &_comm );
     }
 
-    ~MPICHStreamHalo()
+    ~StreamHalo()
     {
         MPI_Comm_free(
             &_comm ); // XXX We need to worry about copy constructoin here. That
@@ -234,16 +231,7 @@ class MPICHStreamHalo<class ExecutionSpace, class MemorySpace,
     std::vector<MPI_Request> _requests;
 };
 
-template <class ExecSpace, class Pattern, class... ArrayTypes>
-auto createMPICHStreamHalo( const ExecSpace& exec_space, const Pattern& pattern,
-                            const int width, const ArrayTypes&... arrays )
-{
-    using memory_space = typename ArrayPackMemorySpace<ArrayTypes...>::type;
-    return std::make_shared<MPICHStreamHalo<memory_space>>( exec_space, pattern,
-                                                            width, arrays... );
-}
-
-} // Impl
+} // Experimental
 } // Grid
 } // Cabana
 

@@ -158,177 +158,28 @@ class StreamHaloBase : public Cabana::Grid::Halo<MemorySpace>
 };
 
 template <class ExecutionSpace, class MemorySpace,
-          class CommSpace = Cabana::CommSpace::MPI>
+          class CommSpace = Cabana::CommSpace::Mpi>
 class StreamHalo;
-
-template <class ExecutionSpace, class MemorySpace>
-class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MPI>
-    : public StreamHaloBase<ExecutionSpace, MemorySpace>
-{
-    using execution_space = ExecutionSpace;
-    using memory_space = MemorySpace;
-    using halo_type = Cabana::Grid::Halo<memory_space>;
-    using base_type = StreamHaloBase<execution_space, memory_space>;
-
-  public:
-    /*!
-      \brief Vanilla MPI Stream-triggered version to gather data into our ghosts
-      from their owners. Note that this fences to emulate stream semantics.
-
-      \param exec_space The execution space to use for pack/unpack.
-
-      \param arrays The arrays to gather. NOTE: These arrays must be given in
-      the same order as in the constructor. These could technically be
-      different arrays, they just need to have the same layouts and data types
-      as the input arrays.
-    */
-    template <class... ArrayTypes>
-    void enqueueGather( const ArrayTypes&... arrays )
-    {
-        Kokkos::Profiling::ScopedRegion region(
-            "Cabana::Grid::StreamHalo<Commspace::MPI>::gather" );
-        // Get the number of neighbors. Return if we have none.
-        int num_n = halo_type::_neighbor_ranks.size();
-        if ( 0 == num_n )
-            return;
-
-        // We fence before posting receives in case the stream
-        // is already using our buffers.
-        this->_exec_space.fence();
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_ghosted_buffers[n].size() <= 0 )
-            {
-                _requests[num_n + n] = MPI_REQUEST_NULL;
-            }
-            else
-            {
-                MPI_Irecv( halo_type::_ghosted_buffers[n].data(),
-                           halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
-                           halo_type::_neighbor_ranks[n],
-                           1234 + halo_type::_receive_tags[n], _comm,
-                           &_requests[num_n + n] );
-            }
-        }
-
-        // Pack and send the data.
-        this->enqueuePackBuffers( halo_type::_owned_buffers,
-                                  halo_type::_owned_steering,
-                                  arrays.view()... );
-        this->_exec_space.fence();
-
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_owned_buffers[n].size() <= 0 )
-            {
-                _requests[n] = MPI_REQUEST_NULL;
-            }
-            else
-            {
-                MPI_Isend( halo_type::_owned_buffers[n].data(),
-                           halo_type::_owned_buffers[n].size(), MPI_BYTE,
-                           halo_type::_neighbor_ranks[n],
-                           1234 + halo_type::_send_tags[n], _comm,
-                           &_requests[n] ); // XXX Get a real tag
-            }
-        }
-        MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
-
-        this->enqueueUnpackBuffers(
-            ScatterReduce::Replace(), halo_type::_ghosted_buffers,
-            halo_type::_ghosted_steering, arrays.view()... );
-    }
-
-    /*!
-      \brief Scatter data from our ghosts to their owners using the given type
-      of reduce operation.
-      \param reduce_op The functor used to reduce the results.
-      \param exec_space The execution space to use for pack/unpack.
-      \param arrays The arrays to scatter.
-    */
-    template <class ReduceOp, class... ArrayTypes>
-    void enqueueScatter( const ReduceOp& reduce_op,
-                         const ArrayTypes&... arrays )
-    {
-        Kokkos::Profiling::ScopedRegion region(
-            "Cabana::Grid::StreamHalo<Commspace::MPI>::scatter" );
-
-        // Get the number of neighbors. Return if we have none.
-        int num_n = halo_type::_neighbor_ranks.size();
-        if ( 0 == num_n )
-            return;
-
-        // We fence before posting receives in case the stream
-        // is already using our buffers.
-        this->_exec_space.fence();
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_owned_buffers[n].size() <= 0 )
-            {
-                _requests[num_n + n] = MPI_REQUEST_NULL;
-                continue;
-            }
-            MPI_Irecv( halo_type::_owned_buffers[n].data(),
-                       halo_type::_owned_buffers[n].size(), MPI_BYTE,
-                       halo_type::_neighbor_ranks[n],
-                       1234 + halo_type::_receive_tags[n], _comm,
-                       &_requests[num_n + n] );
-        }
-
-        // Pack and send the data.
-        this->enqueuePackBuffers( halo_type::_ghosted_buffers,
-                                  halo_type::_ghosted_steering,
-                                  arrays.view()... );
-        this->_exec_space.fence();
-
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_ghosted_buffers[n].size() <= 0 )
-            {
-                _requests[n] = MPI_REQUEST_NULL;
-                continue;
-            }
-            MPI_Isend( halo_type::_ghosted_buffers[n].data(),
-                       halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
-                       halo_type::_neighbor_ranks[n],
-                       1234 + halo_type::_send_tags[n], _comm, &_requests[n] );
-        }
-
-        MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
-
-        this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
-                                    halo_type::_owned_steering,
-                                    arrays.view()... );
-    }
-
-    template <class Pattern, class... ArrayTypes>
-    StreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
-                const int width, const ArrayTypes&... arrays )
-        : StreamHaloBase<ExecutionSpace, MemorySpace>( exec_space, pattern,
-                                                       width, arrays... )
-        , _requests( 2 * halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL )
-        , _comm( Halo<MemorySpace>::getComm( arrays... ) )
-    {
-    }
-
-  private:
-    const MPI_Comm _comm;
-    std::vector<MPI_Request> _requests;
-}; // StreamHalo<Commspace::MPI>
 
 } // namespace Experimental
 } // namespace Grid
 } // namespace Cabana
 
-// Include further specializations of StreamHalo if enabled.
-#ifdef Cabana_ENABLE_MPICH
-#include <impl/Cabana_Grid_MPICHStreamHalo.hpp>
+// Include further specializations of StreamHalo to get implementations.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_Grid_MpiStreamHalo.hpp>
+#endif
+
+#ifdef Cabana_REQUIRE_MPICH
+#include <impl/Cabana_Grid_MpichStreamHalo.hpp>
 #endif // MPICH
-#ifdef Cabana_ENABLE_CRAYPICH
-#include <impl/Cabana_Grid_HPEStreamHalo.hpp>
-#endif // HPE
-#ifdef Cabana_ENABLE_MPIADVANCE
-#include <impl/Cabana_Grid_MPIAdvanceStreamHalo.hpp>
+
+#ifdef Cabana_REQUIRE_CRAY_MPI
+#include <impl/Cabana_Grid_CrayMpiStreamHalo.hpp>
+#endif // CRAY_MPI
+
+#ifdef Cabana_REQUIRE_MPI_ADVANCE
+#include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
 #endif // MPIADVANCE
 
 namespace Cabana
@@ -351,21 +202,21 @@ auto createStreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
 {
     using memory_space = typename ArrayPackMemorySpace<ArrayTypes...>::type;
 
-#if defined( CABANA_ENABLE_MPIADVANCE )
+#if defined( CABANA_REQUIRE_MPI_ADVANCE )
     return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::MPIAdvance>>(
+        StreamHalo<ExecutionSpace, memory_space, CommSpace::MpiAdvance>>(
         exec_space, pattern, width, arrays... );
-#elif defined( CABANA_ENABLE_MPICH )
+#elif defined( CABANA_REQUIRE_MPICH )
     return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::MPICH>>(
+        StreamHalo<ExecutionSpace, memory_space, CommSpace::Mpich>>(
         exec_space, pattern, width, arrays... );
-#elif defined( CABANA_ENABLE_CRAYMPI )
+#elif defined( CABANA_REQUIRE_CRAY_MPI )
     return std::make_shared<
         StreamHalo<ExecutionSpace, memory_space, CommSpace::CrayMPI>>(
         exec_space, pattern, width, arrays... );
 #else
     return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::MPI>>(
+        StreamHalo<ExecutionSpace, memory_space, CommSpace::Mpi>>(
         exec_space, pattern, width, arrays... );
 #endif
 }

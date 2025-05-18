@@ -30,16 +30,31 @@ namespace CommSpace
 /*!
     \brief MPI comm tag - default.
 */
-struct MPI
+struct Mpi
+{
+};
+
+/*!
+    \brief MPICH comm tag.
+*/
+struct Mpich
+{
+};
+
+/*!
+    \brief Cray MPI comm tag.
+*/
+struct CrayMpi
 {
 };
 
 /*!
     \brief MPI Advance comm tag.
 */
-struct MPIAdvance
+struct MpiAdvance
 {
 };
+
 } // end namespace CommSpace
 
 //---------------------------------------------------------------------------//

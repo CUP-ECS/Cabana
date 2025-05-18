@@ -12,11 +12,10 @@
 #ifndef CABANA_GRID_CONFIG_HPP
 #define CABANA_GRID_CONFIG_HPP
 
-#cmakedefine Cabana_ENABLE_MPISTREAM
-#cmakedefine Cabana_ENABLE_MPISTREAM_VANILLA
-#cmakedefine Cabana_ENABLE_MPISTREAM_MPICH
-#cmakedefine Cabana_ENABLE_MPISTREAM_HPE
-#cmakedefine Cabana_ENABLE_MPISTREAM_ADVANCE
+#cmakedefine Cabana_ENABLE_STREAM_COMM
+#cmakedefine Cabana_REQUIRE_MPICH
+#cmakedefine Cabana_REQUIRE_CRAY_MPI
+#cmakedefine Cabana_REQUIRE_MPI_ADVANCE
 
 #cmakedefine Cabana_ENABLE_HYPRE
 

@@ -49,20 +49,24 @@ set(HEADERS_IMPL
 
 install(FILES ${HEADERS_IMPL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/impl/)
 
-option(Cabana_ENABLE_MPISTREAM "Support from Stream-triggered Grid Halos" ON )
+option(Cabana_ENABLE_STREAM_COMM "Support from Stream-triggered Grid Halos" ON )
 
-include(CMakeDependentOption)
-cmake_dependent_option(Cabana_ENABLE_MPICH "MPICH stream triggering backend" OFF "Cabana_ENABLE_MPISTREAM" OFF )
-cmake_dependent_option(Cabana_ENABLE_CRAYMPI "HPE stream triggering backend" OFF "Cabana_ENABLE_MPISTREAM" OFF )
-cmake_dependent_option(Cabana_ENABLE_MPIADVANCE "MPI Advance optimizations for Cabana" OFF "Cabana_ENABLE_MPISTREAM" OFF )
+option(Cabana_REQUIRE_MPICH "MPICH optimizations for Cabana" OFF )
+option(Cabana_REQUIRE_CRAYMPI "Cray MPI optimizations for Cabana" )
+option(Cabana_REQUIRE_MPI_ADVANCE "MPI Advance optimizations for Cabana" )
 
-if(Cabana_ENABLE_MPISTREAM)
+if(Cabana_ENABLE_STREAM_COMM)
   list(APPEND HEADERS_PUBLIC
     Cabana_Grid_StreamHalo.hpp
     )
-  if(Cabana_ENABLE_MPICH)
+  if(Cabana_ENABLE_MPI)
     list(APPEND HEADERS_IMPL
-      impl/Cabana_Grid_MPICHStreamHalo.hpp
+      impl/Cabana_Grid_MpiStreamHalo.hpp
+    )
+  endif()
+  if(Cabana_REQUIRE_MPICH)
+    list(APPEND HEADERS_IMPL
+      impl/Cabana_Grid_MpichStreamHalo.hpp
       )
   endif()
 endif()
