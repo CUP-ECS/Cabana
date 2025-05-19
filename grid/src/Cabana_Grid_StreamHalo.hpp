@@ -170,15 +170,15 @@ class StreamHalo;
 #include <impl/Cabana_Grid_MpiStreamHalo.hpp>
 #endif
 
-#ifdef Cabana_REQUIRE_MPICH
+#ifdef Cabana_ENABLE_MPICH
 #include <impl/Cabana_Grid_MpichStreamHalo.hpp>
 #endif // MPICH
 
-#ifdef Cabana_REQUIRE_CRAY_MPI
+#ifdef Cabana_ENABLE_CRAY_MPI
 #include <impl/Cabana_Grid_CrayMpiStreamHalo.hpp>
 #endif // CRAY_MPI
 
-#ifdef Cabana_REQUIRE_MPI_ADVANCE
+#ifdef Cabana_ENABLE_MPI_ADVANCE
 #include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
 #endif // MPIADVANCE
 
@@ -202,17 +202,17 @@ auto createStreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
 {
     using memory_space = typename ArrayPackMemorySpace<ArrayTypes...>::type;
 
-#if defined( CABANA_REQUIRE_MPI_ADVANCE )
+#if defined( CABANA_ENABLE_MPI_ADVANCE )
     return std::make_shared<
         StreamHalo<ExecutionSpace, memory_space, CommSpace::MpiAdvance>>(
         exec_space, pattern, width, arrays... );
-#elif defined( CABANA_REQUIRE_MPICH )
+#elif defined( CABANA_ENABLE_MPICH )
     return std::make_shared<
         StreamHalo<ExecutionSpace, memory_space, CommSpace::Mpich>>(
         exec_space, pattern, width, arrays... );
-#elif defined( CABANA_REQUIRE_CRAY_MPI )
+#elif defined( CABANA_ENABLE_CRAY_MPI )
     return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::CrayMPI>>(
+        StreamHalo<ExecutionSpace, memory_space, CommSpace::CrayMpi>>(
         exec_space, pattern, width, arrays... );
 #else
     return std::make_shared<

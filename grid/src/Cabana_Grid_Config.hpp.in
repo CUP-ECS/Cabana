@@ -13,9 +13,9 @@
 #define CABANA_GRID_CONFIG_HPP
 
 #cmakedefine Cabana_ENABLE_STREAM_COMM
-#cmakedefine Cabana_REQUIRE_MPICH
-#cmakedefine Cabana_REQUIRE_CRAY_MPI
-#cmakedefine Cabana_REQUIRE_MPI_ADVANCE
+#cmakedefine Cabana_ENABLE_MPICH
+#cmakedefine Cabana_ENABLE_CRAY_MPI
+#cmakedefine Cabana_ENABLE_MPI_ADVANCE
 
 #cmakedefine Cabana_ENABLE_HYPRE
 
