@@ -43,7 +43,7 @@ endif()
 
 if(Cabana_ENABLE_MPI)
   list(APPEND HEADERS_PUBLIC
-    Cabana_CommunicationPlan.hpp
+    Cabana_CommunicationPlanBase.hpp
     Cabana_Halo.hpp
     Cabana_Migrate.hpp
     )
