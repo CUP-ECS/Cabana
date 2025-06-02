@@ -686,10 +686,10 @@ void migrate(
 {
     // Check that src and dst are the right size.
     if ( src.size() != distributor.exportSize() )
-        throw std::runtime_error( "Source is the wrong size for migration!" );
+        throw std::runtime_error( "Cabana::migrate (Distributor): Source is the wrong size for migration!" );
     if ( dst.size() != distributor.totalNumImport() )
         throw std::runtime_error(
-            "Destination is the wrong size for migration!" );
+            "Cabana::migrate (Distributor): Destination is the wrong size for migration!" );
 
     // Move the data.
     Impl::migrateData( exec_space, distributor, src, dst );
@@ -721,10 +721,10 @@ void migrate(
 {
     // Check that src and dst are the right size.
     if ( src.size() != collector.numOwned() )
-        throw std::runtime_error( "Cabana::Collector::migrate: Source is the "
+        throw std::runtime_error( "Cabana::migrate (Collector): Source is the "
                                   "wrong size for migration!" );
     if ( dst.size() != collector.totalNumImport() )
-        throw std::runtime_error( "Cabana::Collector::migrate: Destination is "
+        throw std::runtime_error( "Cabana::migrate (Collector): Destination is "
                                   "the wrong size for migration!" );
 
     // Move the data.
