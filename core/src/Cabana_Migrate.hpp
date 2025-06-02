@@ -17,7 +17,7 @@
 #define CABANA_MIGRATE_HPP
 
 #include <Cabana_AoSoA.hpp>
-#include <Cabana_CommunicationPlan.hpp>
+#include <Cabana_CommunicationPlanBase.hpp>
 #include <Cabana_Slice.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -58,7 +58,7 @@ namespace Cabana
   user must allocate their own destination data structure.
 
 */
-template <class MemorySpace, class CommSpace=CommSpace::MPI>
+template <class MemorySpace, class CommSpace>
 class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
@@ -99,7 +99,7 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks,
                  const std::vector<int>& neighbor_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
         auto neighbor_ids = this->createFromExportsAndTopology(
             element_export_ranks, neighbor_ranks );
@@ -135,7 +135,7 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
     */
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
         auto neighbor_ids = this->createFromExportsOnly( element_export_ranks );
         this->createExportSteering( neighbor_ids, element_export_ranks );
@@ -149,8 +149,8 @@ struct is_distributor_impl : public std::false_type
 {
 };
 
-template <typename MemorySpace>
-struct is_distributor_impl<Distributor<MemorySpace>> : public std::true_type
+template <typename MemorySpace, typename CommSpace>
+struct is_distributor_impl<Distributor<MemorySpace, CommSpace>> : public std::true_type
 {
 };
 //! \endcond
@@ -185,8 +185,8 @@ struct is_distributor
   in the forward communication plan, call totalNumExport() on the
   collector.
 */
-template <class MemorySpace>
-class Collector : public CommunicationPlan<MemorySpace>
+template <class MemorySpace, class CommSpace>
+class Collector : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
     /*!
@@ -230,7 +230,7 @@ class Collector : public CommunicationPlan<MemorySpace>
                const ViewType& element_import_ranks,
                const ViewType& element_import_ids,
                const std::vector<int>& neighbor_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
         , _num_owned( num_owned )
     {
         auto neighbor_ids_ranks_indices = this->createFromImportsAndTopology(
@@ -273,7 +273,7 @@ class Collector : public CommunicationPlan<MemorySpace>
     Collector( MPI_Comm comm, const std::size_t num_owned,
                const ViewType& element_import_ranks,
                const ViewType& element_import_ids )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
         , _num_owned( num_owned )
     {
         auto neighbor_ids_ranks_indices = this->createFromImportsOnly(
@@ -300,8 +300,8 @@ struct is_collector_impl : public std::false_type
 {
 };
 
-template <typename MemorySpace>
-struct is_collector_impl<Collector<MemorySpace>> : public std::true_type
+template <typename MemorySpace, typename CommSpace>
+struct is_collector_impl<Collector<MemorySpace, CommSpace>> : public std::true_type
 {
 };
 //! \endcond
@@ -676,11 +676,11 @@ void migrateSlice(
   same size as the number of imports given by the distributor on this
   rank. Call totalNumImport() on the distributor to get this size value.
 */
-template <class ExecutionSpace, class MemorySpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Distributor<MemorySpace>& distributor,
+    ExecutionSpace exec_space, const Distributor<MemorySpace, CommSpace>& distributor,
     const AoSoA_t& src, AoSoA_t& dst,
-    typename std::enable_if<( is_distributor<Distributor<MemorySpace>>::value &&
+    typename std::enable_if<( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
@@ -713,9 +713,9 @@ void migrate(
   Must be the same size as the number of imports given by the collector on this
   rank. Call totalNumImport() on the collector to get this size value.
 */
-template <class ExecutionSpace, class MemorySpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Collector<MemorySpace>& collector,
+    ExecutionSpace exec_space, const Collector<MemorySpace, CommSpace>& collector,
     const AoSoA_t& src, AoSoA_t& dst,
     typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
 {
@@ -782,9 +782,9 @@ void migrate( const Migrator_t& migrator, const AoSoA_t& src, AoSoA_t& dst,
   function, consider reserving enough memory in the data structure so
   reallocating is not necessary.
 */
-template <class ExecutionSpace, class MemorySpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Distributor<MemorySpace>& distributor,
+    ExecutionSpace exec_space, const Distributor<MemorySpace, CommSpace>& distributor,
     AoSoA_t& aosoa,
     typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
 {
@@ -826,9 +826,9 @@ void migrate(
   into the Collector. Must be the same size as the number of
   owned plus imported elements on this rank provided by the collector.
 */
-template <class ExecutionSpace, class MemorySpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Collector<MemorySpace>& collector,
+    ExecutionSpace exec_space, const Collector<MemorySpace, CommSpace>& collector,
     AoSoA_t& aosoa,
     typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
 {
@@ -882,9 +882,9 @@ void migrate( const Migrator_t& migrator, AoSoA_t& aosoa,
   same size as the number of imports given by the distributor on this
   rank. Call totalNumImport() on the distributor to get this size value.
 */
-template <class MemorySpace, class Slice_t>
+template <class MemorySpace, class CommSpace, class Slice_t>
 void migrate(
-    const Distributor<MemorySpace>& distributor, const Slice_t& src,
+    const Distributor<MemorySpace, CommSpace>& distributor, const Slice_t& src,
     Slice_t& dst,
     typename std::enable_if<( is_slice<Slice_t>::value ), int>::type* = 0 )
 {
@@ -893,7 +893,7 @@ void migrate(
             "Cabana::Migrate::migrate: Source slice is the "
             "wrong size for migration!" );
 
-    Impl::migrateSlice( typename Distributor<MemorySpace>::execution_space{},
+    Impl::migrateSlice( typename Distributor<MemorySpace, CommSpace>::execution_space{},
                         distributor, src, dst );
 }
 
@@ -913,9 +913,9 @@ void migrate(
   written. Must be the same size as the number of imports given by the collector
   on this rank. Call totalNumImport() on the Collector to get this size value.
 */
-template <class MemorySpace, class Slice_t>
+template <class MemorySpace, class CommSpace, class Slice_t>
 void migrate(
-    const Collector<MemorySpace>& collector, const Slice_t& src, Slice_t& dst,
+    const Collector<MemorySpace, CommSpace>& collector, const Slice_t& src, Slice_t& dst,
     typename std::enable_if<( is_slice<Slice_t>::value ), int>::type* = 0 )
 {
     if ( src.size() != collector.numOwned() )
@@ -923,7 +923,7 @@ void migrate(
             "Cabana::Migrate::migrate: Source slice is the "
             "wrong size for migration!" );
 
-    Impl::migrateSlice( typename Collector<MemorySpace>::execution_space{},
+    Impl::migrateSlice( typename Collector<MemorySpace, CommSpace>::execution_space{},
                         collector, src, dst );
 }
 
