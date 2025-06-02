@@ -11,7 +11,8 @@
 
 /*!
   \file Cabana_CommunicationPlanMPI.hpp
-  \brief Multi-node communication patterns
+  \brief Multi-node communication patterns.
+  Uses vanilla MPI as the communication backend.
 */
 #ifndef CABANA_COMMUNICATIONPLANMPI_HPP
 #define CABANA_COMMUNICATIONPLANMPI_HPP
@@ -20,7 +21,6 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
-#include <Cabana_CommunicationPlanBase.hpp>
 
 #include <mpi.h>
 
@@ -36,34 +36,8 @@ namespace Cabana
 
 //---------------------------------------------------------------------------//
 /*!
-  \brief Communication plan MPI class.
-
-  \tparam DeviceType Device type for which the data for this class will be
-  allocated and where parallel execution will occur.
-
-  The communication plan computes how to redistribute elements in a parallel
-  data structure using MPI. Given a list of data elements on the local MPI
-  rank and their destination ranks, the communication plan computes which rank
-  each process is sending and receiving from and how many elements we will
-  send and receive. In addition, it provides an export steering vector which
-  describes how to pack the local data to be exported into contiguous send
-  buffers for each destination rank (in the forward communication plan).
-
-  Some nomenclature:
-
-  Export - elements we are sending in the forward communication plan.
-
-  Import - elements we are receiving in the forward communication plan.
-
-  \note If a communication plan does self-sends (i.e. exports and imports data
-  from its own ranks) then this data is first in the data structure. What this
-  means is that neighbor 0 is the local rank and the data for that rank that
-  is being exported will appear first in the steering vector.
+  \brief Communication plan class. Uses vanilla MPI as the communication backend.
 */
-
-// Forward declaration of the primary template
-// template <class MemorySpace, class CommSpace = CommSpace::MPI>
-// class CommunicationPlan;
 
 template <class MemorySpace>
 class CommunicationPlan<MemorySpace, CommSpace::MPI> : public CommunicationPlanBase<MemorySpace>
@@ -78,7 +52,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPI> : public CommunicationPlanB
     /*!
       \brief Constructor.
 
-      \param comm The MPI communicator over which the distributor is defined.
+      \param comm The MPI communicator over which the CommunicationPlan is defined.
     */
     CommunicationPlan( MPI_Comm comm )
         : CommunicationPlanBase<MemorySpace>( comm )
