@@ -11,7 +11,7 @@
 
 /*!
   \file Cabana_CommunicationPlanBase.hpp
-  \brief Multi-node communication patterns
+  \brief Multi-node communication patterns. Base class.
 */
 #ifndef CABANA_COMMUNICATIONPLANBASE_HPP
 #define CABANA_COMMUNICATIONPLANBASE_HPP
@@ -404,6 +404,12 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   describes how to pack the local data to be exported into contiguous send
   buffers for each destination rank (in the forward communication plan).
 
+  A CommunicationPlan is created with a specific communication backend designated
+  by the CommSpace type tag. The base class holds functions and variables common
+  to all communication spaces. Functions, and variables required by them, that
+  implement the communication patterns are stored in child classes in the directory
+  impl/Cabana_CommuncationPlanXXX, where XXX is the name of the communication backend.
+
   Some nomenclature:
 
   Export - elements we are sending in the forward communication plan.
@@ -678,25 +684,17 @@ class CommunicationPlanBase
     Kokkos::View<std::size_t*, memory_space> _export_steering;
 };
 
-// Forward declaration of the primary template
+// Forward declaration of the primary CommunicationPlan template.
 template <class MemorySpace, class CommSpace = CommSpace::MPI>
 class CommunicationPlan;
 
 } // namespace Cabana
 
 
-// Include further specializations of StreamHalo to get implementations.
+// Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_CommunicationPlanMPI.hpp>
-#endif
-
-// #ifdef Cabana_ENABLE_MPICH
-// #include <impl/Cabana_Grid_MpichStreamHalo.hpp>
-// #endif // MPICH
-
-// #ifdef Cabana_ENABLE_CRAY_MPI
-// #include <impl/Cabana_Grid_CrayMpiStreamHalo.hpp>
-// #endif // CRAY_MPI
+#endif // Vanilla MPI
 
 // #ifdef Cabana_ENABLE_MPI_ADVANCE
 // #include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
