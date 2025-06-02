@@ -421,8 +421,18 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         MPIX_Free(src);
         MPIX_Free(import_sizes);
 
-        // Barrier before continuing to ensure synchronization.
-        MPI_Barrier( this->comm() );
+        // Now that we know our neighbors, create a neighbor communicator
+        // to optimize calls to Cabana::migrate.
+        MPIX_Dist_graph_create_adjacent(this->comm(),
+            this->_neighbors.size(),
+            this->_neighbors.data(), 
+            MPI_UNWEIGHTED,
+            this->_neighbors.size(), 
+            this->_neighbors.data(),
+            MPI_UNWEIGHTED,
+            MPI_INFO_NULL, 
+            0,
+            &_neighbor_comm);
 
         // Return the neighbor ids.
         return counts_and_ids.second;
