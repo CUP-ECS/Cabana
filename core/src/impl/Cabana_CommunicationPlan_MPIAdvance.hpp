@@ -135,7 +135,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
         // Store the number of export elements.
-        this->this->_num_export_element = element_export_ranks.size();
+        this->_num_export_element = element_export_ranks.size();
 
         // Store the unique neighbors (this rank first).
         this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
@@ -143,11 +143,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
 
         // Create a neighbor communicator
         // Assume we send to and receive from each neighbor
-        MPIX_Request* neighbor_request;
-
-        MPIX_Info* xinfo;
-        MPIX_Info_init(&xinfo);
-
         MPIX_Dist_graph_create_adjacent(this->comm(),
             num_n,
             this->_neighbors.data(), 
@@ -161,15 +156,11 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
 
         // Get the size of this communicator.
         int comm_size = -1;
-        MPI_Comm_size( _neighbor_comm, &comm_size );
+        MPI_Comm_size( _neighbor_comm->global_comm, &comm_size );
 
         // Get the MPI rank we are currently on.
         int my_rank = -1;
         MPI_Comm_rank( this->comm(), &my_rank );
-
-        // Pick an mpi tag for communication. This object has it's own
-        // communication space so any mpi tag will do.
-        const int mpi_tag = 1221;
 
         // Initialize import/export sizes.
         this->_num_export.assign( num_n, 0 );
@@ -190,76 +181,51 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
 
-
-
-        /*
-        MPIX_Dist_graph_create_adjacent(MPI_COMM_WORLD,
-            recv_data.num_msgs, 
-            recv_data.procs.data(), 
-            recv_data.counts.data(),
-            send_data.num_msgs, 
-            send_data.procs.data(),
-            send_data.counts.data(),
-            MPI_INFO_NULL, 
-            0, 
-            &neighbor_comm);
-
-        int MPIX_Neighbor_alltoallv_init(
-            const void* sendbuffer,
-            const int sendcounts[],
-            const int sdispls[],
-            MPI_Datatype sendtype,
-            void* recvbuffer,
-            const int recvcounts[],
-            const int rdispls[],
-            MPI_Datatype recvtype,
-            MPIX_Comm* comm,
-            MPIX_Info* info,
-            MPIX_Request** request_ptr)
         
-        */
+        // Use MPIX_Neighbor_alltoallv_init to send number of exports to each neighbor.
+        // This is an alltoall, not an alltoallv, but MPI Advance does not currently
+        // have a Neighbor_alltoall.
 
+        // Each send/recv is one int
+        std::vector<int> sendcounts(num_n, 1);
+        std::vector<int> recvcounts(num_n, 1);
+        std::vector<int> sdispls(num_n);
+        std::vector<int> rdispls(num_n);
 
+        for (int i = 0; i < num_n; ++i)
+        {
+            sdispls[i] = i;
+            rdispls[i] = i;
+        }
 
+        MPIX_Request* neighbor_request;
+        MPIX_Info* xinfo;
+        MPIX_Info_init(&xinfo);
 
+        MPIX_Neighbor_alltoallv_init(
+            this->_num_export.data(),  // sendbuffer
+            sendcounts.data(),         // sendcounts
+            sdispls.data(),            // sdispls
+            MPI_UNSIGNED_LONG,         // sendtype
+            this->_num_import.data(),  // recvbuffer
+            recvcounts.data(),         // recvcounts
+            rdispls.data(),            // rdispls
+            MPI_UNSIGNED_LONG,         // recvtype
+            _neighbor_comm,            // MPIX_Comm*
+            xinfo,                     // MPIX_Info*
+            &neighbor_request);        // output request
 
-
-
-
-
-
-        // Post receives for the number of imports we will get.
-        std::vector<MPI_Request> requests;
-        requests.reserve( num_n );
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
-            {
-                requests.push_back( MPI_Request() );
-                MPI_Irecv( &this->_num_import[n], 1, MPI_UNSIGNED_LONG, this->_neighbors[n],
-                           mpi_tag, this->comm(), &( requests.back() ) );
-            }
-            else
-                this->_num_import[n] = this->_num_export[n];
-
-        // Send the number of exports to each of our neighbors.
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
-                MPI_Send( &this->_num_export[n], 1, MPI_UNSIGNED_LONG, this->_neighbors[n],
-                          mpi_tag, this->comm() );
-
-        // Wait on receives.
-        std::vector<MPI_Status> status( requests.size() );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+        MPI_Status status;
+        MPIX_Start(neighbor_request);
+        MPIX_Wait(neighbor_request, &status);
+        MPIX_Request_free(&neighbor_request);
 
         // Get the total number of imports/exports.
         this->_total_num_export =
             std::accumulate( this->_num_export.begin(), this->_num_export.end(), 0 );
         this->_total_num_import =
             std::accumulate( this->_num_import.begin(), this->_num_import.end(), 0 );
-
+        
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
 
