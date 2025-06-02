@@ -408,7 +408,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   designated by the CommSpace type tag. The base class holds functions and
   variables common to all communication spaces. Functions, and variables
   required by them, that implement the communication patterns are stored in
-  child classes in the directory impl/Cabana_CommuncationPlanXXX, where XXX is
+  child classes in the directory impl/Cabana_CommuncationPlan_XXX, where XXX is
   the name of the communication backend.
 
   Some nomenclature:
@@ -686,19 +686,19 @@ class CommunicationPlanBase
 };
 
 // Forward declaration of the primary CommunicationPlan template.
-template <class MemorySpace, class CommSpace = CommSpace::MPI>
+template <class MemorySpace, class CommSpace>
 class CommunicationPlan;
 
 } // namespace Cabana
 
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
-#include <impl/Cabana_CommunicationPlanMPI.hpp>
+#include <impl/Cabana_CommunicationPlan_MPI.hpp>
 #endif // Vanilla MPI
 
-// #ifdef Cabana_ENABLE_MPI_ADVANCE
-// #include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
-// #endif // MPIADVANCE
+#ifdef Cabana_ENABLE_MPIADVANCE
+#include <impl/Cabana_CommunicationPlan_MPIAdvance.hpp>
+#endif // MPIADVANCE
 
 namespace Cabana
 {

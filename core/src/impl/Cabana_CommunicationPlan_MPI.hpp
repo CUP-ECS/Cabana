@@ -14,8 +14,8 @@
   \brief Multi-node communication patterns.
   Uses vanilla MPI as the communication backend.
 */
-#ifndef CABANA_COMMUNICATIONPLANMPI_HPP
-#define CABANA_COMMUNICATIONPLANMPI_HPP
+#ifndef CABANA_COMMUNICATIONPLAN_MPI_HPP
+#define CABANA_COMMUNICATIONPLAN_MPI_HPP
 
 #include <Cabana_Utils.hpp>
 
@@ -972,4 +972,4 @@ class CommunicationPlan<MemorySpace, CommSpace::MPI>
 
 } // end namespace Cabana
 
-#endif // end CABANA_COMMUNICATIONPLANMPI_HPP
+#endif // end CABANA_COMMUNICATIONPLAN_MPI_HPP

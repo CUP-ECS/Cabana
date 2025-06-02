@@ -33,6 +33,13 @@ namespace CommSpace
 struct MPI
 {
 };
+
+/*!
+    \brief MPI Advance comm tag.
+*/
+struct MPIAdvance
+{
+};
 } // end namespace CommSpace
 
 //---------------------------------------------------------------------------//
