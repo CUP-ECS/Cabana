@@ -135,7 +135,7 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
     */
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
         auto neighbor_ids = this->createFromExportsOnly( element_export_ranks );
         this->createExportSteering( neighbor_ids, element_export_ranks );

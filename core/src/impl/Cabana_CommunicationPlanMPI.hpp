@@ -69,7 +69,7 @@ template <class MemorySpace>
 class CommunicationPlan<MemorySpace, CommSpace::MPI> : public CommunicationPlanBase<MemorySpace>
 {
 
-  protected:
+  public:
     using typename CommunicationPlanBase<MemorySpace>::memory_space;
     using typename CommunicationPlanBase<MemorySpace>::execution_space;
     using typename CommunicationPlanBase<MemorySpace>::size_type;
@@ -207,8 +207,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MPI> : public CommunicationPlanB
 
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
-
-        printf("this->_neighbors[0]: %d\n", this->_neighbors[0]);
 
         // Return the neighbor ids.
         return counts_and_ids.second;
