@@ -830,7 +830,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         // Assign all exports to zero
         this->_num_export.assign( this->_num_import.size(), 0 );
 
-
         MPIX_Comm *xcomm;
         MPIX_Info *xinfo;
         MPIX_Comm_init(&xcomm, this->comm());
@@ -852,8 +851,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         MPIX_Comm_free(&xcomm);
             
         // Save ranks we got messages from and track total messages to size
-        // buffers
-        // Track which ranks we received data from
+        // buffers. Track which ranks we received data from
         for (int i = 0; i < num_export_rank; ++i)
         {
             int exporting_rank = src[i];
@@ -927,6 +925,19 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
+        
+        // Now that we know our neighbors, create a neighbor communicator
+        // to optimize calls to Cabana::migrate.
+        MPIX_Dist_graph_create_adjacent(this->comm(),
+            this->_neighbors.size(),
+            this->_neighbors.data(), 
+            MPI_UNWEIGHTED,
+            this->_neighbors.size(), 
+            this->_neighbors.data(),
+            MPI_UNWEIGHTED,
+            MPI_INFO_NULL, 
+            0,
+            &_neighbor_comm);
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
