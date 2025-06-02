@@ -404,11 +404,12 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   describes how to pack the local data to be exported into contiguous send
   buffers for each destination rank (in the forward communication plan).
 
-  A CommunicationPlan is created with a specific communication backend designated
-  by the CommSpace type tag. The base class holds functions and variables common
-  to all communication spaces. Functions, and variables required by them, that
-  implement the communication patterns are stored in child classes in the directory
-  impl/Cabana_CommuncationPlanXXX, where XXX is the name of the communication backend.
+  A CommunicationPlan is created with a specific communication backend
+  designated by the CommSpace type tag. The base class holds functions and
+  variables common to all communication spaces. Functions, and variables
+  required by them, that implement the communication patterns are stored in
+  child classes in the directory impl/Cabana_CommuncationPlanXXX, where XXX is
+  the name of the communication backend.
 
   Some nomenclature:
 
@@ -689,7 +690,6 @@ template <class MemorySpace, class CommSpace = CommSpace::MPI>
 class CommunicationPlan;
 
 } // namespace Cabana
-
 
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI

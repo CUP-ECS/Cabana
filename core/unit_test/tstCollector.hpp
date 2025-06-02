@@ -55,13 +55,15 @@ void test1( const bool use_topology )
     // Create the plan.
     if ( use_topology )
     {
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     }
     else
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
 
     // Make some data to migrate.
     using DataTypes = Cabana::MemberTypes<int, double[2]>;
@@ -144,13 +146,15 @@ void test2( const bool use_topology )
     // Create the plan
     if ( use_topology )
     {
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     }
     else
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
 
     // Make some data to migrate.
     using DataTypes = Cabana::MemberTypes<int, double[2]>;
@@ -230,12 +234,14 @@ void test3( const bool use_topology )
 
     // Create the plan with both export ranks and the topology.
     if ( use_topology )
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     else
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
 
     // Make some data to migrate.
     using DataTypes = Cabana::MemberTypes<int, double[2]>;
@@ -340,12 +346,14 @@ void test4( const bool use_topology )
 
     // Create the plan
     if ( use_topology )
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     else
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
 
     // Make some data to migrate.
     using DataTypes = Cabana::MemberTypes<int, double[2]>;
@@ -464,12 +472,14 @@ void test5( const bool use_topology )
 
     // Create the plan.
     if ( use_topology )
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     else
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
 
     // Make some data to migrate.
     using DataTypes = Cabana::MemberTypes<int, double[2]>;
@@ -565,13 +575,15 @@ void test6( const bool use_topology )
 
     // Create the plan.
     if ( use_topology )
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     else
     {
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
     }
 
     // Make some data to migrate.
@@ -668,12 +680,14 @@ void test7( const bool use_topology )
 
     // Create the plan.
     if ( use_topology )
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids,
-            neighbor_ranks );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids,
+                neighbor_ranks );
     else
-        collector = std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
-            MPI_COMM_WORLD, num_data, import_ranks, import_ids );
+        collector =
+            std::make_shared<Cabana::Collector<TEST_MEMSPACE, TEST_COMMSPACE>>(
+                MPI_COMM_WORLD, num_data, import_ranks, import_ids );
 
     // Make some data to migrate.
     using DataTypes = Cabana::MemberTypes<int, double[2]>;
@@ -748,12 +762,13 @@ class CollectorTypedTest : public ::testing::Test
 };
 
 using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::MPI
-    #ifdef Cabana_ENABLE_MPIADVANCE
-        , Cabana::CommSpace::MPIAdvance
-    #endif
-    >;
+#ifdef Cabana_ENABLE_MPIADVANCE
+                                        ,
+                                        Cabana::CommSpace::MPIAdvance
+#endif
+                                        >;
 
-TYPED_TEST_SUITE( CollectorTypedTest, CommSpaceTypes);
+TYPED_TEST_SUITE( CollectorTypedTest, CommSpaceTypes );
 
 TYPED_TEST( CollectorTypedTest, Test1 ) { test1<TypeParam>( true ); }
 
