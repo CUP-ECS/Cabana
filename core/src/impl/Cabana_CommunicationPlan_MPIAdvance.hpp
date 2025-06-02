@@ -152,11 +152,11 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
             MPI_UNWEIGHTED,
             MPI_INFO_NULL, 
             0,
-            &_neighbor_comm);
+            &_xcomm);
 
         // Get the size of this communicator.
         int comm_size = -1;
-        MPI_Comm_size( _neighbor_comm->global_comm, &comm_size );
+        MPI_Comm_size( _xcomm->global_comm, &comm_size );
 
         // Get the MPI rank we are currently on.
         int my_rank = -1;
@@ -211,7 +211,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
             recvcounts.data(),         // recvcounts
             rdispls.data(),            // rdispls
             MPI_UNSIGNED_LONG,         // recvtype
-            _neighbor_comm,            // MPIX_Comm*
+            _xcomm,            // MPIX_Comm*
             xinfo,                     // MPIX_Info*
             &neighbor_request);        // output request
 
@@ -432,7 +432,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
             MPI_UNWEIGHTED,
             MPI_INFO_NULL, 
             0,
-            &_neighbor_comm);
+            &_xcomm);
 
         // Return the neighbor ids.
         return counts_and_ids.second;
@@ -937,7 +937,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
             MPI_UNWEIGHTED,
             MPI_INFO_NULL, 
             0,
-            &_neighbor_comm);
+            &_xcomm);
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
@@ -984,7 +984,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
 
   private:
     // Variables needed only for MPI Advance
-    MPIX_Comm* _neighbor_comm;
+    MPIX_Comm* _xcomm;
 };
 
 } // end namespace Cabana
