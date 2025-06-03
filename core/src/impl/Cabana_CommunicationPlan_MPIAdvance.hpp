@@ -83,6 +83,12 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
     CommunicationPlan( MPI_Comm comm )
         : CommunicationPlanBase<MemorySpace>( comm )
     {
+        MPIX_Comm_init(&_xcomm, this->comm());
+    }
+
+    ~CommunicationPlan()
+    {
+        MPIX_Comm_free(&_xcomm);
     }
 
     // The functions in the public block below would normally be protected but
@@ -211,7 +217,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
             recvcounts.data(),         // recvcounts
             rdispls.data(),            // rdispls
             MPI_UNSIGNED_LONG,         // recvtype
-            _xcomm,            // MPIX_Comm*
+            _xcomm,                    // MPIX_Comm*
             xinfo,                     // MPIX_Info*
             &neighbor_request);        // output request
 
@@ -219,6 +225,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         MPIX_Start(neighbor_request);
         MPIX_Wait(neighbor_request, &status);
         MPIX_Request_free(&neighbor_request);
+        MPIX_Info_free(&xinfo);
 
         // Get the total number of imports/exports.
         this->_total_num_export =
@@ -370,9 +377,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         
             }
 
-        MPIX_Comm *xcomm;
         MPIX_Info *xinfo;
-        MPIX_Comm_init(&xcomm, this->comm());
         MPIX_Info_init(&xinfo);
 
         int num_import_rank = -1;
@@ -381,10 +386,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         // std::vector<std::size_t> import_sizes( comm_size );
         MPIX_Alltoall_crs(num_export_rank, this->_neighbors.data(), 1, MPI_UNSIGNED_LONG, this->_num_export.data(),
                           &num_import_rank, &src, 1, MPI_UNSIGNED_LONG, (void**)&import_sizes,
-                          xinfo, xcomm);
+                          xinfo, _xcomm);
         
         MPIX_Info_free(&xinfo);
-        MPIX_Comm_free(&xcomm);
         this->_total_num_import = std::accumulate(import_sizes, import_sizes + num_import_rank, 0UL);
             
         // Extract the imports. If we did self sends we already know what
@@ -528,10 +532,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         if ( element_import_ids.size() != element_import_ranks.size() )
             throw std::runtime_error( "Export ids and ranks different sizes!" );
 
-        // Store the unique neighbors (this rank first).
-        this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
-        int num_n = this->_neighbors.size();
-
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
@@ -540,13 +540,36 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         int my_rank = -1;
         MPI_Comm_rank( this->comm(), &my_rank );
 
-        // Pick an mpi tag for communication. This object has it's own
-        // communication space so any mpi tag will do.
-        const int mpi_tag = 1221;
+        this->_total_num_import = element_import_ranks.extent(0);
 
-        // Initialize import/export sizes.
-        this->_num_export.assign( num_n, 0 );
-        this->_num_import.assign( num_n, 0 );
+        // Step 1: Initialize indices
+        Kokkos::View<int*, memory_space> indices("indices", this->_total_num_import);
+        Kokkos::parallel_for("InitIndices", Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ), KOKKOS_LAMBDA(int i) {
+            indices(i) = i;
+        });
+    
+        // Step 2: Set up bin sort
+        using BinOp = Kokkos::BinOp1D<Kokkos::View<int*, memory_space>>;
+        BinOp bin_op(comm_size, 0, comm_size-1);
+        Kokkos::BinSort<Kokkos::View<int*, memory_space>, BinOp> bin_sort(element_import_ranks, bin_op, true);
+    
+        // Step 3: Sort indices
+        bin_sort.create_permute_vector();
+        bin_sort.sort(indices);
+    
+        // Step 4: Permute both arrays
+        Kokkos::View<int*, memory_space> ranks_sorted("ranks_sorted", this->_total_num_import);
+        Kokkos::View<int*, memory_space> ids_sorted("ids_sorted", this->_total_num_import);
+        Kokkos::parallel_for("PermuteExports", Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ), KOKKOS_LAMBDA(int i) {
+            int sorted_i = indices(i);
+            ranks_sorted(i) = element_import_ranks(sorted_i);
+            ids_sorted(i)   = element_import_ids(sorted_i);
+        });
+
+        for (size_t i = 0; i < ranks_sorted.extent(0); i++)
+        {
+            printf("R%d: importing id %d from R%d\n", my_rank, ids_sorted(i), ranks_sorted(i));
+        }
 
         // Count the number of imports this rank needs from other ranks. Keep
         // track of which slot we get in our neighbor's send buffer?
@@ -558,43 +581,173 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         // Copy the counts to the host.
         auto neighbor_counts_host = Kokkos::create_mirror_view_and_copy(
             Kokkos::HostSpace(), counts_and_ids.first );
+        
+        // Store the unique neighbors (this rank first).
+        this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
+        int num_n = this->_neighbors.size();
 
+         // Initialize import/export sizes.
+        this->_num_export.assign( num_n, 0 );
+        this->_num_import.assign( num_n, 0 );
+
+        
         // Get the import counts.
         for ( int n = 0; n < num_n; ++n )
             this->_num_import[n] = neighbor_counts_host( this->_neighbors[n] );
 
-        // Post receives to get the number of indices I will send to each rank.
-        // Post that many wildcard recieves to get the number of indices I will
-        // send to each rank
-        std::vector<MPI_Request> requests;
-        requests.reserve( num_n * 2 );
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
-            {
-                requests.push_back( MPI_Request() );
-                MPI_Irecv( &this->_num_export[n], 1, MPI_UNSIGNED_LONG, this->_neighbors[n],
-                           mpi_tag, this->comm(), &( requests.back() ) );
-            }
-            else // Self import
-            {
-                this->_num_export[n] = this->_num_import[n];
-            }
+        // Create a neighbor communicator
+        // Assume we send to and receive from each neighbor
+        MPIX_Dist_graph_create_adjacent(this->comm(),
+            num_n,
+            this->_neighbors.data(), 
+            MPI_UNWEIGHTED,
+            num_n, 
+            this->_neighbors.data(),
+            MPI_UNWEIGHTED,
+            MPI_INFO_NULL, 
+            0,
+            &_xcomm);
+        
+        // Use MPIX_Neighbor_alltoallv_init to send number of imports to each neighbor.
+        // This is an alltoall, not an alltoallv, but MPI Advance does not currently
+        // have a Neighbor_alltoall.
+        // We need to send this so the receive buffers for the indices can be
+        // sized correctly.
 
-        // Send the number of imports to each of our neighbors.
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
-            {
-                requests.push_back( MPI_Request() );
-                MPI_Isend( &this->_num_import[n], 1, MPI_UNSIGNED_LONG, this->_neighbors[n],
-                           mpi_tag, this->comm(), &( requests.back() ) );
-            }
+        // Each send/recv is one int
+        std::vector<int> sendcounts(num_n, 1);
+        std::vector<int> recvcounts(num_n, 1);
+        std::vector<int> sdispls(num_n);
+        std::vector<int> rdispls(num_n);
 
-        // Wait on messages.
-        std::vector<MPI_Status> status( requests.size() );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+        for (int i = 0; i < num_n; ++i)
+        {
+            sdispls[i] = i;
+            rdispls[i] = i;
+        }
+
+        MPIX_Request* neighbor_request;
+        MPIX_Info* xinfo;
+        MPIX_Info_init(&xinfo);
+
+        MPIX_Neighbor_alltoallv_init(
+            this->_num_import.data(),  // sendbuffer
+            sendcounts.data(),         // sendcounts
+            sdispls.data(),            // sdispls
+            MPI_UNSIGNED_LONG,         // sendtype
+            this->_num_export.data(),  // recvbuffer
+            recvcounts.data(),         // recvcounts
+            rdispls.data(),            // rdispls
+            MPI_UNSIGNED_LONG,         // recvtype
+            _xcomm,                    // MPIX_Comm*
+            xinfo,                     // MPIX_Info*
+            &neighbor_request);        // output request
+
+        MPI_Status status;
+        MPIX_Start(neighbor_request);
+        MPIX_Wait(neighbor_request, &status);
+        MPIX_Request_free(&neighbor_request);
+        MPIX_Info_free(&xinfo);
+
+        // Get the total number of imports/exports.
+        this->_total_num_export =
+            std::accumulate( this->_num_export.begin(), this->_num_export.end(), 0 );
+        this->_total_num_import =
+            std::accumulate( this->_num_import.begin(), this->_num_import.end(), 0 );
+        
+        for (size_t i = 0; i < this->_num_export.size(); i++)
+        {
+            printf("R%d: exporting %d ids to R%d\n", my_rank, this->_num_export[i], this->_neighbors[i]);
+        }
+
+        // Now send the indices we want to import to each rank.
+        
+        // Reset displacement vectors
+        sdispls.clear();
+        sendcounts.clear();
+
+        // Store offsets into ranks_sorted to send
+        sdispls.push_back(0);
+        for (int neighbor_rank : this->_neighbors)
+            sdispls.push_back(sdispls.back() + neighbor_counts_host(neighbor_rank));
+        
+        // Store send counts to each rank
+        for (int neighbor_rank : this->_neighbors)
+            sendcounts.push_back(neighbor_counts_host(neighbor_rank));
+
+
+        // Total number of imports and exports are now known
+        this->_num_export_element = this->_total_num_export;
+
+
+        // Now, build the export steering
+        Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
+            "element_export_ranks", this->_total_num_export );
+        Kokkos::View<int*, Kokkos::HostSpace> export_indices_h(
+            "export_indices", this->_total_num_export );
+
+        // Fill the export ranks and indices
+        int offset = 0;
+        for (int i = 0; i < num_export_rank; ++i)
+        {
+            int dest_rank = src[i];           // The rank to send to
+            int count = recv_counts[i];       // How many elements to send
+            int disp = recv_displs[i];        // Where they are in recv_vals
+
+            for (int j = 0; j < count; ++j)
+            {
+                element_export_ranks_h(offset) = dest_rank;
+                export_indices_h(offset) = recv_vals[disp + j];
+                ++offset;
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // Copy sorted send buffer to host
+        auto ids_sorted_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ids_sorted);
+
+        // Create receive buffer
+        Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
+            "export_indices", this->_total_num_export );
+
+
+        // MPIX_Request* neighbor_request;
+        // MPIX_Info* xinfo;
+        // MPIX_Info_init(&xinfo);
+
+        // MPIX_Neighbor_alltoallv_init(
+        //     ids_sorted_host.data(),    // sendbuffer
+        //     this->_num_import.data(),         // sendcounts
+        //     sdispls.data(),            // sdispls
+        //     MPI_UNSIGNED_LONG,         // sendtype
+        //     export_indices_h.data(),   // recvbuffer
+        //     recvcounts.data(),         // recvcounts
+        //     rdispls.data(),            // rdispls
+        //     MPI_UNSIGNED_LONG,         // recvtype
+        //     _xcomm,                    // MPIX_Comm*
+        //     xinfo,                     // MPIX_Info*
+        //     &neighbor_request);        // output request
+
+        // MPI_Status status;
+        // MPIX_Start(neighbor_request);
+        // MPIX_Wait(neighbor_request, &status);
+        // MPIX_Request_free(&neighbor_request);
+        // MPIX_Info_free(&xinfo);
+
 
         // Get the total number of imports/exports.
         this->_total_num_export =
@@ -605,6 +758,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
 
         // Post receives to get the indices other processes are requesting
         // i.e. our export indices
+        int mpi_tag = 1234;
         Kokkos::View<int*, memory_space> export_indices( "export_indices",
                                                          this->_total_num_export );
         size_t idx = 0;
@@ -830,9 +984,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         // Assign all exports to zero
         this->_num_export.assign( this->_num_import.size(), 0 );
 
-        MPIX_Comm *xcomm;
         MPIX_Info *xinfo;
-        MPIX_Comm_init(&xcomm, this->comm());
         MPIX_Info_init(&xinfo);
 
         int num_export_rank = -1, total_num_export = -1;
@@ -842,13 +994,12 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
         MPIX_Alltoallv_crs(this->_neighbors.size(), this->_total_num_import, this->_neighbors.data(), sendcounts.data(), 
             sdispls.data(), MPI_INT, ids_sorted_host.data(),
             &num_export_rank, &total_num_export, &src, &recv_counts,
-            &recv_displs, MPI_INT, (void**)&recv_vals, xinfo, xcomm); 
+            &recv_displs, MPI_INT, (void**)&recv_vals, xinfo, _xcomm); 
         
         
         this->_total_num_export = total_num_export;
         
         MPIX_Info_free(&xinfo);
-        MPIX_Comm_free(&xcomm);
             
         // Save ranks we got messages from and track total messages to size
         // buffers. Track which ranks we received data from
