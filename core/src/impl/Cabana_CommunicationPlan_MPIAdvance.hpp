@@ -662,144 +662,109 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
 
         // Now send the indices we want to import to each rank.
         
-        // Reset displacement vectors
-        sdispls.clear();
-        sendcounts.clear();
-
-        // Store offsets into ranks_sorted to send
-        sdispls.push_back(0);
-        for (int neighbor_rank : this->_neighbors)
-            sdispls.push_back(sdispls.back() + neighbor_counts_host(neighbor_rank));
-        
-        // Store send counts to each rank
-        for (int neighbor_rank : this->_neighbors)
-            sendcounts.push_back(neighbor_counts_host(neighbor_rank));
-
-
-        // Total number of imports and exports are now known
-        this->_num_export_element = this->_total_num_export;
-
-
-        // Now, build the export steering
-        Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
-            "element_export_ranks", this->_total_num_export );
-        Kokkos::View<int*, Kokkos::HostSpace> export_indices_h(
-            "export_indices", this->_total_num_export );
-
-        // Fill the export ranks and indices
-        int offset = 0;
-        for (int i = 0; i < num_export_rank; ++i)
-        {
-            int dest_rank = src[i];           // The rank to send to
-            int count = recv_counts[i];       // How many elements to send
-            int disp = recv_displs[i];        // Where they are in recv_vals
-
-            for (int j = 0; j < count; ++j)
-            {
-                element_export_ranks_h(offset) = dest_rank;
-                export_indices_h(offset) = recv_vals[disp + j];
-                ++offset;
-            }
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // Copy sorted send buffer to host
+        // Host mirror of the ids_sorted view.
         auto ids_sorted_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ids_sorted);
+        auto ranks_sorted_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ranks_sorted);
 
-        // Create receive buffer
-        Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
-            "export_indices", this->_total_num_export );
+        // Total number of imports
+        assert(this->_total_num_import == ids_sorted_host.extent(0));
 
+        // Compute sendcounts and sdispls based on ranks_sorted_host
+        sendcounts.resize(num_n, 0);
+        sdispls.resize(num_n, 0);
 
-        // MPIX_Request* neighbor_request;
-        // MPIX_Info* xinfo;
-        // MPIX_Info_init(&xinfo);
+        std::unordered_map<int, int> rank_to_neighbor_index;
+        for (int i = 0; i < num_n; ++i)
+            rank_to_neighbor_index[this->_neighbors[i]] = i;
 
-        // MPIX_Neighbor_alltoallv_init(
-        //     ids_sorted_host.data(),    // sendbuffer
-        //     this->_num_import.data(),         // sendcounts
-        //     sdispls.data(),            // sdispls
-        //     MPI_UNSIGNED_LONG,         // sendtype
-        //     export_indices_h.data(),   // recvbuffer
-        //     recvcounts.data(),         // recvcounts
-        //     rdispls.data(),            // rdispls
-        //     MPI_UNSIGNED_LONG,         // recvtype
-        //     _xcomm,                    // MPIX_Comm*
-        //     xinfo,                     // MPIX_Info*
-        //     &neighbor_request);        // output request
-
-        // MPI_Status status;
-        // MPIX_Start(neighbor_request);
-        // MPIX_Wait(neighbor_request, &status);
-        // MPIX_Request_free(&neighbor_request);
-        // MPIX_Info_free(&xinfo);
-
-
-        // Get the total number of imports/exports.
-        this->_total_num_export =
-            std::accumulate( this->_num_export.begin(), this->_num_export.end(), 0 );
-        this->_total_num_import =
-            std::accumulate( this->_num_import.begin(), this->_num_import.end(), 0 );
-        this->_num_export_element = this->_total_num_export;
-
-        // Post receives to get the indices other processes are requesting
-        // i.e. our export indices
-        int mpi_tag = 1234;
-        Kokkos::View<int*, memory_space> export_indices( "export_indices",
-                                                         this->_total_num_export );
-        size_t idx = 0;
-        int num_messages = this->_total_num_export + element_import_ranks.extent( 0 );
-        std::vector<MPI_Request> mpi_requests( num_messages );
-        std::vector<MPI_Status> mpi_statuses( num_messages );
-        for ( int i = 0; i < num_n; i++ )
+        // First count how many indices to send to each neighbor
+        for (int i = 0; i < this->_total_num_import; ++i)
         {
-            for ( int j = 0; j < this->_num_export[i]; j++ )
-            {
-                MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
-                           this->_neighbors[i], mpi_tag, this->comm(), &mpi_requests[idx] );
-                idx++;
-            }
+            int dest_rank = ranks_sorted_host(i);
+            int neighbor_index = rank_to_neighbor_index[dest_rank];
+            sendcounts[neighbor_index]++;
         }
 
-        // Send the indices we need
-        for ( size_t i = 0; i < element_import_ranks.extent( 0 ); i++ )
+        // Then compute displacements
+        for (int i = 1; i < num_n; ++i)
+            sdispls[i] = sdispls[i - 1] + sendcounts[i - 1];
+
+        // Fill send buffer
+        std::vector<int> send_buffer(this->_total_num_import);
+        std::vector<int> temp_offset = sdispls; // temp offset for where to insert next
+
+        for (int i = 0; i < this->_total_num_import; ++i)
         {
-            MPI_Isend( element_import_ids.data() + i, 1, MPI_INT,
-                       *( element_import_ranks.data() + i ), mpi_tag, this->comm(),
-                       &mpi_requests[idx++] );
+            int dest_rank = ranks_sorted_host(i);
+            int neighbor_index = rank_to_neighbor_index[dest_rank];
+            send_buffer[temp_offset[neighbor_index]++] = ids_sorted_host(i);
         }
 
-        // Wait for all count exchanges to complete
-        const int ec1 = MPI_Waitall( num_messages, mpi_requests.data(),
-                                     mpi_statuses.data() );
-        if ( MPI_SUCCESS != ec1 )
-            throw std::logic_error( "Failed MPI Communication" );
+        // Prepare receive buffer and metadata
+        recvcounts.resize(num_n);
+        rdispls.resize(num_n);
+        for (int i = 0; i < num_n; ++i)
+        {
+            recvcounts[i] = this->_num_export[i]; // previously received
+            rdispls[i] = (i == 0) ? 0 : rdispls[i - 1] + recvcounts[i - 1];
+        }
+
+        // Host view to receive remote indices
+        Kokkos::View<int*, Kokkos::HostSpace> received_indices("received_indices", this->_total_num_export);
+
+        int expected_total_recv = std::accumulate(recvcounts.begin(), recvcounts.end(), 0);
+if (expected_total_recv != this->_total_num_export)
+{
+    printf("R%d: ERROR: expected %d exports, but recvcounts add to %d\n",
+           my_rank, this->_total_num_export, expected_total_recv);
+    throw std::runtime_error("Mismatch in expected export size!");
+}
+
+
+        // Setup and call MPIX_Neighbor_alltoallv_init
+        MPIX_Request* neighbor_index_request;
+        MPIX_Info* xinfo2;
+        MPIX_Info_init(&xinfo2);
+
+        MPIX_Neighbor_alltoallv_init(
+            send_buffer.data(),          // send buffer
+            sendcounts.data(),           // sendcounts
+            sdispls.data(),              // sdispls
+            MPI_INT,                     // send type
+            received_indices.data(),     // recv buffer
+            recvcounts.data(),           // recvcounts
+            rdispls.data(),              // rdispls
+            MPI_INT,                     // recv type
+            _xcomm,
+            xinfo2,
+            &neighbor_index_request);
+
+        MPI_Status status2;
+        MPIX_Start(neighbor_index_request);
+        MPIX_Wait(neighbor_index_request, &status2);
+        MPIX_Request_free(&neighbor_index_request);
+        MPIX_Info_free(&xinfo2);
 
         // Now, build the export steering
-        // Export rank in mpi_statuses[i].MPI_SOURCE
-        // Export ID in export_indices(i)
+        // Export rank in _neighbors and rdispls
         Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
             "element_export_ranks_h", this->_total_num_export );
-        for ( size_t i = 0; i < this->_total_num_export; i++ )
+        for (int n = 0; n < num_n; ++n)
         {
-            element_export_ranks_h[i] = mpi_statuses[i].MPI_SOURCE;
+            int rank = this->_neighbors[n];
+            int begin = rdispls[n];
+            int end = begin + recvcounts[n];
+
+            for (int i = begin; i < end; ++i)
+            {
+                element_export_ranks_h(i) = rank;
+            }
         }
+
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
             memory_space(), element_export_ranks_h );
+        auto export_indices = Kokkos::create_mirror_view_and_copy(
+            memory_space(), received_indices );
 
         auto counts_and_ids2 = Impl::countSendsAndCreateSteering(
             exec_space, element_export_ranks, comm_size,
