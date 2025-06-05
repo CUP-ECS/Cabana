@@ -84,109 +84,85 @@ void migrateData( CommSpace::MPIAdvance,
     std::size_t num_send = migrator.totalNumExport() - num_stay;
     Kokkos::View<typename AoSoA_t::tuple_type*,
                  typename Migrator_t::memory_space>
-        send_buffer(
-            Kokkos::ViewAllocateWithoutInitializing( "migrator_send_buffer" ),
-            num_send );
-
-    // Allocate a receive buffer.
+        send_buffer("migrator_send_buffer", num_send);
     Kokkos::View<typename AoSoA_t::tuple_type*,
                  typename Migrator_t::memory_space>
-        recv_buffer(
-            Kokkos::ViewAllocateWithoutInitializing( "migrator_recv_buffer" ),
-            migrator.totalNumImport() );
+        recv_buffer("migrator_recv_buffer", migrator.totalNumImport());
 
     // Get the steering vector for the sends.
     auto steering = migrator.getExportSteering();
+    Kokkos::parallel_for(
+        "Cabana::Impl::migrateData::build_send_buffer",
+        Kokkos::RangePolicy<ExecutionSpace>(0, migrator.totalNumExport()),
+        KOKKOS_LAMBDA(const std::size_t i) {
+            auto tpl = src.getTuple(steering(i));
+            if (i < num_stay)
+                recv_buffer(i) = tpl;
+            else
+                send_buffer(i - num_stay) = tpl;
+        });
+    Kokkos::fence();
 
-    // Gather the exports from the source AoSoA into the tuple-contiguous send
-    // buffer or the receive buffer if the data is staying. We know that the
-    // steering vector is ordered such that the data staying on this rank
-    // comes first.
-    auto build_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+    // Build counts and displacements
+    std::vector<int> send_counts(num_n), recv_counts(num_n);
+    std::vector<int> send_displs(num_n), recv_displs(num_n);
+
+    std::size_t send_offset = 0, recv_offset = 0;
+    for (int n = 0; n < num_n; ++n)
     {
-        auto tpl = src.getTuple( steering( i ) );
-        if ( i < num_stay )
-            recv_buffer( i ) = tpl;
+        recv_counts[n] = migrator.numImport(n) * sizeof(typename AoSoA_t::tuple_type);
+        recv_displs[n] = recv_offset;
+        recv_offset += recv_counts[n];
+
+        if (migrator.neighborRank(n) == my_rank)
+        {
+            send_counts[n] = 0;
+            send_displs[n] = 0;
+        }
         else
-            send_buffer( i - num_stay ) = tpl;
-    };
-    Kokkos::RangePolicy<ExecutionSpace> build_send_buffer_policy(
-        0, migrator.totalNumExport() );
-    Kokkos::parallel_for( "Cabana::Impl::migrateData::build_send_buffer",
-                          build_send_buffer_policy, build_send_buffer_func );
-    Kokkos::fence();
-
-    // The migrator has its own communication space so choose any tag.
-    const int mpi_tag = 1234;
-
-    // Post non-blocking receives.
-    std::vector<MPI_Request> requests;
-    requests.reserve( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + migrator.numImport( n );
-
-        if ( ( migrator.numImport( n ) > 0 ) &&
-             ( migrator.neighborRank( n ) != my_rank ) )
         {
-            auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
-
-            requests.push_back( MPI_Request() );
-
-            MPI_Irecv( recv_subview.data(),
-                       recv_subview.size() *
-                           sizeof( typename AoSoA_t::tuple_type ),
-                       MPI_BYTE, migrator.neighborRank( n ), mpi_tag,
-                       migrator.comm(), &( requests.back() ) );
-        }
-
-        recv_range.first = recv_range.second;
-    }
-
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        if ( ( migrator.numExport( n ) > 0 ) &&
-             ( migrator.neighborRank( n ) != my_rank ) )
-        {
-            send_range.second = send_range.first + migrator.numExport( n );
-
-            auto send_subview = Kokkos::subview( send_buffer, send_range );
-
-            MPI_Send( send_subview.data(),
-                      send_subview.size() *
-                          sizeof( typename AoSoA_t::tuple_type ),
-                      MPI_BYTE, migrator.neighborRank( n ), mpi_tag,
-                      migrator.comm() );
-
-            send_range.first = send_range.second;
+            send_counts[n] = migrator.numExport(n) * sizeof(typename AoSoA_t::tuple_type);
+            send_displs[n] = send_offset;
+            send_offset += send_counts[n];
         }
     }
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( requests.size() );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Failed MPI Communication" );
+    // MPI Advance does not currently support GPU communication,
+    // so buffers need to be copied to host memory
+    auto send_buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), send_buffer);
+    auto recv_buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), recv_buffer);
 
-    // Extract the receive buffer into the destination AoSoA.
-    auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        dst.setTuple( offset + i, recv_buffer( i ) );
-    };
-    Kokkos::RangePolicy<ExecutionSpace> extract_recv_buffer_policy(
-        0, migrator.totalNumImport() );
-    Kokkos::parallel_for( "Cabana::Impl::migrateData::extract_recv_buffer",
-                          extract_recv_buffer_policy,
-                          extract_recv_buffer_func );
+    MPI_Datatype datatype = MPI_BYTE;
+    auto xcomm = migrator.xcomm();
+
+    MPIX_Request* neighbor_request;
+    MPIX_Info* xinfo;
+    MPIX_Info_init( &xinfo );
+
+    MPIX_Neighbor_alltoallv_init(send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+                                 recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
+                                 xcomm, xinfo, &neighbor_request);
+
+    MPI_Status status;
+    MPIX_Start( neighbor_request );
+    MPIX_Wait( neighbor_request, &status );
+    MPIX_Request_free( &neighbor_request );
+    MPIX_Info_free( &xinfo );
+
+    // Copy recv buffer back to device memory
+    recv_buffer = Kokkos::create_mirror_view_and_copy(typename Migrator_t::memory_space(), recv_buffer_h);
+
+    Kokkos::parallel_for(
+        "Cabana::Impl::migrateData::extract_recv_buffer",
+        Kokkos::RangePolicy<ExecutionSpace>(0, migrator.totalNumImport()),
+        KOKKOS_LAMBDA(const std::size_t i) {
+            dst.setTuple(offset + i, recv_buffer(i));
+        });
     Kokkos::fence();
 
-    // Barrier before completing to ensure synchronization.
-    MPI_Barrier( migrator.comm() );
+    MPI_Barrier(migrator.comm());
 }
+
 
 //---------------------------------------------------------------------------//
 /*!
@@ -267,108 +243,97 @@ void migrateSlice( CommSpace::MPIAdvance,
 
     // Get the steering vector for the sends.
     auto steering = migrator.getExportSteering();
-
-    // Gather from the source Slice into the contiguous send buffer or,
-    // if it is part of the local copy, put it directly in the destination
-    // Slice.
-    auto build_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        auto s_src = Slice_t::index_type::s( steering( i ) );
-        auto a_src = Slice_t::index_type::a( steering( i ) );
-        std::size_t src_offset = s_src * src.stride( 0 ) + a_src;
-        if ( i < num_stay )
-            for ( std::size_t n = 0; n < num_comp; ++n )
-                recv_buffer( i, n ) =
-                    src_data[src_offset + n * Slice_t::vector_length];
-        else
-            for ( std::size_t n = 0; n < num_comp; ++n )
-                send_buffer( i - num_stay, n ) =
-                    src_data[src_offset + n * Slice_t::vector_length];
-    };
-    Kokkos::RangePolicy<ExecutionSpace> build_send_buffer_policy(
-        0, migrator.totalNumExport() );
-    Kokkos::parallel_for( "Cabana::migrate::build_send_buffer",
-                          build_send_buffer_policy, build_send_buffer_func );
+    Kokkos::parallel_for(
+        "Cabana::migrate::build_send_buffer",
+        Kokkos::RangePolicy<ExecutionSpace>( 0, migrator.totalNumExport() ),
+        KOKKOS_LAMBDA( const std::size_t i )
+        {
+            auto s_src = Slice_t::index_type::s( steering( i ) );
+            auto a_src = Slice_t::index_type::a( steering( i ) );
+            std::size_t src_offset = s_src * src.stride( 0 ) + a_src;
+            if ( i < num_stay )
+            {
+                for ( std::size_t n = 0; n < num_comp; ++n )
+                    recv_buffer( i, n ) =
+                        src_data[src_offset + n * Slice_t::vector_length];
+            }
+            else
+            {
+                for ( std::size_t n = 0; n < num_comp; ++n )
+                    send_buffer( i - num_stay, n ) =
+                        src_data[src_offset + n * Slice_t::vector_length];
+            }
+        } );
     Kokkos::fence();
 
-    // The migrator has its own communication space so choose any tag.
-    const int mpi_tag = 1234;
+    std::vector<int> send_counts(num_n), recv_counts(num_n);
+    std::vector<int> send_displs(num_n), recv_displs(num_n);
 
-    // Post non-blocking receives.
-    std::vector<MPI_Request> requests;
-    requests.reserve( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
+    std::size_t send_offset = 0, recv_offset = 0;
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_range.second = recv_range.first + migrator.numImport( n );
+        recv_counts[n] = migrator.numImport(n) * num_comp *
+                         sizeof(typename Slice_t::value_type);
+        recv_displs[n] = recv_offset;
+        recv_offset += recv_counts[n];
 
-        if ( ( migrator.numImport( n ) > 0 ) &&
-             ( migrator.neighborRank( n ) != my_rank ) )
+        if ( migrator.neighborRank(n) == my_rank )
         {
-            auto recv_subview =
-                Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
-
-            requests.push_back( MPI_Request() );
-
-            MPI_Irecv( recv_subview.data(),
-                       recv_subview.size() *
-                           sizeof( typename Slice_t::value_type ),
-                       MPI_BYTE, migrator.neighborRank( n ), mpi_tag,
-                       migrator.comm(), &( requests.back() ) );
+            send_counts[n] = 0;
+            send_displs[n] = 0;
         }
-
-        recv_range.first = recv_range.second;
-    }
-
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        if ( ( migrator.numExport( n ) > 0 ) &&
-             ( migrator.neighborRank( n ) != my_rank ) )
+        else
         {
-            send_range.second = send_range.first + migrator.numExport( n );
-
-            auto send_subview =
-                Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
-
-            MPI_Send( send_subview.data(),
-                      send_subview.size() *
-                          sizeof( typename Slice_t::value_type ),
-                      MPI_BYTE, migrator.neighborRank( n ), mpi_tag,
-                      migrator.comm() );
-
-            send_range.first = send_range.second;
+            send_counts[n] = migrator.numExport(n) * num_comp *
+                             sizeof(typename Slice_t::value_type);
+            send_displs[n] = send_offset;
+            send_offset += send_counts[n];
         }
     }
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( requests.size() );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Failed MPI Communication" );
+    // MPI Advance does not currently support GPU communication,
+    // so buffers need to be copied to host memory
+    auto send_buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), send_buffer);
+    auto recv_buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), recv_buffer);
 
-    // Extract the data from the receive buffer into the destination Slice.
-    auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        auto s = Slice_t::index_type::s( i );
-        auto a = Slice_t::index_type::a( i );
-        std::size_t dst_offset = s * dst.stride( 0 ) + a;
-        for ( std::size_t n = 0; n < num_comp; ++n )
-            dst_data[dst_offset + n * Slice_t::vector_length] =
-                recv_buffer( i, n );
-    };
-    Kokkos::RangePolicy<ExecutionSpace> extract_recv_buffer_policy(
-        0, migrator.totalNumImport() );
-    Kokkos::parallel_for( "Cabana::migrate::extract_recv_buffer",
-                          extract_recv_buffer_policy,
-                          extract_recv_buffer_func );
+    MPI_Datatype datatype = MPI_BYTE;
+    auto xcomm = migrator.xcomm();
+
+    MPIX_Request* neighbor_request;
+    MPIX_Info* xinfo;
+    MPIX_Info_init( &xinfo );
+
+    MPIX_Neighbor_alltoallv_init(send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
+                                 recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+                                 xcomm, xinfo, &neighbor_request);
+
+    MPI_Status status;
+    MPIX_Start( neighbor_request );
+    MPIX_Wait( neighbor_request, &status );
+    MPIX_Request_free( &neighbor_request );
+    MPIX_Info_free( &xinfo );
+
+    // Copy recv buffer back to device memory
+    recv_buffer = Kokkos::create_mirror_view_and_copy(typename Migrator_t::memory_space(), recv_buffer_h);
+
+    Kokkos::parallel_for(
+        "Cabana::migrate::extract_recv_buffer",
+        Kokkos::RangePolicy<ExecutionSpace>( 0, migrator.totalNumImport() ),
+        KOKKOS_LAMBDA( const std::size_t i )
+        {
+            auto s = Slice_t::index_type::s( i );
+            auto a = Slice_t::index_type::a( i );
+            std::size_t dst_offset = s * dst.stride( 0 ) + a;
+            for ( std::size_t n = 0; n < num_comp; ++n )
+                dst_data[dst_offset + n * Slice_t::vector_length] =
+                    recv_buffer( i, n );
+        } );
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
     MPI_Barrier( migrator.comm() );
 }
+
 
 //---------------------------------------------------------------------------//
 //! \endcond

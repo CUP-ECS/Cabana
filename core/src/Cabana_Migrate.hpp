@@ -510,7 +510,7 @@ void migrate(
                                   "Source is the wrong size for migration!" );
 
     // Move the data.
-    Impl::migrateData( exec_space, collector, aosoa, aosoa );
+    Impl::migrateData( CommSpace(), exec_space, collector, aosoa, aosoa );
 }
 
 /*!
