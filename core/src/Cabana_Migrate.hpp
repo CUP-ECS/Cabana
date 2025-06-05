@@ -313,14 +313,19 @@ struct is_collector
 {
 };
 
+} // end namespace Cabana
+
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Migrate_MPI.hpp>
 #endif // Vanilla MPI
 
-// #ifdef Cabana_ENABLE_MPIADVANCE
-// #include <impl/Cabana_Migrate_MPIAdvance.hpp>
-// #endif // MPIADVANCE
+#ifdef Cabana_ENABLE_MPIADVANCE
+#include <impl/Cabana_Migrate_MPIAdvance.hpp>
+#endif // MPIADVANCE
+
+namespace Cabana
+{
 
 //---------------------------------------------------------------------------//
 /*!
@@ -359,7 +364,7 @@ void migrate(
             "Cabana::migrate (Distributor): Destination is the wrong size for migration!" );
 
     // Move the data.
-    Impl::migrateData( exec_space, distributor, src, dst );
+    Impl::migrateData( CommSpace(), exec_space, distributor, src, dst );
 }
 
 /*!
@@ -395,7 +400,7 @@ void migrate(
                                   "the wrong size for migration!" );
 
     // Move the data.
-    Impl::migrateData( exec_space, collector, src, dst );
+    Impl::migrateData( CommSpace(), exec_space, collector, src, dst );
 }
 
 /*!
@@ -470,7 +475,7 @@ void migrate(
         aosoa.resize( distributor.totalNumImport() );
 
     // Move the data.
-    Impl::migrateData( exec_space, distributor, aosoa, aosoa );
+    Impl::migrateData( CommSpace(), exec_space, distributor, aosoa, aosoa );
 
     // If the destination decomposition is smaller than the source
     // decomposition resize after we have moved the data.
@@ -560,7 +565,7 @@ void migrate(
             "Cabana::Migrate::migrate: Source slice is the "
             "wrong size for migration!" );
 
-    Impl::migrateSlice( typename Distributor<MemorySpace, CommSpace>::execution_space{},
+    Impl::migrateSlice( CommSpace(), typename Distributor<MemorySpace, CommSpace>::execution_space{},
                         distributor, src, dst );
 }
 
@@ -590,7 +595,7 @@ void migrate(
             "Cabana::Migrate::migrate: Source slice is the "
             "wrong size for migration!" );
 
-    Impl::migrateSlice( typename Collector<MemorySpace, CommSpace>::execution_space{},
+    Impl::migrateSlice( CommSpace(), typename Collector<MemorySpace, CommSpace>::execution_space{},
                         collector, src, dst );
 }
 

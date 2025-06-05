@@ -11,10 +11,10 @@
 
 /*!
   \file Cabana_Migrate_MPI.hpp
-  \brief Vanilla MPI implementation of Cabana::migrate variations
+  \brief MPI Advance implementation of Cabana::migrate variations
 */
-#ifndef CABANA_MIGRATE_MPI_HPP
-#define CABANA_MIGRATE_MPI_HPP
+#ifndef CABANA_MIGRATE_MPIADVANCE_HPP
+#define CABANA_MIGRATE_MPIADVANCE_HPP
 
 #include <Cabana_AoSoA.hpp>
 #include <Cabana_Slice.hpp>
@@ -23,6 +23,8 @@
 #include <Kokkos_Profiling_ScopedRegion.hpp>
 
 #include <mpi.h>
+
+#include <mpi_advance.h>
 
 #include <exception>
 #include <vector>
@@ -38,7 +40,7 @@ namespace Impl
 // Synchronously move data between a source and destination AoSoA by executing
 // the forward communication plan.
 template <class ExecutionSpace, class Migrator_t, class AoSoA_t>
-void migrateData( CommSpace::MPI,
+void migrateData( CommSpace::MPIAdvance,
     ExecutionSpace, const Migrator_t& migrator, const AoSoA_t& src,
     AoSoA_t& dst,
     typename std::enable_if<( ( is_distributor<Migrator_t>::value ||
@@ -208,7 +210,7 @@ void migrateData( CommSpace::MPI,
   rank. Call totalNumImport() on the migrator to get this size value.
 */
 template <class ExecutionSpace, class Migrator_t, class Slice_t>
-void migrateSlice( CommSpace::MPI,
+void migrateSlice( CommSpace::MPIAdvance,
     ExecutionSpace, const Migrator_t& migrator, const Slice_t& src,
     Slice_t& dst,
     typename std::enable_if<( ( is_distributor<Migrator_t>::value ||
@@ -374,4 +376,4 @@ void migrateSlice( CommSpace::MPI,
 
 } // end namespace Cabana
 
-#endif // CABANA_MIGRATE_MPI_HPP
+#endif // CABANA_MIGRATE_MPIADVANCE_HPP
