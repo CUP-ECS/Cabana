@@ -93,6 +93,11 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
     // with lambda functions.
   public:
     /*!
+      \brief Get the MPI Advance communicator.
+    */
+    MPIX_Comm* xcomm() const { return _xcomm; }
+
+    /*!
       \brief Neighbor and export rank creator. Use this when you already know
       which ranks neighbor each other (i.e. every rank already knows who they
       will be sending and receiving from) as it will be more efficient. In
