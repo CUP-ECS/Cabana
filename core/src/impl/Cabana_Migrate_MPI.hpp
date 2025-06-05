@@ -38,9 +38,9 @@ namespace Impl
 // Synchronously move data between a source and destination AoSoA by executing
 // the forward communication plan.
 template <class ExecutionSpace, class Migrator_t, class AoSoA_t>
-void migrateData( CommSpace::MPI,
-    ExecutionSpace, const Migrator_t& migrator, const AoSoA_t& src,
-    AoSoA_t& dst,
+void migrateData(
+    CommSpace::MPI, ExecutionSpace, const Migrator_t& migrator,
+    const AoSoA_t& src, AoSoA_t& dst,
     typename std::enable_if<( ( is_distributor<Migrator_t>::value ||
                                 is_collector<Migrator_t>::value ) &&
                               is_aosoa<AoSoA_t>::value ),
@@ -208,9 +208,9 @@ void migrateData( CommSpace::MPI,
   rank. Call totalNumImport() on the migrator to get this size value.
 */
 template <class ExecutionSpace, class Migrator_t, class Slice_t>
-void migrateSlice( CommSpace::MPI,
-    ExecutionSpace, const Migrator_t& migrator, const Slice_t& src,
-    Slice_t& dst,
+void migrateSlice(
+    CommSpace::MPI, ExecutionSpace, const Migrator_t& migrator,
+    const Slice_t& src, Slice_t& dst,
     typename std::enable_if<( ( is_distributor<Migrator_t>::value ||
                                 is_collector<Migrator_t>::value ) &&
                               is_slice<Slice_t>::value ),

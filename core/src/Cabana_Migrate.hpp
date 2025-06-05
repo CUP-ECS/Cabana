@@ -150,7 +150,8 @@ struct is_distributor_impl : public std::false_type
 };
 
 template <typename MemorySpace, typename CommSpace>
-struct is_distributor_impl<Distributor<MemorySpace, CommSpace>> : public std::true_type
+struct is_distributor_impl<Distributor<MemorySpace, CommSpace>>
+    : public std::true_type
 {
 };
 //! \endcond
@@ -301,7 +302,8 @@ struct is_collector_impl : public std::false_type
 };
 
 template <typename MemorySpace, typename CommSpace>
-struct is_collector_impl<Collector<MemorySpace, CommSpace>> : public std::true_type
+struct is_collector_impl<Collector<MemorySpace, CommSpace>>
+    : public std::true_type
 {
 };
 //! \endcond
@@ -348,20 +350,24 @@ namespace Cabana
   same size as the number of imports given by the distributor on this
   rank. Call totalNumImport() on the distributor to get this size value.
 */
-template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace,
+          class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Distributor<MemorySpace, CommSpace>& distributor,
-    const AoSoA_t& src, AoSoA_t& dst,
-    typename std::enable_if<( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
-                              is_aosoa<AoSoA_t>::value ),
-                            int>::type* = 0 )
+    ExecutionSpace exec_space,
+    const Distributor<MemorySpace, CommSpace>& distributor, const AoSoA_t& src,
+    AoSoA_t& dst,
+    typename std::enable_if<
+        ( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
+          is_aosoa<AoSoA_t>::value ),
+        int>::type* = 0 )
 {
     // Check that src and dst are the right size.
     if ( src.size() != distributor.exportSize() )
-        throw std::runtime_error( "Cabana::migrate (Distributor): Source is the wrong size for migration!" );
+        throw std::runtime_error( "Cabana::migrate (Distributor): Source is "
+                                  "the wrong size for migration!" );
     if ( dst.size() != distributor.totalNumImport() )
-        throw std::runtime_error(
-            "Cabana::migrate (Distributor): Destination is the wrong size for migration!" );
+        throw std::runtime_error( "Cabana::migrate (Distributor): Destination "
+                                  "is the wrong size for migration!" );
 
     // Move the data.
     Impl::migrateData( CommSpace(), exec_space, distributor, src, dst );
@@ -385,10 +391,12 @@ void migrate(
   Must be the same size as the number of imports given by the collector on this
   rank. Call totalNumImport() on the collector to get this size value.
 */
-template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace,
+          class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Collector<MemorySpace, CommSpace>& collector,
-    const AoSoA_t& src, AoSoA_t& dst,
+    ExecutionSpace exec_space,
+    const Collector<MemorySpace, CommSpace>& collector, const AoSoA_t& src,
+    AoSoA_t& dst,
     typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
 {
     // Check that src and dst are the right size.
@@ -454,10 +462,11 @@ void migrate( const Migrator_t& migrator, const AoSoA_t& src, AoSoA_t& dst,
   function, consider reserving enough memory in the data structure so
   reallocating is not necessary.
 */
-template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace,
+          class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Distributor<MemorySpace, CommSpace>& distributor,
-    AoSoA_t& aosoa,
+    ExecutionSpace exec_space,
+    const Distributor<MemorySpace, CommSpace>& distributor, AoSoA_t& aosoa,
     typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
 {
     // Check that the AoSoA is the right size.
@@ -498,10 +507,11 @@ void migrate(
   into the Collector. Must be the same size as the number of
   owned plus imported elements on this rank provided by the collector.
 */
-template <class ExecutionSpace, class MemorySpace, class CommSpace, class AoSoA_t>
+template <class ExecutionSpace, class MemorySpace, class CommSpace,
+          class AoSoA_t>
 void migrate(
-    ExecutionSpace exec_space, const Collector<MemorySpace, CommSpace>& collector,
-    AoSoA_t& aosoa,
+    ExecutionSpace exec_space,
+    const Collector<MemorySpace, CommSpace>& collector, AoSoA_t& aosoa,
     typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
 {
     // Check if the aosoa is large enough
@@ -565,8 +575,10 @@ void migrate(
             "Cabana::Migrate::migrate: Source slice is the "
             "wrong size for migration!" );
 
-    Impl::migrateSlice( CommSpace(), typename Distributor<MemorySpace, CommSpace>::execution_space{},
-                        distributor, src, dst );
+    Impl::migrateSlice(
+        CommSpace(),
+        typename Distributor<MemorySpace, CommSpace>::execution_space{},
+        distributor, src, dst );
 }
 
 /*!
@@ -587,7 +599,8 @@ void migrate(
 */
 template <class MemorySpace, class CommSpace, class Slice_t>
 void migrate(
-    const Collector<MemorySpace, CommSpace>& collector, const Slice_t& src, Slice_t& dst,
+    const Collector<MemorySpace, CommSpace>& collector, const Slice_t& src,
+    Slice_t& dst,
     typename std::enable_if<( is_slice<Slice_t>::value ), int>::type* = 0 )
 {
     if ( src.size() != collector.numOwned() )
@@ -595,8 +608,10 @@ void migrate(
             "Cabana::Migrate::migrate: Source slice is the "
             "wrong size for migration!" );
 
-    Impl::migrateSlice( CommSpace(), typename Collector<MemorySpace, CommSpace>::execution_space{},
-                        collector, src, dst );
+    Impl::migrateSlice(
+        CommSpace(),
+        typename Collector<MemorySpace, CommSpace>::execution_space{},
+        collector, src, dst );
 }
 
 //---------------------------------------------------------------------------//
