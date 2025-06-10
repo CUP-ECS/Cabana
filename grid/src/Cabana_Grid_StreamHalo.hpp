@@ -58,16 +58,7 @@ class StreamHaloBase : public Cabana::Grid::Halo<MemorySpace>
     using memory_space = MemorySpace;
     using halo_type = Cabana::Grid::Halo<memory_space>;
 
-  protected:
-    template <class Pattern, class... ArrayTypes>
-    StreamHaloBase( const ExecutionSpace& exec_space, const Pattern& pattern,
-                    const int width, const ArrayTypes&... arrays )
-        : Cabana::Grid::Halo<MemorySpace>( pattern, width, arrays... )
-        , _exec_space( exec_space )
-    {
-    }
-
-    //! Enqueue operations to pack arrays into a buffer. Calling code must
+      //! Enqueue operations to pack arrays into a buffer. Calling code must
     //! fence.
     template <class... ArrayViews>
     void enqueuePackBuffer( const Kokkos::View<char*, memory_space>& buffer,
@@ -150,6 +141,14 @@ class StreamHaloBase : public Cabana::Grid::Halo<MemorySpace>
                 enqueueUnpackBuffer( reduce_op, buffer, steering,
                                      array_views... );
         }
+    }
+  protected:
+    template <class Pattern, class... ArrayTypes>
+    StreamHaloBase( const ExecutionSpace& exec_space, const Pattern& pattern,
+                    const int width, const ArrayTypes&... arrays )
+        : Cabana::Grid::Halo<MemorySpace>( pattern, width, arrays... )
+        , _exec_space( exec_space )
+    {
     }
 
   protected:

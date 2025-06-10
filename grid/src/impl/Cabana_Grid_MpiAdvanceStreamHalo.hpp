@@ -43,7 +43,7 @@ namespace Experimental
 {
 
 template <class ExecutionSpace, class MemorySpace>
-class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpi>
+class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     : public StreamHaloBase<ExecutionSpace, MemorySpace>
 {
     using execution_space = ExecutionSpace;
@@ -67,7 +67,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpi>
     void enqueueGather( const ArrayTypes&... arrays )
     {
         Kokkos::Profiling::ScopedRegion region(
-            "Cabana::Grid::StreamHalo<Commspace::Mpi>::gather" );
+            "Cabana::Grid::StreamHalo<Commspace::MpiAdvance>::gather" );
         // Get the number of neighbors. Return if we have none.
         int num_n = halo_type::_neighbor_ranks.size();
         if ( 0 == num_n )
@@ -132,7 +132,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpi>
                          const ArrayTypes&... arrays )
     {
         Kokkos::Profiling::ScopedRegion region(
-            "Cabana::Grid::StreamHalo<Commspace::Mpi>::scatter" );
+            "Cabana::Grid::StreamHalo<Commspace::MpiAdvance>::scatter" );
 
         // Get the number of neighbors. Return if we have none.
         int num_n = halo_type::_neighbor_ranks.size();
@@ -194,8 +194,9 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpi>
 
   private:
     const MPI_Comm _comm;
+  MPIS_Queue my_queue;
     std::vector<MPI_Request> _requests;
-}; // StreamHalo<Commspace::Mpi>
+}; // StreamHalo<Commspace::MpiAdvance>
 
 } // namespace Experimental
 } // namespace Grid
