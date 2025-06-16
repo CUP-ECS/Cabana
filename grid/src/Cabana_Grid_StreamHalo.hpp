@@ -16,6 +16,8 @@
 #ifndef CABANA_GRID_STREAMHALO_HPP
 #define CABANA_GRID_STREAMHALO_HPP
 
+#include <Cabana_Grid_Config.hpp>
+
 #include <Cabana_Grid_Array.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Types.hpp>
