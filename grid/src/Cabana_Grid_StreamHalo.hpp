@@ -201,7 +201,7 @@ auto createStreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
 {
     using memory_space = typename ArrayPackMemorySpace<ArrayTypes...>::type;
 
-#if defined( CABANA_ENABLE_MPI_ADVANCE )
+#if defined( Cabana_ENABLE_MPI_ADVANCE )
     return std::make_shared<
         StreamHalo<ExecutionSpace, memory_space, CommSpace::MpiAdvance>>(
         exec_space, pattern, width, arrays... );

@@ -19,7 +19,7 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(stream-triggering DEFAULT_MSG stream-triggering_INCLUDE_DIR stream-triggering_LIBRARY)
 
 mark_as_advanced(stream-triggering_INCLUDE_DIR stream-triggering_LIBRARY)
-if(stream-triggering_INCLUDE_DIR AND stream-triggering_LIBRARY)#  AND NOT TARGET SILO::silo)
+if(stream-triggering_INCLUDE_DIR AND stream-triggering_LIBRARY AND NOT TARGET stream-triggering)
   add_library(stream-triggering UNKNOWN IMPORTED)
   set_target_properties(stream-triggering PROPERTIES
     IMPORTED_LOCATION ${stream-triggering_LIBRARY}

@@ -28,6 +28,7 @@ option(CMAKE_VERBOSE_MAKEFILE "Generate verbose Makefiles" OFF)
 
 # use gnu standard install directories
 include(GNUInstallDirs)
+include(FeatureSummary)
 
 # point to cmake modules
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -124,6 +125,22 @@ if(Cabana_ENABLE_HDF5)
     message(FATAL_ERROR "Cabana HDF5 support requires parallel HDF5.")
   endif()
 endif()
+
+# Find and enable stream triggering
+option(Cabana_ENABLE_STREAMCOMM "Support Stream-Triggered Communication." ON)
+option(Cabana_ENABLE_MPI_ADVANCE "Support MPI Advance backends." OFF)
+# find MPI ADVANCE Stream Triggering
+#if(Cabana_ENABLE_MPI_ADVANCE)
+Cabana_add_dependency( PACKAGE stream-triggering )
+set_package_properties(stream-triggering PROPERTIES TYPE OPTIONAL PURPOSE "Stream Triggered Backend")
+#find_package(StreamTriggering REQUIRED)
+if(stream-triggering_FOUND AND Cabana_ENABLE_MPI_ADVANCE)# AND Cabana_ENABLE_STREAMCOMM)
+  install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Findstream-triggering.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Cabana )
+endif()
+#endif()
+
 
 #------------------------------------------------------------------------------#
 # Architecture

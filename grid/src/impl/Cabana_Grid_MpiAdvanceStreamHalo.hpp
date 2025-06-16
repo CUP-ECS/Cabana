@@ -13,8 +13,8 @@
   \file Cabana_Grid_MPIStreamHalo.hpp
   \brief Multi-node grid stream-based scatter/gather using MPI
 */
-#ifndef CABANA_GRID_MPISTREAMHALO_HPP
-#define CABANA_GRID_MPISTREAMHALO_HPP
+#ifndef CABANA_GRID_MPIADVANCESTREAMHALO_HPP
+#define CABANA_GRID_MPIADVANCESTREAMHALO_HPP
 
 #include <Cabana_Types.hpp>
 #include <Cabana_Grid_Array.hpp>
@@ -194,7 +194,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
   private:
     const MPI_Comm _comm;
-  MPIS_Queue my_queue;
+    MPIS_Queue my_queue;
     std::vector<MPI_Request> _requests;
 }; // StreamHalo<Commspace::MpiAdvance>
 
