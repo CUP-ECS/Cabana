@@ -55,7 +55,7 @@ namespace Cabana
   ghost from is the unique owner of that data. Import is used in the context
   of the forward communication plan (the gather).
 */
-template <class MemorySpace, class BuildType=CommDriver::Export>
+template <class MemorySpace, class BuildType=Export>
 class Halo : public CommunicationPlan<MemorySpace>
 {
   public:
@@ -107,7 +107,7 @@ class Halo : public CommunicationPlan<MemorySpace>
         : CommunicationPlan<MemorySpace>( comm )
         , _num_local( num_local )
     {
-        if ( element_export_ids.size() != element_export_ranks.size() )
+        if ( export_ids.size() != export_ranks.size() )
             throw std::runtime_error(
                 "Cabana::Halo: ids and ranks views are different sizes!" );
 
@@ -157,7 +157,7 @@ class Halo : public CommunicationPlan<MemorySpace>
         : CommunicationPlan<MemorySpace>( comm )
         , _num_local( num_local )
     {
-        if ( element_export_ids.size() != element_export_ranks.size() )
+        if ( element_ids.size() != element_ranks.size() )
             throw std::runtime_error(
                 "Cabana::Halo: ids and ranks views are different sizes!" );
 
