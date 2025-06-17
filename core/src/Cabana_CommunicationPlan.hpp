@@ -1272,7 +1272,7 @@ class CommunicationData
                       const double overallocation )
     {
         if ( overallocation < 1.0 )
-            throw std::runtime_error( "Cabana::CommunicationPlan::reserveImpl: "
+            throw std::runtime_error( "Cabana::CommunicationPlan: "
                                       "Cannot allocate buffers with less space "
                                       "than data to communicate!" );
         _overallocation = overallocation;
