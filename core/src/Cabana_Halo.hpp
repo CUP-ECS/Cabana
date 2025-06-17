@@ -107,8 +107,9 @@ class Halo : public CommunicationPlan<MemorySpace>
         : CommunicationPlan<MemorySpace>( comm )
         , _num_local( num_local )
     {
-        if ( element_ids.size() != element_ranks.size() )
-            throw std::runtime_error( "Export ids and ranks different sizes!" );
+        if ( element_export_ids.size() != element_export_ranks.size() )
+            throw std::runtime_error(
+                "Cabana::Halo: ids and ranks views are different sizes!" );
 
         auto neighbor_ids = this->createFromTopology( BuildType(), 
             element_ranks, neighbor_ranks );
@@ -156,8 +157,9 @@ class Halo : public CommunicationPlan<MemorySpace>
         : CommunicationPlan<MemorySpace>( comm )
         , _num_local( num_local )
     {
-        if ( element_ids.size() != element_ranks.size() )
-            throw std::runtime_error( "Export ids and ranks different sizes!" );
+        if ( element_export_ids.size() != element_export_ranks.size() )
+            throw std::runtime_error(
+                "Cabana::Halo: ids and ranks views are different sizes!" );
 
         auto neighbor_ids = this->createFromNoTopology( BuildType(), element_ranks );
         this->createExportSteering( neighbor_ids, element_ranks,
@@ -347,7 +349,8 @@ class Gather<HaloType, AoSoAType,
         const int ec =
             MPI_Waitall( requests.size(), requests.data(), status.data() );
         if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+            throw std::logic_error(
+                "Cabana::gather::apply: Failed MPI Communication" );
 
         // Extract the receive buffer into the ghosted elements.
         std::size_t num_local = _halo.numLocal();
@@ -357,7 +360,7 @@ class Gather<HaloType, AoSoAType,
             aosoa.setTuple( ghost_idx, recv_buffer( i ) );
         };
         Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-        Kokkos::parallel_for( "Cabana::gather::extract_recv_buffer",
+        Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
                               recv_policy, extract_recv_buffer_func );
         Kokkos::fence();
 
@@ -376,7 +379,8 @@ class Gather<HaloType, AoSoAType,
     void reserve( const HaloType& halo, AoSoAType& aosoa )
     {
         if ( !haloCheckValidSize( halo, aosoa ) )
-            throw std::runtime_error( "AoSoA is the wrong size for gather!" );
+            throw std::runtime_error( "Cabana::gather:reserve (AoSoAType): "
+                                      "AoSoA is the wrong size for gather!" );
 
         this->reserveImpl( halo, aosoa, totalSend(), totalReceive() );
     }
@@ -392,7 +396,8 @@ class Gather<HaloType, AoSoAType,
                   const double overallocation )
     {
         if ( !haloCheckValidSize( halo, aosoa ) )
-            throw std::runtime_error( "AoSoA is the wrong size for gather!" );
+            throw std::runtime_error( "Cabana::gather:reserve (AoSoAType): "
+                                      "AoSoA is the wrong size for gather!" );
 
         this->reserveImpl( halo, aosoa, totalSend(), totalReceive(),
                            overallocation );
@@ -540,7 +545,8 @@ class Gather<HaloType, SliceType,
         const int ec =
             MPI_Waitall( requests.size(), requests.data(), status.data() );
         if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+            throw std::logic_error(
+                "Cabana::gather::apply (SliceType): Failed MPI Communication" );
 
         // Extract the receive buffer into the ghosted elements.
         std::size_t num_local = _halo.numLocal();
@@ -577,7 +583,8 @@ class Gather<HaloType, SliceType,
                   const double overallocation )
     {
         if ( !haloCheckValidSize( halo, slice ) )
-            throw std::runtime_error( "AoSoA is the wrong size for gather!" );
+            throw std::runtime_error( "Cabana::gather:reserve (SliceType): "
+                                      "AoSoA is the wrong size for gather!" );
 
         this->reserveImpl( halo, slice, totalSend(), totalReceive(),
                            overallocation );
@@ -591,7 +598,8 @@ class Gather<HaloType, SliceType,
     void reserve( const HaloType& halo, const SliceType& slice )
     {
         if ( !haloCheckValidSize( halo, slice ) )
-            throw std::runtime_error( "AoSoA is the wrong size for gather!" );
+            throw std::runtime_error( "Cabana::gather:reserve (SliceType): "
+                                      "AoSoA is the wrong size for gather!" );
 
         this->reserveImpl( halo, slice, totalSend(), totalReceive() );
     }
@@ -790,7 +798,8 @@ class Scatter
         const int ec =
             MPI_Waitall( requests.size(), requests.data(), status.data() );
         if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+            throw std::logic_error( "Cabana::scatter::apply (SliceType): "
+                                    "Failed MPI Communication" );
 
         // Get the steering vector for the sends.
         auto steering = _halo.getExportSteering();
@@ -807,7 +816,7 @@ class Scatter
                     recv_buffer( i, n ) );
         };
         Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-        Kokkos::parallel_for( "Cabana::scatter::scatter_recv_buffer",
+        Kokkos::parallel_for( "Cabana::scatter::apply::scatter_recv_buffer",
                               recv_policy, scatter_recv_buffer_func );
         Kokkos::fence();
 
@@ -830,7 +839,8 @@ class Scatter
                   const double overallocation )
     {
         if ( !haloCheckValidSize( halo, slice ) )
-            throw std::runtime_error( "AoSoA is the wrong size for scatter!" );
+            throw std::runtime_error( "Cabana::scatter::reserve (AoSoAType): "
+                                      "AoSoA is the wrong size for scatter!" );
 
         this->reserveImpl( halo, slice, totalSend(), totalReceive(),
                            overallocation );
@@ -844,7 +854,8 @@ class Scatter
     void reserve( const HaloType& halo, const SliceType& slice )
     {
         if ( !haloCheckValidSize( halo, slice ) )
-            throw std::runtime_error( "AoSoA is the wrong size for scatter!" );
+            throw std::runtime_error( "Cabana::scatter::reserve (AoSoAType): "
+                                      "AoSoA is the wrong size for scatter!" );
 
         this->reserveImpl( halo, slice, totalSend(), totalReceive() );
     }
