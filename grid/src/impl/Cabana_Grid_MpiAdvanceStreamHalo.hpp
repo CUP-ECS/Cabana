@@ -76,21 +76,6 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         // We fence before posting receives in case the stream
         // is already using our buffers.
         this->_exec_space.fence();
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_ghosted_buffers[n].size() <= 0 )
-            {
-                _requests[num_n + n] = MPI_REQUEST_NULL;
-            }
-            else
-            {
-                MPI_Irecv( halo_type::_ghosted_buffers[n].data(),
-                           halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
-                           halo_type::_neighbor_ranks[n],
-                           1234 + halo_type::_receive_tags[n], _comm,
-                           &_requests[num_n + n] );
-            }
-        }
 
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_owned_buffers,
@@ -98,22 +83,19 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
                                   arrays.view()... );
         this->_exec_space.fence();
 
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_owned_buffers[n].size() <= 0 )
-            {
-                _requests[n] = MPI_REQUEST_NULL;
-            }
-            else
-            {
-                MPI_Isend( halo_type::_owned_buffers[n].data(),
-                           halo_type::_owned_buffers[n].size(), MPI_BYTE,
-                           halo_type::_neighbor_ranks[n],
-                           1234 + halo_type::_send_tags[n], _comm,
-                           &_requests[n] ); // XXX Get a real tag
-            }
-        }
-        MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+	MPI_Barrier(MPI_COMM_WORLD);
+	for( int n = 0; n < 2*num_n; n++)
+	  {
+	    //MPIS_Enqueue_start(my_queue, scatter_requests[n]);
+	    MPIS_Enqueue_start(my_queue, gather_requests[n]);
+	  }
+	MPIS_Enqueue_waitall(my_queue);
+	MPIS_Queue_wait(my_queue);
+	
+        // Unpack receive buffers.        
+	MPIS_Queue_wait(my_queue);
+	
+        //MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
 
         this->enqueueUnpackBuffers(
             ScatterReduce::Replace(), halo_type::_ghosted_buffers,
@@ -139,43 +121,21 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( 0 == num_n )
             return;
 
-        // We fence before posting receives in case the stream
-        // is already using our buffers.
-        this->_exec_space.fence();
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_owned_buffers[n].size() <= 0 )
-            {
-                _requests[num_n + n] = MPI_REQUEST_NULL;
-                continue;
-            }
-            MPI_Irecv( halo_type::_owned_buffers[n].data(),
-                       halo_type::_owned_buffers[n].size(), MPI_BYTE,
-                       halo_type::_neighbor_ranks[n],
-                       1234 + halo_type::_receive_tags[n], _comm,
-                       &_requests[num_n + n] );
-        }
-
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_ghosted_buffers,
                                   halo_type::_ghosted_steering,
                                   arrays.view()... );
         this->_exec_space.fence();
 
-        for ( int n = 0; n < num_n; n++ )
-        {
-            if ( halo_type::_ghosted_buffers[n].size() <= 0 )
-            {
-                _requests[n] = MPI_REQUEST_NULL;
-                continue;
-            }
-            MPI_Isend( halo_type::_ghosted_buffers[n].data(),
-                       halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
-                       halo_type::_neighbor_ranks[n],
-                       1234 + halo_type::_send_tags[n], _comm, &_requests[n] );
-        }
-
-        MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        //MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+	MPI_Barrier(MPI_COMM_WORLD);
+	for( int n = 0; n < 2*num_n; n++)
+	  {
+	    MPIS_Enqueue_start(my_queue, scatter_requests[n]);
+	    //MPIS_Enqueue_start(my_queue, gather_requests[n]);
+	  }
+	MPIS_Enqueue_waitall(my_queue);
+	MPIS_Queue_wait(my_queue);
 
         this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
                                     halo_type::_owned_steering,
@@ -187,15 +147,87 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
                 const int width, const ArrayTypes&... arrays )
         : StreamHaloBase<ExecutionSpace, MemorySpace>( exec_space, pattern,
                                                        width, arrays... )
-        , _requests( 2 * halo_type::_neighbor_ranks.size(), MPI_REQUEST_NULL )
+        , scatter_requests( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL )
+	, gather_requests( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL )
         , _comm( Halo<MemorySpace>::getComm( arrays... ) )
     {
+      int num_n = halo_type::_neighbor_ranks.size();
+
+      //my_queue = MPIS_QUEUE_NULL;
+
+      // scatter
+      for ( int n = 0; n < num_n; ++n )
+      {
+	// Only process this neighbor if there is work to do.
+	if ( 0 < halo_type::_owned_buffers[n].size() )
+          {
+	    // scatter
+            MPIS_Recv_init( halo_type::_owned_buffers[n].data(),
+			    halo_type::_owned_buffers[n].size(), MPI_BYTE,
+			    halo_type::_neighbor_ranks[n],
+			    1234 + halo_type::_receive_tags[n], _comm,
+			    MPI_INFO_NULL,
+			    &scatter_requests[n] );
+          }
+	// Post a send.
+	if ( 0 < halo_type::_ghosted_buffers[n].size() )
+            {
+	    MPIS_Send_init( halo_type::_ghosted_buffers[n].data(),
+			    halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
+			    halo_type::_neighbor_ranks[n],
+			    1234 + halo_type::_send_tags[n], _comm,
+			    MPI_INFO_NULL,
+			    &scatter_requests[num_n + n] );
+	    }
+      }
+    MPI_Barrier(MPI_COMM_WORLD);
+    // gather
+    for ( int n = 0; n < num_n; ++n )
+      {
+	if ( 0 < halo_type::_ghosted_buffers[n].size() )
+	  {
+	    // Only process this neighbor if there is work to do.
+	    MPIS_Recv_init( halo_type::_ghosted_buffers[n].data(),
+			    halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
+			    halo_type::_neighbor_ranks[n],
+			    1234 + halo_type::_receive_tags[n], _comm,
+			    MPI_INFO_NULL,
+			    &gather_requests[n] );
+      }
+	if ( 0 < halo_type::_owned_buffers[n].size() )
+          {
+	    MPIS_Send_init( halo_type::_owned_buffers[n].data(),
+			    halo_type::_owned_buffers[n].size(), MPI_BYTE,
+			    halo_type::_neighbor_ranks[n],
+			    1234 + halo_type::_send_tags[n], _comm,
+			    MPI_INFO_NULL,
+			    &gather_requests[num_n + n] ); // XXX Get a real tag
+          }
+      }
+    MPIS_Queue_init(&my_queue, THREAD, nullptr);
+    for(int n = 0; n < 2*num_n; ++n)
+      {
+	MPIS_Queue_match(my_queue, scatter_requests[n]);
+	MPIS_Queue_match(my_queue, gather_requests[n]);
+      }
+    MPI_Barrier(MPI_COMM_WORLD);
+    
     }
+  ~StreamHalo(){
+    for( int n =0; n < 2*halo_type::_neighbor_ranks.size(); ++n)
+      {
+	MPIS_Request_free(&scatter_requests[n]);
+	MPIS_Request_free(&gather_requests[n]);
+      }
+
+    MPIS_Queue_free(&my_queue);
+  }
 
   private:
     const MPI_Comm _comm;
     MPIS_Queue my_queue;
-    std::vector<MPI_Request> _requests;
+    std::vector<MPIS_Request> scatter_requests;
+    std::vector<MPIS_Request> gather_requests;
 }; // StreamHalo<Commspace::MpiAdvance>
 
 } // namespace Experimental

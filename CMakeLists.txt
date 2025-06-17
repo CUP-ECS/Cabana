@@ -138,7 +138,6 @@ if(stream-triggering_FOUND AND Cabana_ENABLE_MPI_ADVANCE)# AND Cabana_ENABLE_STR
   install(FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Findstream-triggering.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Cabana )
-  #add_definitions( -DCabana_ENABLE_MPI_ADVANCE )
 endif()
 #endif()
 
