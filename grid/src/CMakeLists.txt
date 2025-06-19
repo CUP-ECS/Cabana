@@ -69,7 +69,7 @@ if(Cabana_ENABLE_STREAM_COMM)
       impl/Cabana_Grid_MpichStreamHalo.hpp
       )
   endif()
-  if(Cabana_ENABLE_MPIADVANCE)
+  if(Cabana_ENABLE_MPI_ADVANCE)
     list(APPEND HEADERS_IMPL
       impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp
     )

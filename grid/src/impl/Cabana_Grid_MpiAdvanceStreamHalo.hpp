@@ -233,4 +233,4 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 } // namespace Experimental
 } // namespace Grid
 } // namespace Cabana
-#endif // CABANA_GRID_MPISTREAMHALO_HPP
+#endif // CABANA_GRID_MPIAdvanceSTREAMHALO_HPP

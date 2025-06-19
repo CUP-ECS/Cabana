@@ -162,7 +162,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
                                   1234 + halo_type::_send_tags[n], _comm );
             }
         }
-        MPI_Waitall_enqueue( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        MPIX_Waitall_enqueue( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
 
         this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
                                     halo_type::_owned_steering,
@@ -173,13 +173,13 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
     // underlying device stream
     template <typename ExecSpace>
     void createMPIXStream( const ExecSpace& exec_space )
-        requires( std::same_as<ExecSpace, Kokkos::Serial>
+      requires( std::same_as<ExecSpace, Kokkos::Serial> 
 #ifdef KOKKOS_ENABLE_OPENMP
                   || std::same_as<ExecSpace, Kokkos::OpenMP>
 #endif
 #ifdef KOKKOS_ENABLE_OPENMPTARGET
                   || std::same_as<ExecSpace, Kokkos::OpenMPTarget>
-#endif
+#endif 
                   ) // end requires
     {
         MPIX_Stream_create( MPI_INFO_NULL, &_stream );
@@ -235,4 +235,4 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
 } // Grid
 } // Cabana
 
-#endif CABANA_GRID_MPICHSTREAMHALO_HPP
+#endif // CABANA_GRID_MPICHSTREAMHALO_HPP
