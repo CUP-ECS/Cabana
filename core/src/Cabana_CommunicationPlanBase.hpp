@@ -424,6 +424,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
 */
 template <class MemorySpace>
 class CommunicationPlanBase
+class CommunicationPlanBase
 {
   public:
     // FIXME: extracting the self type for backwards compatibility with previous
@@ -446,11 +447,13 @@ class CommunicationPlanBase
     using size_type = typename memory_space::memory_space::size_type;
 
   protected:
+  protected:
     /*!
       \brief Constructor.
 
       \param comm The MPI communicator over which the distributor is defined.
     */
+    CommunicationPlanBase( MPI_Comm comm )
     CommunicationPlanBase( MPI_Comm comm )
     {
         _comm_ptr.reset(
@@ -559,6 +562,10 @@ class CommunicationPlanBase
         return _export_steering;
     }
 
+    // The functions in the public block below would normally be protected but
+    // we make them public to allow using private class data in CUDA kernels
+    // with lambda functions.
+  public:
     /*!
       \brief Create the export steering vector.
 
@@ -623,7 +630,7 @@ class CommunicationPlanBase
 
         if ( !use_iota &&
              ( element_export_ids.size() != element_export_ranks.size() ) )
-            throw std::runtime_error( "Export ids and ranks different sizes!" );
+            throw std::runtime_error( "Cabana::CommunicationPlan::createSteering: Export ids and ranks different sizes!" );
 
         // Get the size of this communicator.
         int comm_size = -1;
@@ -684,6 +691,24 @@ class CommunicationPlanBase
     std::size_t _num_export_element;
     Kokkos::View<std::size_t*, memory_space> _export_steering;
 };
+
+// Forward declaration of the primary CommunicationPlan template.
+template <class MemorySpace, class CommSpace = CommSpace::MPI>
+class CommunicationPlan;
+
+} // namespace Cabana
+
+// Include communication backends from what is enabled in CMake.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_CommunicationPlanMPI.hpp>
+#endif // Vanilla MPI
+
+// #ifdef Cabana_ENABLE_MPI_ADVANCE
+// #include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
+// #endif // MPIADVANCE
+
+namespace Cabana
+{
 
 // Forward declaration of the primary CommunicationPlan template.
 template <class MemorySpace, class CommSpace = CommSpace::MPI>
@@ -919,7 +944,8 @@ class CommunicationData
                       const double overallocation )
     {
         if ( overallocation < 1.0 )
-            throw std::runtime_error( "Cannot allocate buffers with less space "
+            throw std::runtime_error( "Cabana::CommunicationPlan: "
+                                      "Cannot allocate buffers with less space "
                                       "than data to communicate!" );
         _overallocation = overallocation;
 

@@ -36,6 +36,34 @@ struct MPI
 } // end namespace CommSpace
 
 //---------------------------------------------------------------------------//
+// Communication plan types.
+//---------------------------------------------------------------------------//
+/*!
+    \brief MPI comm tag - default.
+*/
+struct Mpi
+{
+};
+} // end namespace CommSpace
+
+//---------------------------------------------------------------------------//
+// Communication driver construction type tags.
+//---------------------------------------------------------------------------//
+/*!
+    \brief Export-based tag - default.
+*/
+struct Export
+{
+};
+
+/*!
+    \brief Import-based tag.
+*/
+struct Import
+{
+};
+
+//---------------------------------------------------------------------------//
 // Memory access tags.
 //---------------------------------------------------------------------------//
 //! Memory access type checker.
