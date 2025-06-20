@@ -37,7 +37,7 @@ struct Mpi
 /*!
     \brief MPI Advance comm tag.
 */
-struct MPIAdvance
+struct MpiAdvance
 {
 };
 } // end namespace CommSpace

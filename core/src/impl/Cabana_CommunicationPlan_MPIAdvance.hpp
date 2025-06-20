@@ -65,7 +65,7 @@ namespace Cabana
   is being exported will appear first in the steering vector.
 */
 template <class MemorySpace>
-class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
+class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
     : public CommunicationPlanBase<MemorySpace>
 {
   public:
@@ -136,7 +136,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
     */
     template <class ExecutionSpace, class ViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromExportsAndTopology( ExecutionSpace exec_space,
+    createFromTopology( ExecutionSpace exec_space, Export,
                                   const ViewType& element_export_ranks,
                                   const std::vector<int>& neighbor_ranks )
     {
@@ -265,12 +265,12 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
     */
     template <class ViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromExportsAndTopology( const ViewType& element_export_ranks,
+    createFromTopology( Export, const ViewType& element_export_ranks,
                                   const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
-        return createFromExportsAndTopology(
-            execution_space{}, element_export_ranks, neighbor_ranks );
+        return createFromTopology(
+            execution_space{}, Export(), element_export_ranks, neighbor_ranks );
     }
 
     /*!
@@ -305,7 +305,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
     */
     template <class ExecutionSpace, class ViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromExportsOnly( ExecutionSpace exec_space,
+    createFromNoTopology( ExecutionSpace exec_space, Export,
                            const ViewType& element_export_ranks )
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
@@ -456,10 +456,10 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
     */
     template <class ViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromExportsOnly( const ViewType& element_export_ranks )
+    createFromNoTopology( Export, const ViewType& element_export_ranks )
     {
         // Use the default execution space.
-        return createFromExportsOnly( execution_space{}, element_export_ranks );
+        return createFromNoTopology( execution_space{}, Export(), element_export_ranks );
     }
 
     /*!
@@ -502,7 +502,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class ExecutionSpace, class ViewType>
-    auto createFromImportsAndTopology( ExecutionSpace exec_space,
+    auto createFromTopology( ExecutionSpace exec_space, Import,
                                        const ViewType& element_import_ranks,
                                        const ViewType& element_import_ids,
                                        const std::vector<int>& neighbor_ranks )
@@ -740,13 +740,13 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class ViewType>
-    auto createFromImportsAndTopology( const ViewType& element_import_ranks,
+    auto createFromTopology( Import, const ViewType& element_import_ranks,
                                        const ViewType& element_import_ids,
                                        const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
-        return createFromImportsAndTopology(
-            execution_space{}, element_import_ranks, element_import_ids,
+        return createFromTopology(
+            execution_space{}, Import(), element_import_ranks, element_import_ids,
             neighbor_ranks );
     }
 
@@ -783,7 +783,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class ExecutionSpace, class ViewType>
-    auto createFromImportsOnly( ExecutionSpace exec_space,
+    auto createFromNoTopology( ExecutionSpace exec_space, Import,
                                 const ViewType& element_import_ranks,
                                 const ViewType& element_import_ids )
         -> std::tuple<Kokkos::View<typename ViewType::size_type*,
@@ -1018,11 +1018,11 @@ class CommunicationPlan<MemorySpace, CommSpace::MPIAdvance>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class ViewType>
-    auto createFromImportsOnly( const ViewType& element_import_ranks,
+    auto createFromNoTopology( Import, const ViewType& element_import_ranks,
                                 const ViewType& element_import_ids )
     {
         // Use the default execution space.
-        return createFromImportsOnly( execution_space{}, element_import_ranks,
+        return createFromNoTopology( execution_space{}, Import(), element_import_ranks,
                                       element_import_ids );
     }
 

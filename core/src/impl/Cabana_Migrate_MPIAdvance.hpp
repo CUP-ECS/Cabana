@@ -41,14 +41,13 @@ namespace Impl
 // the forward communication plan.
 template <class ExecutionSpace, class Migrator_t, class AoSoA_t>
 void migrateData(
-    CommSpace::MPIAdvance, ExecutionSpace, const Migrator_t& migrator,
+    CommSpace::MpiAdvance, ExecutionSpace, const Migrator_t& migrator,
     const AoSoA_t& src, AoSoA_t& dst,
-    typename std::enable_if<( ( is_distributor<Migrator_t>::value ||
-                                is_collector<Migrator_t>::value ) &&
+    typename std::enable_if<( ( is_distributor<Migrator_t>::value ) &&
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::migrate" );
+    Kokkos::Profiling::ScopedRegion region( "Cabana::migrateData (MpiAdvance)" );
 
     static_assert(
         is_accessible_from<typename Migrator_t::memory_space, ExecutionSpace>{},
@@ -192,10 +191,9 @@ void migrateData(
 */
 template <class ExecutionSpace, class Migrator_t, class Slice_t>
 void migrateSlice(
-    CommSpace::MPIAdvance, ExecutionSpace, const Migrator_t& migrator,
+    CommSpace::MpiAdvance, ExecutionSpace, const Migrator_t& migrator,
     const Slice_t& src, Slice_t& dst,
-    typename std::enable_if<( ( is_distributor<Migrator_t>::value ||
-                                is_collector<Migrator_t>::value ) &&
+    typename std::enable_if<( ( is_distributor<Migrator_t>::value ) &&
                               is_slice<Slice_t>::value ),
                             int>::type* = 0 )
 {
