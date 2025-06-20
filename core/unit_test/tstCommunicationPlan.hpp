@@ -28,7 +28,8 @@ namespace Test
 {
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COMMSPACE>
+class CommSpaceTester
+    : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COMMSPACE>
 {
   public:
     using memory_space = TEST_MEMSPACE;
@@ -45,15 +46,16 @@ class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COM
     createFromExportsAndNeighbors( const ViewType& element_export_ranks,
                                    const std::vector<int>& neighbor_ranks )
     {
-        return this->createFromExportsAndTopology( element_export_ranks,
-                                                   neighbor_ranks );
+        return this->createFromTopology( Cabana::Export(), element_export_ranks,
+                                         neighbor_ranks );
     }
 
     template <class ViewType>
     Kokkos::View<size_type*, memory_space>
     createFromExports( const ViewType& element_export_ranks )
     {
-        return this->createFromExportsOnly( element_export_ranks );
+        return this->createFromNoTopology( Cabana::Export(),
+                                           element_export_ranks );
     }
 
     template <class ViewType>
@@ -65,8 +67,8 @@ class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COM
                                    const ViewType& element_import_ids,
                                    const std::vector<int>& neighbor_ranks )
     {
-        return this->createFromImportsAndTopology(
-            element_import_ranks, element_import_ids, neighbor_ranks );
+        return this->createFromTopology( Cabana::Import(), element_import_ranks,
+                                         element_import_ids, neighbor_ranks );
     }
 
     template <class ViewType>
@@ -77,8 +79,8 @@ class CommSpaceTester : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COM
     createFromImports( const ViewType& element_import_ranks,
                        const ViewType& element_import_ids )
     {
-        return this->createFromImportsOnly( element_import_ranks,
-                                            element_import_ids );
+        return this->createFromNoTopology(
+            Cabana::Import(), element_import_ranks, element_import_ids );
     }
 
     template <class ViewType>
@@ -997,59 +999,92 @@ class CommunicationPlanTypedTest : public ::testing::Test
 
 using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::MPI
     #ifdef Cabana_ENABLE_MPIADVANCE
-        , Cabana::CommSpace::MPIAdvance
+        , Cabana::CommSpace::MpiAdvance
     #endif
     >;
 
-TYPED_TEST_SUITE(CommunicationPlanTypedTest, CommSpaceTypes);
+TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes );
 
 // Export tests
-TYPED_TEST(CommunicationPlanTypedTest, Test1) { test1<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test1 ) { test1<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test2) { test2<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test2 ) { test2<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test3) { test3<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test3 ) { test3<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test4) { test4<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test4 ) { test4<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test5) { test5<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test5 ) { test5<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test6) { test6<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test6 ) { test6<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test7) { test7<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test7 ) { test7<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test1NoTopo) { test1<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test1NoTopo )
+{
+    test1<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test2NoTopo) { test2<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test2NoTopo )
+{
+    test2<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test3NoTopo) { test3<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test3NoTopo )
+{
+    test3<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test4NoTopo) { test4<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test4NoTopo )
+{
+    test4<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test5NoTopo) { test5<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test5NoTopo )
+{
+    test5<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test6NoTopo) { test6<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test6NoTopo )
+{
+    test6<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test7NoTopo) { test7<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test7NoTopo )
+{
+    test7<TypeParam>( false );
+}
 
 TEST( CommSpace, TestTopology ) { testTopology(); }
 
 // Import tests
-TYPED_TEST(CommunicationPlanTypedTest, Test8) { test8<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test8 ) { test8<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test9) { test9<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test9 ) { test9<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test10) { test10<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test10 ) { test10<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test11) { test11<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test11 ) { test11<TypeParam>( true ); }
 
-TYPED_TEST(CommunicationPlanTypedTest, Test8NoTopo) { test8<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test8NoTopo )
+{
+    test8<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test9NoTopo) { test9<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test9NoTopo )
+{
+    test9<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test10NoTopo) { test10<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test10NoTopo )
+{
+    test10<TypeParam>( false );
+}
 
-TYPED_TEST(CommunicationPlanTypedTest, Test11NoTopo) { test11<TypeParam>( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test11NoTopo )
+{
+    test11<TypeParam>( false );
+}
 
 //---------------------------------------------------------------------------//
 

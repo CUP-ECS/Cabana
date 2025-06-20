@@ -422,7 +422,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace>
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
 class CommunicationPlanBase
 {
   public:
@@ -559,6 +559,10 @@ class CommunicationPlanBase
         return _export_steering;
     }
 
+    // The functions in the public block below would normally be protected but
+    // we make them public to allow using private class data in CUDA kernels
+    // with lambda functions.
+  public:
     /*!
       \brief Create the export steering vector.
 
@@ -623,7 +627,9 @@ class CommunicationPlanBase
 
         if ( !use_iota &&
              ( element_export_ids.size() != element_export_ranks.size() ) )
-            throw std::runtime_error( "Export ids and ranks different sizes!" );
+            throw std::runtime_error(
+                "Cabana::CommunicationPlan::createSteering: Export ids and "
+                "ranks different sizes!" );
 
         // Get the size of this communicator.
         int comm_size = -1;
@@ -686,7 +692,7 @@ class CommunicationPlanBase
 };
 
 // Forward declaration of the primary CommunicationPlan template.
-template <class MemorySpace, class CommSpace>
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
 class CommunicationPlan;
 
 } // namespace Cabana
@@ -694,11 +700,11 @@ class CommunicationPlan;
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_CommunicationPlan_MPI.hpp>
-#endif // Vanilla MPI
 
 #ifdef Cabana_ENABLE_MPIADVANCE
 #include <impl/Cabana_CommunicationPlan_MPIAdvance.hpp>
 #endif // MPIADVANCE
+#endif // Enable MPI
 
 namespace Cabana
 {
@@ -919,7 +925,8 @@ class CommunicationData
                       const double overallocation )
     {
         if ( overallocation < 1.0 )
-            throw std::runtime_error( "Cannot allocate buffers with less space "
+            throw std::runtime_error( "Cabana::CommunicationPlan: "
+                                      "Cannot allocate buffers with less space "
                                       "than data to communicate!" );
         _overallocation = overallocation;
 

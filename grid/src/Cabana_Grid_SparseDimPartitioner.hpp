@@ -181,7 +181,8 @@ class SparseDimPartitioner : public BlockPartitioner<NumSpaceDim>
             nrank *= _ranks_per_dim[d];
         if ( comm_size != nrank )
             throw std::runtime_error(
-                "SparsePartitioner ranks do not match comm size" );
+                "Cabana::Grid::SparseDimPartitioner::ranksPerDimension: "
+                "SparseDimPartitioner ranks do not match comm size" );
         return ranks_per_dim;
     }
 
@@ -381,7 +382,7 @@ class SparseDimPartitioner : public BlockPartitioner<NumSpaceDim>
                 int tz = static_cast<int>(
                              ( view( i, 2 ) - lower_corner[2] ) / dx - 0.5 ) >>
                          cell_bits_per_tile_dim;
-                Kokkos::atomic_increment( &workload( ti + 1, tj + 1, tz + 1 ) );
+                Kokkos::atomic_inc( &workload( ti + 1, tj + 1, tz + 1 ) );
             } );
         Kokkos::fence();
     }
@@ -406,8 +407,7 @@ class SparseDimPartitioner : public BlockPartitioner<NumSpaceDim>
                     auto key = sparseMap.key_at( i );
                     int ti, tj, tk;
                     sparseMap.key2ijk( key, ti, tj, tk );
-                    Kokkos::atomic_increment(
-                        &workload( ti + 1, tj + 1, tk + 1 ) );
+                    Kokkos::atomic_inc( &workload( ti + 1, tj + 1, tk + 1 ) );
                 }
             } );
         Kokkos::fence();
