@@ -30,17 +30,6 @@ namespace CommSpace
 /*!
     \brief MPI comm tag - default.
 */
-struct MPI
-{
-};
-} // end namespace CommSpace
-
-//---------------------------------------------------------------------------//
-// Communication plan types.
-//---------------------------------------------------------------------------//
-/*!
-    \brief MPI comm tag - default.
-*/
 struct Mpi
 {
 };

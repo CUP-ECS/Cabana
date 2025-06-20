@@ -422,8 +422,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace>
-class CommunicationPlanBase
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
 class CommunicationPlanBase
 {
   public:
@@ -447,13 +446,11 @@ class CommunicationPlanBase
     using size_type = typename memory_space::memory_space::size_type;
 
   protected:
-  protected:
     /*!
       \brief Constructor.
 
       \param comm The MPI communicator over which the distributor is defined.
     */
-    CommunicationPlanBase( MPI_Comm comm )
     CommunicationPlanBase( MPI_Comm comm )
     {
         _comm_ptr.reset(
@@ -630,7 +627,9 @@ class CommunicationPlanBase
 
         if ( !use_iota &&
              ( element_export_ids.size() != element_export_ranks.size() ) )
-            throw std::runtime_error( "Cabana::CommunicationPlan::createSteering: Export ids and ranks different sizes!" );
+            throw std::runtime_error(
+                "Cabana::CommunicationPlan::createSteering: Export ids and "
+                "ranks different sizes!" );
 
         // Get the size of this communicator.
         int comm_size = -1;
@@ -693,7 +692,7 @@ class CommunicationPlanBase
 };
 
 // Forward declaration of the primary CommunicationPlan template.
-template <class MemorySpace, class CommSpace = CommSpace::MPI>
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
 class CommunicationPlan;
 
 } // namespace Cabana
@@ -711,7 +710,7 @@ namespace Cabana
 {
 
 // Forward declaration of the primary CommunicationPlan template.
-template <class MemorySpace, class CommSpace = CommSpace::MPI>
+template <class MemorySpace, class CommSpace>
 class CommunicationPlan;
 
 } // namespace Cabana
@@ -719,11 +718,11 @@ class CommunicationPlan;
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_CommunicationPlanMPI.hpp>
-#endif // Vanilla MPI
 
 // #ifdef Cabana_ENABLE_MPI_ADVANCE
 // #include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
 // #endif // MPIADVANCE
+#endif // Vanilla MPI
 
 namespace Cabana
 {

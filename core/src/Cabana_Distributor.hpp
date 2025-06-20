@@ -17,7 +17,7 @@
 #define CABANA_DISTRIBUTOR_HPP
 
 #include <Cabana_AoSoA.hpp>
-#include <Cabana_CommunicationPlan.hpp>
+#include <Cabana_CommunicationPlanBase.hpp>
 #include <Cabana_Slice.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -58,8 +58,8 @@ namespace Cabana
   user must allocate their own destination data structure.
 
 */
-template <class MemorySpace>
-class Distributor : public CommunicationPlan<MemorySpace>
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
+class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
     /*!
@@ -99,7 +99,7 @@ class Distributor : public CommunicationPlan<MemorySpace>
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks,
                  const std::vector<int>& neighbor_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
         auto neighbor_ids = this->createFromTopology(
             Export(), element_export_ranks, neighbor_ranks );
@@ -135,7 +135,7 @@ class Distributor : public CommunicationPlan<MemorySpace>
     */
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
         auto neighbor_ids =
             this->createFromNoTopology( Export(), element_export_ranks );
@@ -150,8 +150,9 @@ struct is_distributor_impl : public std::false_type
 {
 };
 
-template <typename MemorySpace>
-struct is_distributor_impl<Distributor<MemorySpace>> : public std::true_type
+template <typename MemorySpace, typename CommSpace>
+struct is_distributor_impl<Distributor<MemorySpace, CommSpace>>
+    : public std::true_type
 {
 };
 //! \endcond

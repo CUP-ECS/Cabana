@@ -11,7 +11,7 @@
 
 #include <Cabana_AoSoA.hpp>
 #include <Cabana_DeepCopy.hpp>
-#include <Cabana_Migrate.hpp>
+#include <Cabana_Distributor.hpp>
 #include <Cabana_Parallel.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -799,12 +799,13 @@ class DistributorTypedTest : public ::testing::Test
     using CommSpaceType = TEST_COMMSPACE;
 };
 
-using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::MPI
-#ifdef Cabana_ENABLE_MPIADVANCE
-                                        ,
-                                        Cabana::CommSpace::MPIAdvance
-#endif
-                                        >;
+using CommSpaceTypes = ::testing::Types<
+    Cabana::CommSpace::Mpi
+    // #ifdef Cabana_ENABLE_MPIADVANCE
+    //                                         ,
+    //                                         Cabana::CommSpace::MpiAdvance
+    // #endif
+    >;
 
 TYPED_TEST_SUITE( DistributorTypedTest, CommSpaceTypes );
 

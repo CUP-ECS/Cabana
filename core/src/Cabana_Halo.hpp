@@ -17,7 +17,7 @@
 #define CABANA_HALO_HPP
 
 #include <Cabana_AoSoA.hpp>
-#include <Cabana_CommunicationPlan.hpp>
+#include <Cabana_CommunicationPlanBase.hpp>
 #include <Cabana_Slice.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -55,8 +55,9 @@ namespace Cabana
   ghost from is the unique owner of that data. Import is used in the context
   of the forward communication plan (the gather).
 */
-template <class MemorySpace, class BuildType = Export>
-class Halo : public CommunicationPlan<MemorySpace>
+template <class MemorySpace, class BuildType = Export,
+          class CommSpace = CommSpace::Mpi>
+class Halo : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
     /*!
@@ -107,7 +108,7 @@ class Halo : public CommunicationPlan<MemorySpace>
     Halo( MPI_Comm comm, const std::size_t num_local,
           const IdViewType& element_ids, const RankViewType& element_ranks,
           const std::vector<int>& neighbor_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
         , _num_local( num_local )
     {
         if ( element_ids.size() != element_ranks.size() )
@@ -316,8 +317,9 @@ struct is_halo_impl : public std::false_type
 {
 };
 
-template <typename MemorySpace, typename BuildType>
-struct is_halo_impl<Halo<MemorySpace, BuildType>> : public std::true_type
+template <typename MemorySpace, typename BuildType, typename CommSpace>
+struct is_halo_impl<Halo<MemorySpace, BuildType, CommSpace>>
+    : public std::true_type
 {
 };
 //! \endcond
