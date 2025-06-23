@@ -159,7 +159,7 @@ class Halo : public CommunicationPlan<MemorySpace, CommSpace>
               std::enable_if_t<std::is_same<T, Export>::value, int> = 0>
     Halo( MPI_Comm comm, const std::size_t num_local,
           const IdViewType& element_ids, const RankViewType& element_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
         , _num_local( num_local )
     {
         if ( element_ids.size() != element_ranks.size() )
@@ -219,7 +219,7 @@ class Halo : public CommunicationPlan<MemorySpace, CommSpace>
     Halo( MPI_Comm comm, const std::size_t num_local,
           const IdViewType& element_ids, const RankViewType& element_ranks,
           const std::vector<int>& neighbor_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
         , _num_local( num_local )
     {
         if ( element_ids.size() != element_ranks.size() )
@@ -276,7 +276,7 @@ class Halo : public CommunicationPlan<MemorySpace, CommSpace>
               std::enable_if_t<std::is_same<T, Import>::value, int> = 0>
     Halo( MPI_Comm comm, const std::size_t num_local,
           const IdViewType& element_ids, const RankViewType& element_ranks )
-        : CommunicationPlan<MemorySpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpace>( comm )
         , _num_local( num_local )
     {
         if ( element_ids.size() != element_ranks.size() )

@@ -699,10 +699,10 @@ class CommunicationPlan;
 
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
-#include <impl/Cabana_CommunicationPlan_MPI.hpp>
+#include <impl/Cabana_CommunicationPlan_Mpi.hpp>
 
 #ifdef Cabana_ENABLE_MPIADVANCE
-#include <impl/Cabana_CommunicationPlan_MPIAdvance.hpp>
+#include <impl/Cabana_CommunicationPlan_MpiAdvance.hpp>
 #endif // MPIADVANCE
 #endif // Enable MPI
 

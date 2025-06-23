@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Migrate_MPI.hpp
+  \file Cabana_Migrate_MpiAdvance.hpp
   \brief MPI Advance implementation of Cabana::migrate variations
 */
 #ifndef CABANA_MIGRATE_MPIADVANCE_HPP
@@ -39,60 +39,50 @@ namespace Impl
 //---------------------------------------------------------------------------//
 // Synchronously move data between a source and destination AoSoA by executing
 // the forward communication plan.
-template <class ExecutionSpace, class Migrator_t, class AoSoA_t>
+template <class ExecutionSpace, class Distributor_t, class AoSoA_t>
 void migrateData(
-    CommSpace::MpiAdvance, ExecutionSpace, const Migrator_t& migrator,
+    CommSpace::MpiAdvance, ExecutionSpace, const Distributor_t& distributor,
     const AoSoA_t& src, AoSoA_t& dst,
-    typename std::enable_if<( ( is_distributor<Migrator_t>::value ) &&
+    typename std::enable_if<( ( is_distributor<Distributor_t>::value ) &&
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::migrateData (MpiAdvance)" );
 
     static_assert(
-        is_accessible_from<typename Migrator_t::memory_space, ExecutionSpace>{},
+        is_accessible_from<typename Distributor_t::memory_space, ExecutionSpace>{},
         "" );
-
-    int offset = 0;
-    if constexpr ( is_collector<Migrator_t>::value )
-    {
-        // If src and dest are the same, the Collector places
-        // collected data at the end of the AoSoA instead of
-        // overwriting the existing data like a Distributor.
-        if ( src.data() == dst.data() )
-            offset = migrator.numOwned();
-    }
 
     // Get the MPI rank we are currently on.
     int my_rank = -1;
-    MPI_Comm_rank( migrator.comm(), &my_rank );
+    MPI_Comm_rank( distributor.comm(), &my_rank );
 
     // Get the number of neighbors.
-    int num_n = migrator.numNeighbor();
+    int num_n = distributor.numNeighbor();
 
     // Calculate the number of elements that are staying on this rank and
     // therefore can be directly copied. If any of the neighbor ranks are this
     // rank it will be stored in first position (i.e. the first neighbor in
     // the local list is always yourself if you are sending to yourself).
     std::size_t num_stay =
-        ( num_n > 0 && migrator.neighborRank( 0 ) == my_rank )
-            ? migrator.numExport( 0 )
+        ( num_n > 0 && distributor.neighborRank( 0 ) == my_rank )
+            ? distributor.numExport( 0 )
             : 0;
 
     // Allocate a send buffer.
-    std::size_t num_send = migrator.totalNumExport() - num_stay;
+    std::size_t num_send = distributor.totalNumExport() - num_stay;
     Kokkos::View<typename AoSoA_t::tuple_type*,
-                 typename Migrator_t::memory_space>
-        send_buffer( "migrator_send_buffer", num_send );
+                 typename Distributor_t::memory_space>
+        send_buffer( "distributor_send_buffer", num_send );
     Kokkos::View<typename AoSoA_t::tuple_type*,
-                 typename Migrator_t::memory_space>
-        recv_buffer( "migrator_recv_buffer", migrator.totalNumImport() );
+                 typename Distributor_t::memory_space>
+        recv_buffer( "distributor_recv_buffer", distributor.totalNumImport() );
 
     // Get the steering vector for the sends.
-    auto steering = migrator.getExportSteering();
+    auto steering = distributor.getExportSteering();
     Kokkos::parallel_for(
         "Cabana::Impl::migrateData::build_send_buffer",
-        Kokkos::RangePolicy<ExecutionSpace>( 0, migrator.totalNumExport() ),
+        Kokkos::RangePolicy<ExecutionSpace>( 0, distributor.totalNumExport() ),
         KOKKOS_LAMBDA( const std::size_t i ) {
             auto tpl = src.getTuple( steering( i ) );
             if ( i < num_stay )
@@ -110,18 +100,18 @@ void migrateData(
     for ( int n = 0; n < num_n; ++n )
     {
         recv_counts[n] =
-            migrator.numImport( n ) * sizeof( typename AoSoA_t::tuple_type );
+            distributor.numImport( n ) * sizeof( typename AoSoA_t::tuple_type );
         recv_displs[n] = recv_offset;
         recv_offset += recv_counts[n];
 
-        if ( migrator.neighborRank( n ) == my_rank )
+        if ( distributor.neighborRank( n ) == my_rank )
         {
             send_counts[n] = 0;
             send_displs[n] = 0;
         }
         else
         {
-            send_counts[n] = migrator.numExport( n ) *
+            send_counts[n] = distributor.numExport( n ) *
                              sizeof( typename AoSoA_t::tuple_type );
             send_displs[n] = send_offset;
             send_offset += send_counts[n];
@@ -136,7 +126,7 @@ void migrateData(
         Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
     MPI_Datatype datatype = MPI_BYTE;
-    auto xcomm = migrator.xcomm();
+    auto xcomm = distributor.xcomm();
 
     MPIX_Request* neighbor_request;
     MPIX_Info* xinfo;
@@ -155,23 +145,23 @@ void migrateData(
 
     // Copy recv buffer back to device memory
     recv_buffer = Kokkos::create_mirror_view_and_copy(
-        typename Migrator_t::memory_space(), recv_buffer_h );
+        typename Distributor_t::memory_space(), recv_buffer_h );
 
     Kokkos::parallel_for(
         "Cabana::Impl::migrateData::extract_recv_buffer",
-        Kokkos::RangePolicy<ExecutionSpace>( 0, migrator.totalNumImport() ),
+        Kokkos::RangePolicy<ExecutionSpace>( 0, distributor.totalNumImport() ),
         KOKKOS_LAMBDA( const std::size_t i ) {
-            dst.setTuple( offset + i, recv_buffer( i ) );
+            dst.setTuple( i, recv_buffer( i ) );
         } );
     Kokkos::fence();
 
-    MPI_Barrier( migrator.comm() );
+    MPI_Barrier( distributor.comm() );
 }
 
 //---------------------------------------------------------------------------//
 /*!
   \brief Synchronously migrate data between two different decompositions using
-  the migrator forward communication plan. Slice version. The user can do
+  the distributor forward communication plan. Slice version. The user can do
   this in-place with the same slice but they will need to manage the resizing
   themselves as we can't resize slices.
 
@@ -179,26 +169,26 @@ void migrateData(
   element will only have a single destination rank.
 
   \tparam ExecutionSpace Kokkos execution space.
-  \tparam Migrator_t - Migrator type - must be a Distributor or a Collector.
+  \tparam Distributor_t - Distributor type - must be a Distributor or a Collector.
   \tparam Slice_t Slice type - must be a Slice.
 
-  \param migrator The migrator to use for the migration.
+  \param distributor The distributor to use for the migration.
   \param src The slice containing the data to be migrated. Must have the same
-  number of elements as the inputs used to construct the migrator.
+  number of elements as the inputs used to construct the distributor.
   \param dst The slice to which the migrated data will be written. Must be the
-  same size as the number of imports given by the migrator on this
-  rank. Call totalNumImport() on the migrator to get this size value.
+  same size as the number of imports given by the distributor on this
+  rank. Call totalNumImport() on the distributor to get this size value.
 */
-template <class ExecutionSpace, class Migrator_t, class Slice_t>
+template <class ExecutionSpace, class Distributor_t, class Slice_t>
 void migrateSlice(
-    CommSpace::MpiAdvance, ExecutionSpace, const Migrator_t& migrator,
+    CommSpace::MpiAdvance, ExecutionSpace, const Distributor_t& distributor,
     const Slice_t& src, Slice_t& dst,
-    typename std::enable_if<( ( is_distributor<Migrator_t>::value ) &&
+    typename std::enable_if<( ( is_distributor<Distributor_t>::value ) &&
                               is_slice<Slice_t>::value ),
                             int>::type* = 0 )
 {
     // Check that dst is the right size.
-    if ( dst.size() != migrator.totalNumImport() )
+    if ( dst.size() != distributor.totalNumImport() )
         throw std::runtime_error(
             "migrateSlice: Destination is the wrong size for migration!" );
 
@@ -213,42 +203,42 @@ void migrateSlice(
 
     // Get the MPI rank we are currently on.
     int my_rank = -1;
-    MPI_Comm_rank( migrator.comm(), &my_rank );
+    MPI_Comm_rank( distributor.comm(), &my_rank );
 
     // Get the number of neighbors.
-    int num_n = migrator.numNeighbor();
+    int num_n = distributor.numNeighbor();
 
     // Calculate the number of elements that are staying on this rank and
     // therefore can be directly copied. If any of the neighbor ranks are this
     // rank it will be stored in first position (i.e. the first neighbor in
     // the local list is always yourself if you are sending to yourself).
     std::size_t num_stay =
-        ( num_n > 0 && migrator.neighborRank( 0 ) == my_rank )
-            ? migrator.numExport( 0 )
+        ( num_n > 0 && distributor.neighborRank( 0 ) == my_rank )
+            ? distributor.numExport( 0 )
             : 0;
 
     // Allocate a send buffer. Note this one is layout right so the components
     // of each element are consecutive in memory.
-    std::size_t num_send = migrator.totalNumExport() - num_stay;
+    std::size_t num_send = distributor.totalNumExport() - num_stay;
     Kokkos::View<typename Slice_t::value_type**, Kokkos::LayoutRight,
-                 typename Migrator_t::memory_space>
+                 typename Distributor_t::memory_space>
         send_buffer(
-            Kokkos::ViewAllocateWithoutInitializing( "migrator_send_buffer" ),
+            Kokkos::ViewAllocateWithoutInitializing( "distributor_send_buffer" ),
             num_send, num_comp );
 
     // Allocate a receive buffer. Note this one is layout right so the
     // components of each element are consecutive in memory.
     Kokkos::View<typename Slice_t::value_type**, Kokkos::LayoutRight,
-                 typename Migrator_t::memory_space>
+                 typename Distributor_t::memory_space>
         recv_buffer(
-            Kokkos::ViewAllocateWithoutInitializing( "migrator_recv_buffer" ),
-            migrator.totalNumImport(), num_comp );
+            Kokkos::ViewAllocateWithoutInitializing( "distributor_recv_buffer" ),
+            distributor.totalNumImport(), num_comp );
 
     // Get the steering vector for the sends.
-    auto steering = migrator.getExportSteering();
+    auto steering = distributor.getExportSteering();
     Kokkos::parallel_for(
         "Cabana::migrate::build_send_buffer",
-        Kokkos::RangePolicy<ExecutionSpace>( 0, migrator.totalNumExport() ),
+        Kokkos::RangePolicy<ExecutionSpace>( 0, distributor.totalNumExport() ),
         KOKKOS_LAMBDA( const std::size_t i ) {
             auto s_src = Slice_t::index_type::s( steering( i ) );
             auto a_src = Slice_t::index_type::a( steering( i ) );
@@ -274,19 +264,19 @@ void migrateSlice(
     std::size_t send_offset = 0, recv_offset = 0;
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_counts[n] = migrator.numImport( n ) * num_comp *
+        recv_counts[n] = distributor.numImport( n ) * num_comp *
                          sizeof( typename Slice_t::value_type );
         recv_displs[n] = recv_offset;
         recv_offset += recv_counts[n];
 
-        if ( migrator.neighborRank( n ) == my_rank )
+        if ( distributor.neighborRank( n ) == my_rank )
         {
             send_counts[n] = 0;
             send_displs[n] = 0;
         }
         else
         {
-            send_counts[n] = migrator.numExport( n ) * num_comp *
+            send_counts[n] = distributor.numExport( n ) * num_comp *
                              sizeof( typename Slice_t::value_type );
             send_displs[n] = send_offset;
             send_offset += send_counts[n];
@@ -301,7 +291,7 @@ void migrateSlice(
         Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
     MPI_Datatype datatype = MPI_BYTE;
-    auto xcomm = migrator.xcomm();
+    auto xcomm = distributor.xcomm();
 
     MPIX_Request* neighbor_request;
     MPIX_Info* xinfo;
@@ -320,11 +310,11 @@ void migrateSlice(
 
     // Copy recv buffer back to device memory
     recv_buffer = Kokkos::create_mirror_view_and_copy(
-        typename Migrator_t::memory_space(), recv_buffer_h );
+        typename Distributor_t::memory_space(), recv_buffer_h );
 
     Kokkos::parallel_for(
         "Cabana::migrate::extract_recv_buffer",
-        Kokkos::RangePolicy<ExecutionSpace>( 0, migrator.totalNumImport() ),
+        Kokkos::RangePolicy<ExecutionSpace>( 0, distributor.totalNumImport() ),
         KOKKOS_LAMBDA( const std::size_t i ) {
             auto s = Slice_t::index_type::s( i );
             auto a = Slice_t::index_type::a( i );
@@ -336,7 +326,7 @@ void migrateSlice(
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( migrator.comm() );
+    MPI_Barrier( distributor.comm() );
 }
 
 //---------------------------------------------------------------------------//

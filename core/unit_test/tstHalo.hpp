@@ -712,7 +712,9 @@ void testHaloBuffers( TestTag tag, BuildType build_type, CommSpace comm_space,
 //---------------------------------------------------------------------------//
 using HaloTestTypes =
     ::testing::Types<std::tuple<Cabana::CommSpace::Mpi, Cabana::Export>,
-                     std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>>;
+                     std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>,
+                     std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Export>,
+                     std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Import>>;
 
 template <typename T>
 class HaloTypedTest : public ::testing::Test
