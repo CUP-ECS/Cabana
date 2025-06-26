@@ -58,7 +58,7 @@ namespace Cabana
   user must allocate their own destination data structure.
 
 */
-template <class MemorySpace, class CommSpace>
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
 class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
