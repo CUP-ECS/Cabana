@@ -75,20 +75,21 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
         // We fence before posting receives in case the stream
         // is already using our buffers.
-        this->_exec_space.fence();
+        //this->_exec_space.fence();
 
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_owned_buffers,
                                   halo_type::_owned_steering,
                                   arrays.view()... );
-        this->_exec_space.fence();
+        //this->_exec_space.fence();
 
-	MPI_Barrier(MPI_COMM_WORLD);
-	for( int n = 0; n < 2*num_n; n++)
+	//MPI_Barrier(MPI_COMM_WORLD);
+	/*for( int n = 0; n < 2*num_n; n++)
 	  {
 	    //MPIS_Enqueue_start(my_queue, scatter_requests[n]);
 	    MPIS_Enqueue_start(my_queue, gather_requests[n]);
-	  }
+	    }*/
+	MPIS_Enqueue_startall(my_queue, 2*num_n, gather_requests.data());
 	MPIS_Enqueue_waitall(my_queue);
 	MPIS_Queue_wait(my_queue);
 	
@@ -125,15 +126,17 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         this->enqueuePackBuffers( halo_type::_ghosted_buffers,
                                   halo_type::_ghosted_steering,
                                   arrays.view()... );
-        this->_exec_space.fence();
+        //this->_exec_space.fence();
 
         //MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
-	MPI_Barrier(MPI_COMM_WORLD);
-	for( int n = 0; n < 2*num_n; n++)
+	//MPI_Barrier(MPI_COMM_WORLD);
+	/*for( int n = 0; n < 2*num_n; n++)
 	  {
 	    MPIS_Enqueue_start(my_queue, scatter_requests[n]);
 	    //MPIS_Enqueue_start(my_queue, gather_requests[n]);
-	  }
+	    }*/
+	MPIS_Enqueue_startall(my_queue, 2*num_n, scatter_requests.data());
+	
 	MPIS_Enqueue_waitall(my_queue);
 	MPIS_Queue_wait(my_queue);
 
@@ -180,7 +183,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			    &scatter_requests[num_n + n] );
 	    }
       }
-    MPI_Barrier(MPI_COMM_WORLD);
+      //MPI_Barrier(MPI_COMM_WORLD);
     // gather
     for ( int n = 0; n < num_n; ++n )
       {
@@ -210,7 +213,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	MPIS_Queue_match(my_queue, scatter_requests[n]);
 	MPIS_Queue_match(my_queue, gather_requests[n]);
       }
-    MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
     
     }
   ~StreamHalo(){
