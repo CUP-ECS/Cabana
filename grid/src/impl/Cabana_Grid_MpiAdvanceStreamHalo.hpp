@@ -76,7 +76,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         // We fence before posting receives in case the stream
         // is already using our buffers.
         //this->_exec_space.fence();
-
+	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[0]);
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_owned_buffers,
                                   halo_type::_owned_steering,
@@ -89,7 +89,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	    //MPIS_Enqueue_start(my_queue, scatter_requests[n]);
 	    MPIS_Enqueue_start(my_queue, gather_requests[n]);
 	    }*/
-	MPIS_Enqueue_startall(my_queue, 2*num_n, gather_requests.data());
+	//MPIS_Enqueue_startall(my_queue, 2*num_n, gather_requests.data());
+	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[num_n]);
 	MPIS_Enqueue_waitall(my_queue);
 	MPIS_Queue_wait(my_queue);
 	
@@ -122,6 +123,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( 0 == num_n )
             return;
 
+	// Begin Recv inits
+	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[0]);
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_ghosted_buffers,
                                   halo_type::_ghosted_steering,
@@ -135,7 +138,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	    MPIS_Enqueue_start(my_queue, scatter_requests[n]);
 	    //MPIS_Enqueue_start(my_queue, gather_requests[n]);
 	    }*/
-	MPIS_Enqueue_startall(my_queue, 2*num_n, scatter_requests.data());
+	
+	// Begin Send inits
+	//MPIS_Enqueue_startall(my_queue, 2*num_n, scatter_requests.data());
+	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[num_n]);
 	
 	MPIS_Enqueue_waitall(my_queue);
 	MPIS_Queue_wait(my_queue);
