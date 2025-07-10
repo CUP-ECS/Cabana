@@ -144,7 +144,7 @@ void exportHaloExchangeExample()
     auto unique_end = std::unique( neighbors.begin(), neighbors.end() );
     neighbors.resize( std::distance( neighbors.begin(), unique_end ) );
     /* No Cabana::Import or Cabana::Export tag provided - defaults to Cabana::Export */
-    Cabana::Halo<MemorySpace> halo( MPI_COMM_WORLD, num_tuple, export_ids,
+    Cabana::Halo<MemorySpace, Cabana::Export, Cabana::CommSpace::Mpi> halo( MPI_COMM_WORLD, num_tuple, export_ids,
                                     export_ranks, neighbors );
 
     /*
