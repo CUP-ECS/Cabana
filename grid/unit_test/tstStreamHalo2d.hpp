@@ -389,6 +389,7 @@ void scatterReduceTest( const ReduceFunc& reduce )
 //---------------------------------------------------------------------------//
 TEST( TEST_CATEGORY, not_periodic_test )
 {
+  MPIS_Hello_world();
     // Let MPI compute the partitioning for this test.
     int comm_size;
     MPI_Comm_size( MPI_COMM_WORLD, &comm_size );
