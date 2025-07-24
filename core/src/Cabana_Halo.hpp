@@ -60,6 +60,8 @@ template <class MemorySpace, class BuildType = Export,
 class Halo : public CommunicationPlan<MemorySpace, CommSpace>
 {
   public:
+    using commspace_type = CommSpace;
+
     /*!
       \brief Neighbor and export rank constructor. Use this when you don't know
       who you will receiving from - only who you are sending to, but you already
@@ -351,6 +353,9 @@ bool haloCheckValidSize(
 template <class HaloType, class AoSoAType, class SFINAE = void>
 class Gather;
 
+
+
+
 //---------------------------------------------------------------------------//
 /*!
   \brief Synchronously gather data from the local decomposition to the ghosts
@@ -366,14 +371,16 @@ class Gather;
 template <class HaloType, class AoSoAType>
 class Gather<HaloType, AoSoAType,
              typename std::enable_if<is_aosoa<AoSoAType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>>
+    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>, typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
 
+    //! Communication space type.
+    using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>>;
+        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>, commspace_type>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -408,92 +415,11 @@ class Gather<HaloType, AoSoAType,
     //! Total gather receive size for this rank.
     auto totalReceive() { return _halo.totalNumImport(); }
 
-    /*!
-      \brief Perform the gather operation.
-    */
-    template <class ExecutionSpace>
-    void apply( ExecutionSpace )
-    {
-        Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+    void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
 
-        // Get the buffers and particle data (local copies for lambdas below).
-        auto send_buffer = this->getSendBuffer();
-        auto recv_buffer = this->getReceiveBuffer();
-        auto aosoa = this->getData();
+    template <class ExecutionSpace, class CommSpace>
+    void applyImpl( ExecutionSpace, CommSpace );
 
-        // Get the steering vector for the sends.
-        auto steering = _halo.getExportSteering();
-        // Gather from the local data into a tuple-contiguous send buffer.
-        auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-        {
-            send_buffer( i ) = aosoa.getTuple( steering( i ) );
-        };
-        Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
-        Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                              gather_send_buffer_func );
-        Kokkos::fence();
-
-        // The halo has it's own communication space so choose any mpi tag.
-        const int mpi_tag = 2345;
-
-        // Post non-blocking receives.
-        int num_n = _halo.numNeighbor();
-        std::vector<MPI_Request> requests( num_n );
-        std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-        for ( int n = 0; n < num_n; ++n )
-        {
-            recv_range.second = recv_range.first + _halo.numImport( n );
-
-            auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
-
-            MPI_Irecv( recv_subview.data(),
-                       recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                       _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                       &( requests[n] ) );
-
-            recv_range.first = recv_range.second;
-        }
-
-        // Do blocking sends.
-        std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-        for ( int n = 0; n < num_n; ++n )
-        {
-            send_range.second = send_range.first + _halo.numExport( n );
-
-            auto send_subview = Kokkos::subview( send_buffer, send_range );
-
-            MPI_Send( send_subview.data(),
-                      send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                      _halo.neighborRank( n ), mpi_tag, _halo.comm() );
-
-            send_range.first = send_range.second;
-        }
-
-        // Wait on non-blocking receives.
-        std::vector<MPI_Status> status( num_n );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error(
-                "Cabana::Gather::apply: Failed MPI Communication" );
-
-        // Extract the receive buffer into the ghosted elements.
-        std::size_t num_local = _halo.numLocal();
-        auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-        {
-            std::size_t ghost_idx = i + num_local;
-            aosoa.setTuple( ghost_idx, recv_buffer( i ) );
-        };
-        Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-        Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
-                              recv_policy, extract_recv_buffer_func );
-        Kokkos::fence();
-
-        // Barrier before completing to ensure synchronization.
-        MPI_Barrier( _halo.comm() );
-    }
-
-    void apply() override { apply( execution_space{} ); }
 
     /*!
       \brief Reserve new buffers as needed and update the halo and AoSoA data.
@@ -548,14 +474,16 @@ class Gather<HaloType, AoSoAType,
 template <class HaloType, class SliceType>
 class Gather<HaloType, SliceType,
              typename std::enable_if<is_slice<SliceType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>, typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
 
+    //! Communication space type.
+    using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>, commspace_type>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -590,111 +518,10 @@ class Gather<HaloType, SliceType,
     //! Total gather receive size for this rank.
     auto totalReceive() { return _halo.totalNumImport(); }
 
-    /*!
-      \brief Perform the gather operation.
-    */
-    template <class ExecutionSpace>
-    void apply( ExecutionSpace )
-    {
-        Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+    void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
 
-        // Get the buffers (local copies for lambdas below).
-        auto send_buffer = this->getSendBuffer();
-        auto recv_buffer = this->getReceiveBuffer();
-        auto slice = this->getData();
-
-        // Get the number of components in the slice.
-        std::size_t num_comp = this->getSliceComponents();
-
-        // Get the raw slice data.
-        auto slice_data = slice.data();
-
-        // Get the steering vector for the sends.
-        auto steering = _halo.getExportSteering();
-
-        // Gather from the local data into a tuple-contiguous send buffer.
-        auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-        {
-            auto s = SliceType::index_type::s( steering( i ) );
-            auto a = SliceType::index_type::a( steering( i ) );
-            std::size_t slice_offset = s * slice.stride( 0 ) + a;
-            for ( std::size_t n = 0; n < num_comp; ++n )
-                send_buffer( i, n ) =
-                    slice_data[slice_offset + n * SliceType::vector_length];
-        };
-        Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
-        Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                              gather_send_buffer_func );
-        Kokkos::fence();
-
-        // The halo has it's own communication space so choose any mpi tag.
-        const int mpi_tag = 2345;
-
-        // Post non-blocking receives.
-        int num_n = _halo.numNeighbor();
-        std::vector<MPI_Request> requests( num_n );
-        std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-        for ( int n = 0; n < num_n; ++n )
-        {
-            recv_range.second = recv_range.first + _halo.numImport( n );
-
-            auto recv_subview =
-                Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
-
-            MPI_Irecv( recv_subview.data(),
-                       recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                       _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                       &( requests[n] ) );
-
-            recv_range.first = recv_range.second;
-        }
-
-        // Do blocking sends.
-        std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-        for ( int n = 0; n < num_n; ++n )
-        {
-            send_range.second = send_range.first + _halo.numExport( n );
-
-            auto send_subview =
-                Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
-
-            MPI_Send( send_subview.data(),
-                      send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                      _halo.neighborRank( n ), mpi_tag, _halo.comm() );
-
-            send_range.first = send_range.second;
-        }
-
-        // Wait on non-blocking receives.
-        std::vector<MPI_Status> status( num_n );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error(
-                "Cabana::gather::apply (SliceType): Failed MPI Communication" );
-
-        // Extract the receive buffer into the ghosted elements.
-        std::size_t num_local = _halo.numLocal();
-        auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-        {
-            std::size_t ghost_idx = i + num_local;
-            auto s = SliceType::index_type::s( ghost_idx );
-            auto a = SliceType::index_type::a( ghost_idx );
-            std::size_t slice_offset = s * slice.stride( 0 ) + a;
-            for ( std::size_t n = 0; n < num_comp; ++n )
-                slice_data[slice_offset + SliceType::vector_length * n] =
-                    recv_buffer( i, n );
-        };
-        Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-        Kokkos::parallel_for( "Cabana::gather::extract_recv_buffer",
-                              recv_policy, extract_recv_buffer_func );
-        Kokkos::fence();
-
-        // Barrier before completing to ensure synchronization.
-        MPI_Barrier( _halo.comm() );
-    }
-
-    void apply() override { apply( execution_space{} ); }
+    template <class ExecutionSpace, class CommSpace>
+    void applyImpl( ExecutionSpace, CommSpace );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and slice data.
@@ -734,6 +561,20 @@ class Gather<HaloType, SliceType,
     using base_type::_recv_size;
     using base_type::_send_size;
 };
+
+} // end namespace Cabana
+
+// Include communication backends from what is enabled in CMake.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_Halo_Mpi.hpp>
+
+#ifdef Cabana_ENABLE_MPIADVANCE
+// #include <impl/Cabana_Halo_MpiAdvance.hpp>
+#endif // MPIADVANCE
+#endif // Enable MPI
+
+namespace Cabana
+{
 
 //---------------------------------------------------------------------------//
 /*!
@@ -799,14 +640,16 @@ void gather( const HaloType& halo, ParticleDataType& data )
 */
 template <class HaloType, class SliceType>
 class Scatter
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>, typename HaloType::commspace_type>
 {
     static_assert( is_halo<HaloType>::value, "" );
 
   public:
+    //! Communication space type.
+    using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>, commspace_type>;
     //! Communication plan type (Halo).
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
