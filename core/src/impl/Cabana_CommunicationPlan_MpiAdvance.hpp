@@ -1103,6 +1103,45 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
     std::shared_ptr<MPIX_Comm> _xcomm_ptr;
 };
 
+template <class CommPlanType, class CommDataType>
+class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
+    : public CommunicationDataBase<CommPlanType, CommDataType>
+{
+  protected:
+    //! Communication plan type (Halo, Distributor)
+    /// using typename CommunicationDataBase<CommPlanType, CommDataType>::plan_type;
+    // //! Kokkos execution space.
+    // using typename CommunicationDataBase<CommPlanType, CommDataType>::execution_space;
+    // //! Kokkos execution policy.
+    // using typename CommunicationDataBase<CommPlanType, CommDataType>::policy_type;
+    // //! Communication data type.
+    // using typename CommunicationDataBase<CommPlanType, CommDataType>::comm_data_type;
+    // //! Particle data type.
+    using typename CommunicationDataBase<CommPlanType, CommDataType>::particle_data_type;
+    // //! Kokkos memory space.
+    // using memory_space = typename comm_data_type::memory_space;
+    // //! Communication data type.
+    // using data_type = typename comm_data_type::data_type;
+    // //! Communication buffer type.
+    // using buffer_type = typename comm_data_type::buffer_type;
+
+    /*!
+      \param comm_plan The communication plan.
+      \param particles The particle data (either AoSoA or slice).
+      \param overallocation An optional factor to keep extra space in the
+      buffers to avoid frequent resizing.
+    */
+    CommunicationData( const CommPlanType& comm_plan,
+                       const particle_data_type& particles,
+                       const double overallocation = 1.0 )
+        : CommunicationDataBase<CommPlanType, CommDataType>(comm_plan, particles, overallocation)
+    {
+    }
+  public:
+    // Put MPIAdvance-specific functions and variables here...
+
+};
+
 } // end namespace Cabana
 
 #endif // end CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
