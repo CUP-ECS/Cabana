@@ -35,10 +35,11 @@ namespace Cabana
     \brief Perform the gather operation.
 */
 template <class HaloType, class AoSoAType>
-template <class ExecutionSpace, class CommSpace>
-void Gather<HaloType, AoSoAType,
+template <class ExecutionSpace, class CommSpaceType>
+std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
+Gather<HaloType, AoSoAType,
             typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
-    applyImpl( ExecutionSpace, CommSpace )
+    applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
@@ -123,10 +124,11 @@ void Gather<HaloType, AoSoAType,
     \brief Perform the gather operation.
 */
 template <class HaloType, class SliceType>
-template <class ExecutionSpace, class CommSpace>
-void Gather<HaloType, SliceType,
+template <class ExecutionSpace, class CommSpaceType>
+std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
+Gather<HaloType, SliceType,
             typename std::enable_if<is_slice<SliceType>::value>::type>::
-    applyImpl( ExecutionSpace, CommSpace )
+    applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 

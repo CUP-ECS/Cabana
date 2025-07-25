@@ -417,8 +417,13 @@ class Gather<HaloType, AoSoAType,
 
     void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
 
-    template <class ExecutionSpace, class CommSpace>
-    void applyImpl( ExecutionSpace, CommSpace );
+    template <class ExecutionSpace, class CommSpaceType>
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
+    applyImpl( ExecutionSpace, CommSpaceType );
+
+    template <class ExecutionSpace, class CommSpaceType>
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value, void>
+    applyImpl( ExecutionSpace, CommSpaceType );
 
 
     /*!
@@ -520,8 +525,13 @@ class Gather<HaloType, SliceType,
 
     void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
 
-    template <class ExecutionSpace, class CommSpace>
-    void applyImpl( ExecutionSpace, CommSpace );
+    template <class ExecutionSpace, class CommSpaceType>
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
+    applyImpl( ExecutionSpace, CommSpaceType );
+
+    template <class ExecutionSpace, class CommSpaceType>
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value, void>
+    applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and slice data.
@@ -561,66 +571,6 @@ class Gather<HaloType, SliceType,
     using base_type::_recv_size;
     using base_type::_send_size;
 };
-
-} // end namespace Cabana
-
-// Include communication backends from what is enabled in CMake.
-#ifdef Cabana_ENABLE_MPI
-#include <impl/Cabana_Halo_Mpi.hpp>
-
-#ifdef Cabana_ENABLE_MPIADVANCE
-// #include <impl/Cabana_Halo_MpiAdvance.hpp>
-#endif // MPIADVANCE
-#endif // Enable MPI
-
-namespace Cabana
-{
-
-//---------------------------------------------------------------------------//
-/*!
-  \brief Create the gather.
-
-  \param halo The halo to use for the gather.
-  \param data The data on which to perform the gather. The slice should have a
-  size equivalent to halo.numGhost() + halo.numLocal(). The locally owned
-  elements are expected to appear first (i.e. in the first halo.numLocal()
-  elements) and the ghosted elements are expected to appear second (i.e. in the
-  next halo.numGhost() elements()).
-  \param overallocation An optional factor to keep extra space in the buffers to
-  avoid frequent resizing.
-  \return Gather
-*/
-template <class HaloType, class ParticleDataType>
-auto createGather( const HaloType& halo, const ParticleDataType& data,
-                   const double overallocation = 1.0 )
-{
-    return Gather<HaloType, ParticleDataType>( halo, data, overallocation );
-}
-
-//---------------------------------------------------------------------------//
-/*!
-  \brief Synchronously gather data from the local decomposition to the
-  ghosts using the halo forward communication plan. Slice version. This is a
-  uniquely-owned to multiply-owned communication.
-
-  \note This routine allocates send and receive buffers internally. This is
-  often not performant due to frequent buffer reallocations - consider creating
-  and reusing Gather instead.
-
-  \param halo The halo to use for the gather.
-
-  \param data The data on which to perform the gather. The slice should
-  have a size equivalent to halo.numGhost() + halo.numLocal(). The locally
-  owned elements are expected to appear first (i.e. in the first
-  halo.numLocal() elements) and the ghosted elements are expected to appear
-  second (i.e. in the next halo.numGhost() elements()).
-*/
-template <class HaloType, class ParticleDataType>
-void gather( const HaloType& halo, ParticleDataType& data )
-{
-    auto gather = createGather( halo, data );
-    gather.apply();
-}
 
 /**********
  * SCATTER *
@@ -833,6 +783,66 @@ class Scatter
     using base_type::_recv_size;
     using base_type::_send_size;
 };
+
+} // end namespace Cabana
+
+// Include communication backends from what is enabled in CMake.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_Halo_Mpi.hpp>
+
+#ifdef Cabana_ENABLE_MPIADVANCE
+#include <impl/Cabana_Halo_MpiAdvance.hpp>
+#endif // MPIADVANCE
+#endif // Enable MPI
+
+namespace Cabana
+{
+
+//---------------------------------------------------------------------------//
+/*!
+  \brief Create the gather.
+
+  \param halo The halo to use for the gather.
+  \param data The data on which to perform the gather. The slice should have a
+  size equivalent to halo.numGhost() + halo.numLocal(). The locally owned
+  elements are expected to appear first (i.e. in the first halo.numLocal()
+  elements) and the ghosted elements are expected to appear second (i.e. in the
+  next halo.numGhost() elements()).
+  \param overallocation An optional factor to keep extra space in the buffers to
+  avoid frequent resizing.
+  \return Gather
+*/
+template <class HaloType, class ParticleDataType>
+auto createGather( const HaloType& halo, const ParticleDataType& data,
+                   const double overallocation = 1.0 )
+{
+    return Gather<HaloType, ParticleDataType>( halo, data, overallocation );
+}
+
+//---------------------------------------------------------------------------//
+/*!
+  \brief Synchronously gather data from the local decomposition to the
+  ghosts using the halo forward communication plan. Slice version. This is a
+  uniquely-owned to multiply-owned communication.
+
+  \note This routine allocates send and receive buffers internally. This is
+  often not performant due to frequent buffer reallocations - consider creating
+  and reusing Gather instead.
+
+  \param halo The halo to use for the gather.
+
+  \param data The data on which to perform the gather. The slice should
+  have a size equivalent to halo.numGhost() + halo.numLocal(). The locally
+  owned elements are expected to appear first (i.e. in the first
+  halo.numLocal() elements) and the ghosted elements are expected to appear
+  second (i.e. in the next halo.numGhost() elements()).
+*/
+template <class HaloType, class ParticleDataType>
+void gather( const HaloType& halo, ParticleDataType& data )
+{
+    auto gather = createGather( halo, data );
+    gather.apply();
+}
 
 /*!
   \brief Create the scatter.
