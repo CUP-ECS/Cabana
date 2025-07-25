@@ -353,9 +353,6 @@ bool haloCheckValidSize(
 template <class HaloType, class AoSoAType, class SFINAE = void>
 class Gather;
 
-
-
-
 //---------------------------------------------------------------------------//
 /*!
   \brief Synchronously gather data from the local decomposition to the ghosts
@@ -371,7 +368,8 @@ class Gather;
 template <class HaloType, class AoSoAType>
 class Gather<HaloType, AoSoAType,
              typename std::enable_if<is_aosoa<AoSoAType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>, typename HaloType::commspace_type>
+    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>,
+                               typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -380,7 +378,8 @@ class Gather<HaloType, AoSoAType,
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>, commspace_type>;
+        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>,
+                          commspace_type>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -422,12 +421,12 @@ class Gather<HaloType, AoSoAType,
 
     template <class ExecutionSpace, class CommSpaceType>
     std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
-    applyImpl( ExecutionSpace, CommSpaceType );
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value, void>
-    applyImpl( ExecutionSpace, CommSpaceType );
-
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+                     void>
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and AoSoA data.
@@ -482,7 +481,8 @@ class Gather<HaloType, AoSoAType,
 template <class HaloType, class SliceType>
 class Gather<HaloType, SliceType,
              typename std::enable_if<is_slice<SliceType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>, typename HaloType::commspace_type>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
+                               typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -491,7 +491,8 @@ class Gather<HaloType, SliceType,
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>, commspace_type>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
+                          commspace_type>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -533,11 +534,12 @@ class Gather<HaloType, SliceType,
 
     template <class ExecutionSpace, class CommSpaceType>
     std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
-    applyImpl( ExecutionSpace, CommSpaceType );
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value, void>
-    applyImpl( ExecutionSpace, CommSpaceType );
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+                     void>
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and slice data.
@@ -596,7 +598,8 @@ class Gather<HaloType, SliceType,
 */
 template <class HaloType, class SliceType>
 class Scatter
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>, typename HaloType::commspace_type>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
+                               typename HaloType::commspace_type>
 {
     static_assert( is_halo<HaloType>::value, "" );
 
@@ -605,7 +608,8 @@ class Scatter
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>, commspace_type>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
+                          commspace_type>;
     //! Communication plan type (Halo).
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -647,11 +651,12 @@ class Scatter
 
     template <class ExecutionSpace, class CommSpaceType>
     std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
-    applyImpl( ExecutionSpace, CommSpaceType );
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value, void>
-    applyImpl( ExecutionSpace, CommSpaceType );
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+                     void>
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and slice data.

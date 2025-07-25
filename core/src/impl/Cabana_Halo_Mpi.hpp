@@ -38,7 +38,7 @@ template <class HaloType, class AoSoAType>
 template <class ExecutionSpace, class CommSpaceType>
 std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
 Gather<HaloType, AoSoAType,
-            typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
+       typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
@@ -57,7 +57,7 @@ Gather<HaloType, AoSoAType,
     };
     Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                            gather_send_buffer_func );
+                          gather_send_buffer_func );
     Kokkos::fence();
 
     // The halo has it's own communication space so choose any mpi tag.
@@ -74,9 +74,9 @@ Gather<HaloType, AoSoAType,
         auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
 
         MPI_Irecv( recv_subview.data(),
-                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                    _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                    &( requests[n] ) );
+                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                   &( requests[n] ) );
 
         recv_range.first = recv_range.second;
     }
@@ -90,8 +90,8 @@ Gather<HaloType, AoSoAType,
         auto send_subview = Kokkos::subview( send_buffer, send_range );
 
         MPI_Send( send_subview.data(),
-                    send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                    _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
 
         send_range.first = send_range.second;
     }
@@ -113,7 +113,7 @@ Gather<HaloType, AoSoAType,
     };
     Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
     Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
-                            recv_policy, extract_recv_buffer_func );
+                          recv_policy, extract_recv_buffer_func );
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
@@ -127,7 +127,7 @@ template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
 std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
 Gather<HaloType, SliceType,
-            typename std::enable_if<is_slice<SliceType>::value>::type>::
+       typename std::enable_if<is_slice<SliceType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
@@ -158,7 +158,7 @@ Gather<HaloType, SliceType,
     };
     Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                            gather_send_buffer_func );
+                          gather_send_buffer_func );
     Kokkos::fence();
 
     // The halo has it's own communication space so choose any mpi tag.
@@ -176,9 +176,9 @@ Gather<HaloType, SliceType,
             Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
         MPI_Irecv( recv_subview.data(),
-                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                    _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                    &( requests[n] ) );
+                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                   &( requests[n] ) );
 
         recv_range.first = recv_range.second;
     }
@@ -193,8 +193,8 @@ Gather<HaloType, SliceType,
             Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
         MPI_Send( send_subview.data(),
-                    send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                    _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
 
         send_range.first = send_range.second;
     }
@@ -220,8 +220,8 @@ Gather<HaloType, SliceType,
                 recv_buffer( i, n );
     };
     Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-    Kokkos::parallel_for( "Cabana::gather::extract_recv_buffer",
-                            recv_policy, extract_recv_buffer_func );
+    Kokkos::parallel_for( "Cabana::gather::extract_recv_buffer", recv_policy,
+                          extract_recv_buffer_func );
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
@@ -235,8 +235,7 @@ Gather<HaloType, SliceType,
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
 std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
-Scatter<HaloType, SliceType>::
-    applyImpl( ExecutionSpace, CommSpaceType )
+Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::scatter" );
 
@@ -251,7 +250,7 @@ Scatter<HaloType, SliceType>::
     // Get the raw slice data. Wrap in a 1D Kokkos View so we can unroll the
     // components of each slice element.
     Kokkos::View<data_type*, memory_space,
-                    Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                 Kokkos::MemoryTraits<Kokkos::Unmanaged>>
         slice_data( slice.data(), slice.numSoA() * slice.stride( 0 ) );
 
     // Extract the send buffer from the ghosted elements.
@@ -267,8 +266,8 @@ Scatter<HaloType, SliceType>::
                 slice_data( slice_offset + SliceType::vector_length * n );
     };
     Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
-    Kokkos::parallel_for( "Cabana::scatter::extract_send_buffer",
-                            send_policy, extract_send_buffer_func );
+    Kokkos::parallel_for( "Cabana::scatter::extract_send_buffer", send_policy,
+                          extract_send_buffer_func );
     Kokkos::fence();
 
     // The halo has it's own communication space so choose any mpi tag.
@@ -286,9 +285,9 @@ Scatter<HaloType, SliceType>::
             Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
         MPI_Irecv( recv_subview.data(),
-                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                    _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                    &( requests[n] ) );
+                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                   &( requests[n] ) );
 
         recv_range.first = recv_range.second;
     }
@@ -303,8 +302,8 @@ Scatter<HaloType, SliceType>::
             Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
         MPI_Send( send_subview.data(),
-                    send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                    _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
 
         send_range.first = send_range.second;
     }
@@ -333,15 +332,13 @@ Scatter<HaloType, SliceType>::
     };
     Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
     Kokkos::parallel_for( "Cabana::scatter::apply::scatter_recv_buffer",
-                            recv_policy, scatter_recv_buffer_func );
+                          recv_policy, scatter_recv_buffer_func );
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
     MPI_Barrier( _halo.comm() );
 }
 
-
 } // end namespace Cabana
-
 
 #endif // end CABANA_HALO_MPI_HPP
