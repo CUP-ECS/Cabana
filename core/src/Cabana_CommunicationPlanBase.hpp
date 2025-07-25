@@ -422,7 +422,7 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   means is that neighbor 0 is the local rank and the data for that rank that
   is being exported will appear first in the steering vector.
 */
-template <class MemorySpace, class CommSpace = CommSpace::Mpi>
+template <class MemorySpace>
 class CommunicationPlanBase
 {
   public:
@@ -691,24 +691,6 @@ class CommunicationPlanBase
     Kokkos::View<std::size_t*, memory_space> _export_steering;
 };
 
-// Forward declaration of the primary CommunicationPlan template.
-template <class MemorySpace, class CommSpace = CommSpace::Mpi>
-class CommunicationPlan;
-
-} // namespace Cabana
-
-// Include communication backends from what is enabled in CMake.
-#ifdef Cabana_ENABLE_MPI
-#include <impl/Cabana_CommunicationPlan_Mpi.hpp>
-
-#ifdef Cabana_ENABLE_MPIADVANCE
-#include <impl/Cabana_CommunicationPlan_MpiAdvance.hpp>
-#endif // MPIADVANCE
-#endif // Enable MPI
-
-namespace Cabana
-{
-
 //---------------------------------------------------------------------------//
 /*!
   \brief Store AoSoA send/receive buffers.
@@ -828,9 +810,9 @@ struct CommunicationDataSlice
   \brief Store communication plan and communication buffers.
 */
 template <class CommPlanType, class CommDataType>
-class CommunicationData
+class CommunicationDataBase
 {
-  public:
+  protected:
     //! Communication plan type (Halo, Distributor)
     using plan_type = CommPlanType;
     //! Kokkos execution space.
@@ -854,15 +836,16 @@ class CommunicationData
       \param overallocation An optional factor to keep extra space in the
       buffers to avoid frequent resizing.
     */
-    CommunicationData( const CommPlanType& comm_plan,
-                       const particle_data_type& particles,
-                       const double overallocation = 1.0 )
+    CommunicationDataBase( const CommPlanType& comm_plan,
+                           const particle_data_type& particles,
+                           const double overallocation = 1.0 )
         : _comm_plan( comm_plan )
         , _comm_data( CommDataType( particles ) )
         , _overallocation( overallocation )
     {
     }
 
+  public:
     //! Get the communication send buffer.
     buffer_type getSendBuffer() const { return _comm_data._send_buffer; }
     //! Get the communication receive buffer.
@@ -971,6 +954,24 @@ class CommunicationData
     std::size_t _recv_size;
 };
 
-} // end namespace Cabana
+// Forward declaration of the primary CommunicationPlan template.
+template <class MemorySpace, class CommSpace = CommSpace::Mpi>
+class CommunicationPlan;
+
+// Forward declaration of the primary CommunicationData template.
+template <class CommPlanType, class CommDataType,
+          class CommSpace = CommSpace::Mpi>
+class CommunicationData;
+
+} // namespace Cabana
+
+// Include communication backends from what is enabled in CMake.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_CommunicationPlan_Mpi.hpp>
+
+#ifdef Cabana_ENABLE_MPIADVANCE
+#include <impl/Cabana_CommunicationPlan_MpiAdvance.hpp>
+#endif // MPIADVANCE
+#endif // Enable MPI
 
 #endif // end CABANA_COMMUNICATIONPLANBASE_HPP
