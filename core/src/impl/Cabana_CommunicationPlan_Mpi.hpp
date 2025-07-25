@@ -986,15 +986,20 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::Mpi>
 {
   protected:
     //! Communication plan type (Halo, Distributor)
-    /// using typename CommunicationDataBase<CommPlanType, CommDataType>::plan_type;
+    /// using typename CommunicationDataBase<CommPlanType,
+    /// CommDataType>::plan_type;
     // //! Kokkos execution space.
-    // using typename CommunicationDataBase<CommPlanType, CommDataType>::execution_space;
+    // using typename CommunicationDataBase<CommPlanType,
+    // CommDataType>::execution_space;
     // //! Kokkos execution policy.
-    // using typename CommunicationDataBase<CommPlanType, CommDataType>::policy_type;
+    // using typename CommunicationDataBase<CommPlanType,
+    // CommDataType>::policy_type;
     // //! Communication data type.
-    // using typename CommunicationDataBase<CommPlanType, CommDataType>::comm_data_type;
+    // using typename CommunicationDataBase<CommPlanType,
+    // CommDataType>::comm_data_type;
     // //! Particle data type.
-    using typename CommunicationDataBase<CommPlanType, CommDataType>::particle_data_type;
+    using typename CommunicationDataBase<CommPlanType,
+                                         CommDataType>::particle_data_type;
     // //! Kokkos memory space.
     // using memory_space = typename comm_data_type::memory_space;
     // //! Communication data type.
@@ -1011,13 +1016,13 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::Mpi>
     CommunicationData( const CommPlanType& comm_plan,
                        const particle_data_type& particles,
                        const double overallocation = 1.0 )
-        : CommunicationDataBase<CommPlanType, CommDataType>(comm_plan, particles, overallocation)
+        : CommunicationDataBase<CommPlanType, CommDataType>(
+              comm_plan, particles, overallocation )
     {
     }
 
   public:
     // Put MPI-specific functions and variables here...
-
 };
 
 } // end namespace Cabana

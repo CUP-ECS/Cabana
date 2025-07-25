@@ -283,8 +283,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
                         const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
-        return createFromTopology(
-            execution_space{}, Export(), element_export_ranks, neighbor_ranks );
+        return createFromTopology( execution_space{}, Export(),
+                                   element_export_ranks, neighbor_ranks );
     }
 
     /*!
@@ -485,7 +485,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
     createFromNoTopology( Export, const RankViewType& element_export_ranks )
     {
         // Use the default execution space.
-        return createFromNoTopology ( execution_space{}, Export(), element_export_ranks );
+        return createFromNoTopology( execution_space{}, Export(),
+                                     element_export_ranks );
     }
 
     /*!
@@ -806,9 +807,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
                              const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
-        return createFromTopology(
-            execution_space{}, Import(), element_import_ranks, element_import_ids,
-            neighbor_ranks );
+        return createFromTopology( execution_space{}, Import(),
+                                   element_import_ranks, element_import_ids,
+                                   neighbor_ranks );
     }
 
     /*!
@@ -1094,8 +1095,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
                                const IdViewType& element_import_ids )
     {
         // Use the default execution space.
-        return createFromNoTopology( execution_space{}, Import(), element_import_ranks,
-                                      element_import_ids );
+        return createFromNoTopology( execution_space{}, Import(),
+                                     element_import_ranks, element_import_ids );
     }
 
   private:
@@ -1109,15 +1110,20 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
 {
   protected:
     //! Communication plan type (Halo, Distributor)
-    /// using typename CommunicationDataBase<CommPlanType, CommDataType>::plan_type;
+    /// using typename CommunicationDataBase<CommPlanType,
+    /// CommDataType>::plan_type;
     // //! Kokkos execution space.
-    // using typename CommunicationDataBase<CommPlanType, CommDataType>::execution_space;
+    // using typename CommunicationDataBase<CommPlanType,
+    // CommDataType>::execution_space;
     // //! Kokkos execution policy.
-    // using typename CommunicationDataBase<CommPlanType, CommDataType>::policy_type;
+    // using typename CommunicationDataBase<CommPlanType,
+    // CommDataType>::policy_type;
     // //! Communication data type.
-    // using typename CommunicationDataBase<CommPlanType, CommDataType>::comm_data_type;
+    // using typename CommunicationDataBase<CommPlanType,
+    // CommDataType>::comm_data_type;
     // //! Particle data type.
-    using typename CommunicationDataBase<CommPlanType, CommDataType>::particle_data_type;
+    using typename CommunicationDataBase<CommPlanType,
+                                         CommDataType>::particle_data_type;
     // //! Kokkos memory space.
     // using memory_space = typename comm_data_type::memory_space;
     // //! Communication data type.
@@ -1134,12 +1140,13 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
     CommunicationData( const CommPlanType& comm_plan,
                        const particle_data_type& particles,
                        const double overallocation = 1.0 )
-        : CommunicationDataBase<CommPlanType, CommDataType>(comm_plan, particles, overallocation)
+        : CommunicationDataBase<CommPlanType, CommDataType>(
+              comm_plan, particles, overallocation )
     {
     }
+
   public:
     // Put MPIAdvance-specific functions and variables here...
-
 };
 
 } // end namespace Cabana

@@ -101,8 +101,8 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
                  const std::vector<int>& neighbor_ranks )
         : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
-        auto neighbor_ids = this->createFromTopology( Export(),
-            element_export_ranks, neighbor_ranks );
+        auto neighbor_ids = this->createFromTopology(
+            Export(), element_export_ranks, neighbor_ranks );
         this->createExportSteering( neighbor_ids, element_export_ranks );
     }
 
@@ -137,7 +137,8 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks )
         : CommunicationPlan<MemorySpace, CommSpace>( comm )
     {
-        auto neighbor_ids = this->createFromNoTopology( Export(), element_export_ranks );
+        auto neighbor_ids =
+            this->createFromNoTopology( Export(), element_export_ranks );
         this->createExportSteering( neighbor_ids, element_export_ranks );
     }
 };
@@ -332,8 +333,6 @@ void migrate( const Distributor_t& distributor, AoSoA_t& aosoa,
     migrate( typename Distributor_t::execution_space{}, distributor, aosoa );
 }
 
-
-
 /*!
   \brief Synchronously migrate data between two different decompositions using
   the Distributor forward communication plan. Slice version. The user can do
@@ -354,11 +353,13 @@ void migrate( const Distributor_t& distributor, AoSoA_t& aosoa,
   rank. Call totalNumImport() on the distributor to get this size value.
 */
 template <class MemorySpace, class CommSpace, class Slice_t>
-void migrate( const Distributor<MemorySpace, CommSpace>& distributor, const Slice_t& src,
-              Slice_t& dst,
-              typename std::enable_if<( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
-                                        is_slice<Slice_t>::value ),
-                                      int>::type* = 0 )
+void migrate(
+    const Distributor<MemorySpace, CommSpace>& distributor, const Slice_t& src,
+    Slice_t& dst,
+    typename std::enable_if<
+        ( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
+          is_slice<Slice_t>::value ),
+        int>::type* = 0 )
 {
     if ( src.size() != distributor.exportSize() )
         throw std::runtime_error(
