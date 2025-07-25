@@ -228,6 +228,118 @@ Gather<HaloType, SliceType,
     MPI_Barrier( _halo.comm() );
 }
 
+/**********
+ * SCATTER *
+ **********/
+
+ template <class HaloType, class SliceType>
+template <class ExecutionSpace, class CommSpaceType>
+std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value, void>
+Scatter<HaloType, SliceType>::
+    applyImpl( ExecutionSpace, CommSpaceType )
+{
+    Kokkos::Profiling::ScopedRegion region( "Cabana::scatter" );
+
+    // Get the buffers (local copies for lambdas below).
+    auto send_buffer = this->getSendBuffer();
+    auto recv_buffer = this->getReceiveBuffer();
+    auto slice = this->getData();
+
+    // Get the number of components in the slice.
+    std::size_t num_comp = this->getSliceComponents();
+
+    // Get the raw slice data. Wrap in a 1D Kokkos View so we can unroll the
+    // components of each slice element.
+    Kokkos::View<data_type*, memory_space,
+                    Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+        slice_data( slice.data(), slice.numSoA() * slice.stride( 0 ) );
+
+    // Extract the send buffer from the ghosted elements.
+    std::size_t num_local = _halo.numLocal();
+    auto extract_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        std::size_t ghost_idx = i + num_local;
+        auto s = SliceType::index_type::s( ghost_idx );
+        auto a = SliceType::index_type::a( ghost_idx );
+        std::size_t slice_offset = s * slice.stride( 0 ) + a;
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            send_buffer( i, n ) =
+                slice_data( slice_offset + SliceType::vector_length * n );
+    };
+    Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
+    Kokkos::parallel_for( "Cabana::scatter::extract_send_buffer",
+                            send_policy, extract_send_buffer_func );
+    Kokkos::fence();
+
+    // The halo has it's own communication space so choose any mpi tag.
+    const int mpi_tag = 2345;
+
+    // Post non-blocking receives.
+    int num_n = _halo.numNeighbor();
+    std::vector<MPI_Request> requests( num_n );
+    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
+    for ( int n = 0; n < num_n; ++n )
+    {
+        recv_range.second = recv_range.first + _halo.numExport( n );
+
+        auto recv_subview =
+            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
+
+        MPI_Irecv( recv_subview.data(),
+                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                    _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                    &( requests[n] ) );
+
+        recv_range.first = recv_range.second;
+    }
+
+    // Do blocking sends.
+    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
+    for ( int n = 0; n < num_n; ++n )
+    {
+        send_range.second = send_range.first + _halo.numImport( n );
+
+        auto send_subview =
+            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
+
+        MPI_Send( send_subview.data(),
+                    send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                    _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+
+        send_range.first = send_range.second;
+    }
+
+    // Wait on non-blocking receives.
+    std::vector<MPI_Status> status( num_n );
+    const int ec =
+        MPI_Waitall( requests.size(), requests.data(), status.data() );
+    if ( MPI_SUCCESS != ec )
+        throw std::logic_error( "Cabana::scatter::apply (SliceType): "
+                                "Failed MPI Communication" );
+
+    // Get the steering vector for the sends.
+    auto steering = _halo.getExportSteering();
+
+    // Scatter the ghosts in the receive buffer into the local values.
+    auto scatter_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        auto s = SliceType::index_type::s( steering( i ) );
+        auto a = SliceType::index_type::a( steering( i ) );
+        std::size_t slice_offset = s * slice.stride( 0 ) + a;
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            Kokkos::atomic_add(
+                &slice_data( slice_offset + SliceType::vector_length * n ),
+                recv_buffer( i, n ) );
+    };
+    Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
+    Kokkos::parallel_for( "Cabana::scatter::apply::scatter_recv_buffer",
+                            recv_policy, scatter_recv_buffer_func );
+    Kokkos::fence();
+
+    // Barrier before completing to ensure synchronization.
+    MPI_Barrier( _halo.comm() );
+}
+
 
 } // end namespace Cabana
 
