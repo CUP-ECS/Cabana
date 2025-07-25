@@ -129,11 +129,14 @@ auto createHalo( UniqueTestTag, CommType, BuildType, const int use_topology,
 
     // Create the plan.
     if ( use_topology )
-        halo = std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
-            MPI_COMM_WORLD, num_local, export_ids, export_ranks, neighbors );
+        halo =
+            std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
+                MPI_COMM_WORLD, num_local, export_ids, export_ranks,
+                neighbors );
     else
-        halo = std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
-            MPI_COMM_WORLD, num_local, export_ids, export_ranks );
+        halo =
+            std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
+                MPI_COMM_WORLD, num_local, export_ids, export_ranks );
 
     return halo;
 }
@@ -167,11 +170,13 @@ auto createHalo( AllTestTag, CommType, BuildType, const int use_topology,
 
     // Create the plan.
     if ( use_topology )
-        halo = std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
-            MPI_COMM_WORLD, num_local, ids, export_ranks, neighbors );
+        halo =
+            std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
+                MPI_COMM_WORLD, num_local, ids, export_ranks, neighbors );
     else
-        halo = std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
-            MPI_COMM_WORLD, num_local, ids, export_ranks );
+        halo =
+            std::make_shared<Cabana::Halo<TEST_MEMSPACE, BuildType, CommType>>(
+                MPI_COMM_WORLD, num_local, ids, export_ranks );
 
     return halo;
 }
@@ -561,7 +566,8 @@ void checkSizeAndCapacity( CommData comm_data, const int num_send,
 //---------------------------------------------------------------------------//
 // Gather/scatter test.
 template <class TestTag, class CommType, class BuildType>
-void testHalo( TestTag tag, CommType comm_space, BuildType build_type, const bool use_topology )
+void testHalo( TestTag tag, CommType comm_space, BuildType build_type,
+               const bool use_topology )
 {
     // Get my rank.
     int my_rank = -1;
@@ -573,7 +579,8 @@ void testHalo( TestTag tag, CommType comm_space, BuildType build_type, const boo
 
     // Make a communication plan.
     int num_local = tag.num_local;
-    auto halo = createHalo( tag, comm_space, build_type, use_topology, my_size, num_local );
+    auto halo = createHalo( tag, comm_space, build_type, use_topology, my_size,
+                            num_local );
 
     // Check the plan.
     EXPECT_EQ( halo->numLocal(), num_local );
@@ -621,7 +628,8 @@ void testHaloBuffers( TestTag tag, CommType comm_space, BuildType build_type,
 
     // Make a communication plan.
     int num_local = tag.num_local;
-    auto halo = createHalo( tag, comm_space, build_type, use_topology, my_size, num_local );
+    auto halo = createHalo( tag, comm_space, build_type, use_topology, my_size,
+                            num_local );
 
     // Check the plan.
     EXPECT_EQ( halo->numLocal(), num_local );
@@ -709,11 +717,8 @@ void testHaloBuffers( TestTag tag, CommType comm_space, BuildType build_type,
 using HaloTestTypes =
     ::testing::Types<std::tuple<Cabana::CommSpace::Mpi, Cabana::Export>,
                      std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>,
-                     // std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Export>,
-                     // std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Import>
-                     // Future: Set first tuple element to communication space
-                     // used.
-                     >;
+                     std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Export>,
+                     std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Import>>;
 
 // Test fixture template
 template <typename T>

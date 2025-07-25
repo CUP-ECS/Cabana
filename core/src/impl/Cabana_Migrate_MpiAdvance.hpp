@@ -47,11 +47,12 @@ void migrateData(
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::migrateData (MpiAdvance)" );
+    Kokkos::Profiling::ScopedRegion region(
+        "Cabana::migrateData (MpiAdvance)" );
 
-    static_assert(
-        is_accessible_from<typename Distributor_t::memory_space, ExecutionSpace>{},
-        "" );
+    static_assert( is_accessible_from<typename Distributor_t::memory_space,
+                                      ExecutionSpace>{},
+                   "" );
 
     // Get the MPI rank we are currently on.
     int my_rank = -1;
@@ -169,8 +170,8 @@ void migrateData(
   element will only have a single destination rank.
 
   \tparam ExecutionSpace Kokkos execution space.
-  \tparam Distributor_t - Distributor type - must be a Distributor or a Collector.
-  \tparam Slice_t Slice type - must be a Slice.
+  \tparam Distributor_t - Distributor type - must be a Distributor or a
+  Collector. \tparam Slice_t Slice type - must be a Slice.
 
   \param distributor The distributor to use for the migration.
   \param src The slice containing the data to be migrated. Must have the same
@@ -222,17 +223,17 @@ void migrateSlice(
     std::size_t num_send = distributor.totalNumExport() - num_stay;
     Kokkos::View<typename Slice_t::value_type**, Kokkos::LayoutRight,
                  typename Distributor_t::memory_space>
-        send_buffer(
-            Kokkos::ViewAllocateWithoutInitializing( "distributor_send_buffer" ),
-            num_send, num_comp );
+        send_buffer( Kokkos::ViewAllocateWithoutInitializing(
+                         "distributor_send_buffer" ),
+                     num_send, num_comp );
 
     // Allocate a receive buffer. Note this one is layout right so the
     // components of each element are consecutive in memory.
     Kokkos::View<typename Slice_t::value_type**, Kokkos::LayoutRight,
                  typename Distributor_t::memory_space>
-        recv_buffer(
-            Kokkos::ViewAllocateWithoutInitializing( "distributor_recv_buffer" ),
-            distributor.totalNumImport(), num_comp );
+        recv_buffer( Kokkos::ViewAllocateWithoutInitializing(
+                         "distributor_recv_buffer" ),
+                     distributor.totalNumImport(), num_comp );
 
     // Get the steering vector for the sends.
     auto steering = distributor.getExportSteering();

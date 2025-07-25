@@ -34,12 +34,13 @@ void exportHaloExchangeExample()
       decomposition back to the uniquely-owned decomposition and collisions
       are resolved.
 
-      In this example we will demonstrate building an export-driven halo communication
-      plan and performing both scatter and gather operations. An export-driven halo is
-      used when you know who you are sending to but not who you are receiving from.
-      
-      Note: If no Cabana::Import or Cabana::Export tag is provided in the construction of a
-      Halo, the default behavior is to use Cabana::Export.
+      In this example we will demonstrate building an export-driven halo
+      communication plan and performing both scatter and gather operations. An
+      export-driven halo is used when you know who you are sending to but not
+      who you are receiving from.
+
+      Note: If no Cabana::Import or Cabana::Export tag is provided in the
+      construction of a Halo, the default behavior is to use Cabana::Export.
 
       Note: The halo uses MPI for data movement. MPI is initialized
       and finalized in the main function below.
@@ -143,9 +144,10 @@ void exportHaloExchangeExample()
     std::sort( neighbors.begin(), neighbors.end() );
     auto unique_end = std::unique( neighbors.begin(), neighbors.end() );
     neighbors.resize( std::distance( neighbors.begin(), unique_end ) );
-    /* No Cabana::Import or Cabana::Export tag provided - defaults to Cabana::Export */
-    Cabana::Halo<MemorySpace, Cabana::Export, Cabana::CommSpace::Mpi> halo( MPI_COMM_WORLD, num_tuple, export_ids,
-                                    export_ranks, neighbors );
+    /* No Cabana::Import or Cabana::Export tag provided - defaults to
+     * Cabana::Export */
+    Cabana::Halo<MemorySpace, Cabana::Export, Cabana::CommSpace::Mpi> halo(
+        MPI_COMM_WORLD, num_tuple, export_ids, export_ranks, neighbors );
 
     /*
       Resize the AoSoA to allow for additional ghost data. We can get the
