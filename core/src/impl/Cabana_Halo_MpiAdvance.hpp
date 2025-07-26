@@ -42,83 +42,102 @@ Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+       Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
-    // Get the buffers and particle data (local copies for lambdas below).
-    auto send_buffer = this->getSendBuffer();
-    auto recv_buffer = this->getReceiveBuffer();
-    auto aosoa = this->getData();
+        // Get the buffers and particle data (local copies for lambdas below).
+        auto send_buffer = this->getSendBuffer();
+        auto recv_buffer = this->getReceiveBuffer();
+        auto aosoa = this->getData();
+        int num_n = _halo.numNeighbor();
+        int my_rank = -1;
+        MPI_Comm_rank( _halo.comm(), &my_rank );
 
-    // Get the steering vector for the sends.
-    auto steering = _halo.getExportSteering();
-    // Gather from the local data into a tuple-contiguous send buffer.
-    auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        send_buffer( i ) = aosoa.getTuple( steering( i ) );
-    };
-    Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
-    Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                          gather_send_buffer_func );
-    Kokkos::fence();
+        std::size_t num_stay =
+                ( num_n > 0 && _halo.neighborRank( 0 ) == my_rank )
+                    ? _halo.numExport( 0 )
+                    : 0;
 
-    // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
 
-    // Post non-blocking receives.
-    int num_n = _halo.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _halo.numImport( n );
 
-        auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                   &( requests[n] ) );
 
-        recv_range.first = recv_range.second;
-    }
+        // Get the steering vector for the sends.
+        auto steering = _halo.getExportSteering();
+        // Gather from the local data into a tuple-contiguous send buffer.
+        auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+        {
+            send_buffer( i ) = aosoa.getTuple( steering( i ) );
+        };
+        Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
+        Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
+                              gather_send_buffer_func );
+        Kokkos::fence();
+        std::vector<int> send_counts( num_n ), recv_counts( num_n );
+        std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _halo.numExport( n );
+        std::size_t send_offset = 0, recv_offset = 0;
+        for ( int n = 0; n < num_n; ++n )
+        {
+            recv_counts[n] =
+                _halo.numImport( n ) * sizeof( buffer_type );
+            recv_displs[n] = recv_offset;
+            recv_offset += recv_counts[n];
 
-        auto send_subview = Kokkos::subview( send_buffer, send_range );
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+            {
+                send_counts[n] = _halo.numExport( n ) *
+                                 sizeof( buffer_type);
+                send_displs[n] = send_offset;
+                send_offset += send_counts[n];
+            }
+        }
 
-        send_range.first = send_range.second;
-    }
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::Gather::apply: Failed MPI Communication" );
 
-    // Extract the receive buffer into the ghosted elements.
-    std::size_t num_local = _halo.numLocal();
-    auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        std::size_t ghost_idx = i + num_local;
-        aosoa.setTuple( ghost_idx, recv_buffer( i ) );
-    };
-    Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-    Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
-                          recv_policy, extract_recv_buffer_func );
-    Kokkos::fence();
+        // MPI Advance does not currently support GPU communication,
+        // so buffers need to be copied to host memory
+        auto send_buffer_h =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
+        auto recv_buffer_h =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
-    // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _halo.comm() );
+
+        MPI_Datatype datatype = MPI_BYTE;
+        auto xcomm = _halo.xcomm();
+
+        MPIX_Request* neighbor_request;
+        MPIX_Info* xinfo;
+        MPIX_Info_init( &xinfo );
+
+        MPIX_Neighbor_alltoallv_init(
+            send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
+            recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+            xcomm, xinfo, &neighbor_request );
+
+        MPI_Status status;
+        MPIX_Start( neighbor_request );
+        MPIX_Wait( neighbor_request, &status );
+        MPIX_Request_free( &neighbor_request );
+        MPIX_Info_free( &xinfo );
+
+
+
+
+
+        // Extract the receive buffer into the ghosted elements.
+        std::size_t num_local = _halo.numLocal();
+        auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+        {
+            std::size_t ghost_idx = i + num_local;
+            aosoa.setTuple( ghost_idx, recv_buffer( i ) );
+        };
+        Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
+        Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
+                              recv_policy, extract_recv_buffer_func );
+        Kokkos::fence();
+
+        // Barrier before completing to ensure synchronization.
+        MPI_Barrier( _halo.comm() );
 }
 
 /*!
@@ -164,50 +183,56 @@ Gather<HaloType, SliceType,
     Kokkos::fence();
 
     // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
-
-    // Post non-blocking receives.
     int num_n = _halo.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
+    std::vector<int> send_counts( num_n ), recv_counts( num_n );
+    std::vector<int> send_displs( num_n ), recv_displs( num_n );
+
+    std::size_t send_offset = 0, recv_offset = 0;
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_range.second = recv_range.first + _halo.numImport( n );
+        recv_counts[n] = _halo.numImport( n ) * num_comp *
+                         sizeof( typename SliceType::value_type );
+        recv_displs[n] = recv_offset;
+        recv_offset += recv_counts[n];
 
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                   &( requests[n] ) );
-
-        recv_range.first = recv_range.second;
+        {
+            send_counts[n] = _halo.numExport( n ) * num_comp *
+                             sizeof( typename SliceType::value_type  );
+            send_displs[n] = send_offset;
+            send_offset += send_counts[n];
+        }
     }
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _halo.numExport( n );
 
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
+    auto send_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
+    auto recv_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
 
-        send_range.first = send_range.second;
-    }
+    MPI_Datatype datatype = MPI_BYTE;
+    auto xcomm = _halo.xcomm();
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::gather::apply (SliceType): Failed MPI Communication" );
+    MPIX_Request* neighbor_request;
+    MPIX_Info* xinfo;
+    MPIX_Info_init( &xinfo );
+
+    MPIX_Neighbor_alltoallv_init(
+        send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
+        recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+        xcomm, xinfo, &neighbor_request );
+
+    MPI_Status status;
+    MPIX_Start( neighbor_request );
+    MPIX_Wait( neighbor_request, &status );
+    MPIX_Request_free( &neighbor_request );
+    MPIX_Info_free( &xinfo );
+
+
+
+    recv_buffer = Kokkos::create_mirror_view_and_copy(
+            typename SliceType::memory_space(), recv_buffer_h );
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _halo.numLocal();
@@ -273,51 +298,67 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
-    // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
 
-    // Post non-blocking receives.
     int num_n = _halo.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
+    std::vector<int> send_counts( num_n ), recv_counts( num_n );
+    std::vector<int> send_displs( num_n ), recv_displs( num_n );
+
+    std::size_t send_offset = 0, recv_offset = 0;
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_range.second = recv_range.first + _halo.numExport( n );
+        recv_counts[n] = _halo.numImport( n ) * num_comp *
+                         sizeof( typename SliceType::value_type );
+        recv_displs[n] = recv_offset;
+        recv_offset += recv_counts[n];
 
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                   &( requests[n] ) );
-
-        recv_range.first = recv_range.second;
+        {
+            send_counts[n] = _halo.numExport( n ) * num_comp *
+                             sizeof( typename SliceType::value_type  );
+            send_displs[n] = send_offset;
+            send_offset += send_counts[n];
+        }
     }
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _halo.numImport( n );
 
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
+    auto send_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
+    auto recv_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
 
-        send_range.first = send_range.second;
-    }
+    MPI_Datatype datatype = MPI_BYTE;
+    auto xcomm = _halo.xcomm();
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Cabana::scatter::apply (SliceType): "
-                                "Failed MPI Communication" );
+    MPIX_Request* neighbor_request;
+    MPIX_Info* xinfo;
+    MPIX_Info_init( &xinfo );
+
+    MPIX_Neighbor_alltoallv_init(
+        send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
+        recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+        xcomm, xinfo, &neighbor_request );
+
+    MPI_Status status;
+    MPIX_Start( neighbor_request );
+    MPIX_Wait( neighbor_request, &status );
+    MPIX_Request_free( &neighbor_request );
+    MPIX_Info_free( &xinfo );
+
+
+
+
+
+
+
+
+    recv_buffer = Kokkos::create_mirror_view_and_copy(
+            typename SliceType::memory_space(), recv_buffer_h );
+
+
+
+
+
 
     // Get the steering vector for the sends.
     auto steering = _halo.getExportSteering();
