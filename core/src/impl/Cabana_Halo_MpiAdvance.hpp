@@ -94,13 +94,6 @@ Gather<HaloType, AoSoAType,
 
 
 
-        // MPI Advance does not currently support GPU communication,
-        // so buffers need to be copied to host memory
-        auto send_buffer_h =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
-        auto recv_buffer_h =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
-
 
         MPI_Datatype datatype = MPI_BYTE;
         auto xcomm = _halo.xcomm();
@@ -110,8 +103,8 @@ Gather<HaloType, AoSoAType,
         MPIX_Info_init( &xinfo );
 
         MPIX_Neighbor_alltoallv_init(
-            send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
-            recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+            send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+            recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             xcomm, xinfo, &neighbor_request );
 
         MPI_Status status;
@@ -205,10 +198,6 @@ Gather<HaloType, SliceType,
     }
 
 
-    auto send_buffer_h =
-        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
-    auto recv_buffer_h =
-        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
 
     MPI_Datatype datatype = MPI_BYTE;
@@ -219,8 +208,8 @@ Gather<HaloType, SliceType,
     MPIX_Info_init( &xinfo );
 
     MPIX_Neighbor_alltoallv_init(
-        send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
-        recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+        send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+        recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
         xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
@@ -229,10 +218,6 @@ Gather<HaloType, SliceType,
     MPIX_Request_free( &neighbor_request );
     MPIX_Info_free( &xinfo );
 
-
-
-    recv_buffer = Kokkos::create_mirror_view_and_copy(
-            typename SliceType::memory_space(), recv_buffer_h );
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _halo.numLocal();
@@ -321,10 +306,6 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     }
 
 
-    auto send_buffer_h =
-        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
-    auto recv_buffer_h =
-        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
 
     MPI_Datatype datatype = MPI_BYTE;
@@ -335,8 +316,8 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     MPIX_Info_init( &xinfo );
 
     MPIX_Neighbor_alltoallv_init(
-        send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
-        recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+        send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+        recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
         xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
@@ -350,10 +331,6 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 
 
 
-
-
-    recv_buffer = Kokkos::create_mirror_view_and_copy(
-            typename SliceType::memory_space(), recv_buffer_h );
 
 
 
