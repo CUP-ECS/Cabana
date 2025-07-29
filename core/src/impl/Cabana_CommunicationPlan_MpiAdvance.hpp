@@ -38,17 +38,18 @@
 namespace Cabana
 {
 
-// Wrap a raw MPIX_Comm* with a shared_ptr and custom deleter.
-inline std::shared_ptr<MPIX_Comm> make_xcomm_shared( MPIX_Comm* raw_ptr )
+// Wrap a raw pointer with a shared_ptr and custom deleter.
+template <class RawPointerType, class FreeFunction>
+inline std::shared_ptr<RawPointerType> make_raw_ptr_shared(RawPointerType* raw_ptr, FreeFunction free_function)
 {
-    return std::shared_ptr<MPIX_Comm>( raw_ptr,
-                                       []( MPIX_Comm* p )
-                                       {
-                                           if ( p )
-                                           {
-                                               MPIX_Comm_free( &p );
-                                           }
-                                       } );
+    return std::shared_ptr<RawPointerType>(raw_ptr,
+        [free_function](RawPointerType* p)
+        {
+            if (p)
+            {
+                free_function(&p);
+            }
+        });
 }
 
 //---------------------------------------------------------------------------//
@@ -168,7 +169,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->comm(), num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, 0,
             &xcomm0 );
-        _xcomm_ptr = make_xcomm_shared( xcomm0 );
+        
+        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
 
         // Get the size of this communicator.
         int comm_size = -1;
@@ -446,7 +448,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->comm(), this->_neighbors.size(), this->_neighbors.data(),
             MPI_UNWEIGHTED, this->_neighbors.size(), this->_neighbors.data(),
             MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &xcomm1 );
-        _xcomm_ptr = make_xcomm_shared( xcomm1 );
+        _xcomm_ptr = make_raw_ptr_shared( xcomm1, MPIX_Comm_free );
 
         // Return the neighbor ids.
         return counts_and_ids.second;
@@ -646,7 +648,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->comm(), num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, 0,
             &xcomm0 );
-        _xcomm_ptr = make_xcomm_shared( xcomm0 );
+        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
 
         // Use MPIX_Neighbor_alltoallv_init to send number of imports to each
         // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
@@ -1054,7 +1056,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->comm(), this->_neighbors.size(), this->_neighbors.data(),
             MPI_UNWEIGHTED, this->_neighbors.size(), this->_neighbors.data(),
             MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &xcomm1 );
-        _xcomm_ptr = make_xcomm_shared( xcomm1 );
+        _xcomm_ptr = make_raw_ptr_shared( xcomm1, MPIX_Comm_free );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
