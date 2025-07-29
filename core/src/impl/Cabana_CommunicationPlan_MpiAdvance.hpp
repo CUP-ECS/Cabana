@@ -40,16 +40,17 @@ namespace Cabana
 
 // Wrap a raw pointer with a shared_ptr and custom deleter.
 template <class RawPointerType, class FreeFunction>
-inline std::shared_ptr<RawPointerType> make_raw_ptr_shared(RawPointerType* raw_ptr, FreeFunction free_function)
+inline std::shared_ptr<RawPointerType>
+make_raw_ptr_shared( RawPointerType* raw_ptr, FreeFunction free_function )
 {
-    return std::shared_ptr<RawPointerType>(raw_ptr,
-        [free_function](RawPointerType* p)
-        {
-            if (p)
-            {
-                free_function(&p);
-            }
-        });
+    return std::shared_ptr<RawPointerType>( raw_ptr,
+                                            [free_function]( RawPointerType* p )
+                                            {
+                                                if ( p )
+                                                {
+                                                    free_function( &p );
+                                                }
+                                            } );
 }
 
 //---------------------------------------------------------------------------//
@@ -169,7 +170,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->comm(), num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, 0,
             &xcomm0 );
-        
+
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
 
         // Get the size of this communicator.
