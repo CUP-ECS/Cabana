@@ -56,11 +56,13 @@ if(Cabana_ENABLE_MPI)
     )
   list(APPEND HEADERS_IMPL
     impl/Cabana_CommunicationPlan_Mpi.hpp
+    impl/Cabana_Halo_Mpi.hpp
     impl/Cabana_Migrate_Mpi.hpp
     )
   if(Cabana_ENABLE_MPIADVANCE)
     list(APPEND HEADERS_IMPL
       impl/Cabana_CommunicationPlan_MpiAdvance.hpp
+      impl/Cabana_Halo_MpiAdvance.hpp
       impl/Cabana_Migrate_MpiAdvance.hpp
       )
   endif()
@@ -92,7 +94,6 @@ endif()
 
 if(Cabana_ENABLE_MPIADVANCE)
   target_link_libraries(Core INTERFACE mpiadvance::mpi_advance)
-  target_compile_definitions(Core INTERFACE Cabana_ENABLE_MPIADVANCE)
 endif()
 
 if(Cabana_ENABLE_HDF5)
