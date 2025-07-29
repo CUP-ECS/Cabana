@@ -1124,6 +1124,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
     // //! Particle data type.
     using typename CommunicationDataBase<CommPlanType,
                                          CommDataType>::particle_data_type;
+
     // //! Kokkos memory space.
     // using memory_space = typename comm_data_type::memory_space;
     // //! Communication data type.
@@ -1143,9 +1144,20 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         : CommunicationDataBase<CommPlanType, CommDataType>(
               comm_plan, particles, overallocation )
     {
+
+
+
+
     }
 
+
+
   public:
+    bool setup_persistent=false;
+    std::shared_ptr<MPIX_Request> neighbor_request;
+    std::shared_ptr<MPIX_Info> xinfo;
+
+
     // Put MPIAdvance-specific functions and variables here...
 };
 

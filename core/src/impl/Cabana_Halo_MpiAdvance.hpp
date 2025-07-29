@@ -72,6 +72,10 @@ Gather<HaloType, AoSoAType,
         Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
                               gather_send_buffer_func );
         Kokkos::fence();
+
+    if (!this->setup_persistent) {
+        this->setup_persistent =true;
+
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
@@ -95,24 +99,48 @@ Gather<HaloType, AoSoAType,
 
 
 
+
+
+
+
+        // Allocate and initialize
+        MPIX_Info* raw_info ;
+        MPIX_Request* raw_neighbor_request;
+
+
+        MPIX_Info_init(&raw_info);
+
         MPI_Datatype datatype = MPI_BYTE;
         auto xcomm = _halo.xcomm();
-
-        MPIX_Request* neighbor_request;
-        MPIX_Info* xinfo;
-        MPIX_Info_init( &xinfo );
 
         MPIX_Neighbor_alltoallv_init(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-            xcomm, xinfo, &neighbor_request );
+            xcomm,raw_info, &raw_neighbor_request);
 
-        MPI_Status status;
-        MPIX_Start( neighbor_request );
-        MPIX_Wait( neighbor_request, &status );
-        MPIX_Request_free( &neighbor_request );
-        MPIX_Info_free( &xinfo );
+        auto xinfo_deleter = [](MPIX_Info* info) {
+            if (info) {
+                MPIX_Info_free(&info);
+            }
+        };
 
+        this->xinfo = std::shared_ptr<MPIX_Info>(raw_info, xinfo_deleter);
+
+        auto neighbor_request_deleter = [](MPIX_Request* req) {
+            if (req) {
+                MPIX_Request_free(&req);
+            }
+        };
+
+        this->neighbor_request = std::shared_ptr<MPIX_Request>(raw_neighbor_request, neighbor_request_deleter);
+
+    }
+
+
+    MPIX_Request* raw_neighbor_request = this->neighbor_request.get();
+    MPI_Status status;
+    MPIX_Start(raw_neighbor_request);
+    MPIX_Wait(raw_neighbor_request, &status);
 
 
 
@@ -174,49 +202,77 @@ Gather<HaloType, SliceType,
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
                           gather_send_buffer_func );
     Kokkos::fence();
+    if (!this->setup_persistent) {
+        this->setup_persistent =true;
 
     // The halo has it's own communication space so choose any mpi tag.
-    int num_n = _halo.numNeighbor();
-    std::vector<int> send_counts( num_n ), recv_counts( num_n );
-    std::vector<int> send_displs( num_n ), recv_displs( num_n );
+        int num_n = _halo.numNeighbor();
+        std::vector<int> send_counts( num_n ), recv_counts( num_n );
+        std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
-    std::size_t send_offset = 0, recv_offset = 0;
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_counts[n] = _halo.numImport( n ) * num_comp *
-                         sizeof( typename SliceType::value_type );
-        recv_displs[n] = recv_offset;
-        recv_offset += recv_counts[n];
-
-
+        std::size_t send_offset = 0, recv_offset = 0;
+        for ( int n = 0; n < num_n; ++n )
         {
-            send_counts[n] = _halo.numExport( n ) * num_comp *
-                             sizeof( typename SliceType::value_type  );
-            send_displs[n] = send_offset;
-            send_offset += send_counts[n];
+            recv_counts[n] = _halo.numImport( n ) * num_comp *
+                             sizeof( typename SliceType::value_type );
+            recv_displs[n] = recv_offset;
+            recv_offset += recv_counts[n];
+
+
+            {
+                send_counts[n] = _halo.numExport( n ) * num_comp *
+                                 sizeof( typename SliceType::value_type  );
+                send_displs[n] = send_offset;
+                send_offset += send_counts[n];
+            }
         }
+
+
+
+
+
+
+
+        // Allocate and initialize
+        MPIX_Info* raw_info ;
+        MPIX_Request* raw_neighbor_request;
+
+
+        MPIX_Info_init(&raw_info);
+
+        MPI_Datatype datatype = MPI_BYTE;
+        auto xcomm = _halo.xcomm();
+
+        MPIX_Neighbor_alltoallv_init(
+            send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+            recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
+            xcomm,raw_info, &raw_neighbor_request);
+
+        auto xinfo_deleter = [](MPIX_Info* info) {
+            if (info) {
+                MPIX_Info_free(&info);
+            }
+        };
+
+        this->xinfo = std::shared_ptr<MPIX_Info>(raw_info, xinfo_deleter);
+
+        auto neighbor_request_deleter = [](MPIX_Request* req) {
+            if (req) {
+                MPIX_Request_free(&req);
+            }
+        };
+
+        this->neighbor_request = std::shared_ptr<MPIX_Request>(raw_neighbor_request, neighbor_request_deleter);
+
     }
 
 
-
-
-    MPI_Datatype datatype = MPI_BYTE;
-    auto xcomm = _halo.xcomm();
-
-    MPIX_Request* neighbor_request;
-    MPIX_Info* xinfo;
-    MPIX_Info_init( &xinfo );
-
-    MPIX_Neighbor_alltoallv_init(
-        send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
-        recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-        xcomm, xinfo, &neighbor_request );
-
+    MPIX_Request* raw_neighbor_request = this->neighbor_request.get();
     MPI_Status status;
-    MPIX_Start( neighbor_request );
-    MPIX_Wait( neighbor_request, &status );
-    MPIX_Request_free( &neighbor_request );
-    MPIX_Info_free( &xinfo );
+    MPIX_Start(raw_neighbor_request);
+    MPIX_Wait(raw_neighbor_request, &status);
+
+
 
 
     // Extract the receive buffer into the ghosted elements.
@@ -283,53 +339,74 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
+    if (!this->setup_persistent) {
+        this->setup_persistent =true;
 
-    int num_n = _halo.numNeighbor();
-    std::vector<int> send_counts( num_n ), recv_counts( num_n );
-    std::vector<int> send_displs( num_n ), recv_displs( num_n );
+        int num_n = _halo.numNeighbor();
+        std::vector<int> send_counts( num_n ), recv_counts( num_n );
+        std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
-    std::size_t send_offset = 0, recv_offset = 0;
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_counts[n] = _halo.numImport( n ) * num_comp *
-                         sizeof( typename SliceType::value_type );
-        recv_displs[n] = recv_offset;
-        recv_offset += recv_counts[n];
-
-
+        std::size_t send_offset = 0, recv_offset = 0;
+        for ( int n = 0; n < num_n; ++n )
         {
-            send_counts[n] = _halo.numExport( n ) * num_comp *
-                             sizeof( typename SliceType::value_type  );
-            send_displs[n] = send_offset;
-            send_offset += send_counts[n];
+            recv_counts[n] = _halo.numImport( n ) * num_comp *
+                             sizeof( typename SliceType::value_type );
+            recv_displs[n] = recv_offset;
+            recv_offset += recv_counts[n];
+
+
+            {
+                send_counts[n] = _halo.numExport( n ) * num_comp *
+                                 sizeof( typename SliceType::value_type  );
+                send_displs[n] = send_offset;
+                send_offset += send_counts[n];
+            }
         }
+
+
+
+
+
+
+
+        // Allocate and initialize
+        MPIX_Info* raw_info ;
+        MPIX_Request* raw_neighbor_request;
+
+
+        MPIX_Info_init(&raw_info);
+
+        MPI_Datatype datatype = MPI_BYTE;
+        auto xcomm = _halo.xcomm();
+
+        MPIX_Neighbor_alltoallv_init(
+            send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+            recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
+            xcomm,raw_info, &raw_neighbor_request);
+
+        auto xinfo_deleter = [](MPIX_Info* info) {
+            if (info) {
+                MPIX_Info_free(&info);
+            }
+        };
+
+        this->xinfo = std::shared_ptr<MPIX_Info>(raw_info, xinfo_deleter);
+
+        auto neighbor_request_deleter = [](MPIX_Request* req) {
+            if (req) {
+                MPIX_Request_free(&req);
+            }
+        };
+
+        this->neighbor_request = std::shared_ptr<MPIX_Request>(raw_neighbor_request, neighbor_request_deleter);
+
     }
 
 
-
-
-    MPI_Datatype datatype = MPI_BYTE;
-    auto xcomm = _halo.xcomm();
-
-    MPIX_Request* neighbor_request;
-    MPIX_Info* xinfo;
-    MPIX_Info_init( &xinfo );
-
-    MPIX_Neighbor_alltoallv_init(
-        send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
-        recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-        xcomm, xinfo, &neighbor_request );
-
+    MPIX_Request* raw_neighbor_request = this->neighbor_request.get();
     MPI_Status status;
-    MPIX_Start( neighbor_request );
-    MPIX_Wait( neighbor_request, &status );
-    MPIX_Request_free( &neighbor_request );
-    MPIX_Info_free( &xinfo );
-
-
-
-
-
+    MPIX_Start(raw_neighbor_request);
+    MPIX_Wait(raw_neighbor_request, &status);
 
 
 
