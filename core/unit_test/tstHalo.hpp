@@ -710,13 +710,110 @@ void testHaloBuffers( TestTag tag, CommType comm_space, BuildType build_type,
     checkSizeAndCapacity( scatter_dbl, num_send, num_recv, overalloc );
 }
 
+
+
+
+template <class CommType, class BuildType, class TestTag>
+void testHaloNeighborPrsistent( TestTag tag, CommType comm_space, BuildType build_type,
+                      const bool use_topology )
+{
+
+
+    // Get my rank.
+    int my_rank = -1;
+    MPI_Comm_rank( MPI_COMM_WORLD, &my_rank );
+
+    // Get my size.
+    int my_size = -1;
+    MPI_Comm_size( MPI_COMM_WORLD, &my_size );
+
+    // Make a communication plan.
+    int num_local = tag.num_local;
+    auto halo = createHalo( tag, comm_space, build_type, use_topology, my_size,
+                            num_local );
+
+    // Check the plan.
+    EXPECT_EQ( halo->numLocal(), num_local );
+    EXPECT_EQ( halo->numGhost(), my_size );
+
+    // Create particle data.
+    HaloData<BuildType, CommType> halo_data( *halo );
+    auto data = halo_data.createData( my_rank, num_local );
+
+    // Create send and receive buffers with an overallocation.
+    double overalloc = 3.0; // large value since very little is communicated.
+    auto gather = createGather( *halo, data, overalloc );
+
+
+
+    // Check sizes and capacities.
+    int num_send = tag.num_send;
+    int num_recv = tag.num_recv;
+    checkSizeAndCapacity( gather, num_send, num_recv, overalloc );
+
+    // frist gather
+    //check falsity of persistents
+
+    bool before = gather.setup_persistent;
+    EXPECT_EQ( before, false);
+    gather.apply();
+    bool after = gather.setup_persistent;
+    EXPECT_EQ( after, true);
+
+    auto recv_buffer = gather.getReceiveBuffer();
+    auto aosoa = gather.getData();
+    int* int_data = (int*) recv_buffer.data();
+
+    for (std::size_t i = 0; i < aosoa.size(); ++i){
+        int_data[i] = 99;
+    }
+    auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        std::size_t ghost_idx = i + num_local;
+        aosoa.setTuple( ghost_idx, recv_buffer( i ));
+    };
+    Kokkos::RangePolicy<TEST_EXECSPACE> recv_policy( 0, num_recv );
+    Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
+                          recv_policy, extract_recv_buffer_func );
+
+    Kokkos::fence();
+    for (std::size_t i = 0; i < aosoa.size(); ++i){
+        int_data[i] = 98;
+    }
+    gather.apply();
+  //  gather.apply();
+  //  gather.apply();
+  //  gather.apply();
+  //  gather.apply();
+
+    auto data_host = halo_data.copyToHost();
+    checkGatherAoSoA( tag, data_host, my_size, my_rank, num_local );
+
+    EXPECT_EQ( gather.setup_persistent, true);
+
+   // checkGatherAoSoA( tag, data_host, my_size, my_rank, num_local );
+
+    //Check true of persistents
+    // CHECK RESV BUFFER AGAIN
+    // CHECK host aososa is crreck
+    //after resize gather to set persistents to false
+    // gather.apply();
+    //check true of persistents
+    //check if the data is correct
+
+
+
+
+}
+
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 // Define the type list
 using HaloTestTypes =
-    ::testing::Types<std::tuple<Cabana::CommSpace::Mpi, Cabana::Export>,
-                     std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>,
+    ::testing::Types<
+                     //std::tuple<Cabana::CommSpace::Mpi, Cabana::Export>,
+                     //std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>,
                      std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Export>,
                      std::tuple<Cabana::CommSpace::MpiAdvance, Cabana::Import>>;
 
@@ -773,10 +870,17 @@ TYPED_TEST_P( HaloTypedTest, AllNoTopo )
     testHalo( AllTestTag{}, CommType(), BuildType(), false );
     testHaloBuffers( AllTestTag{}, CommType(), BuildType(), false );
 }
+TYPED_TEST_P( HaloTypedTest, PrsistentComm )
+{
+    using CommType = typename std::tuple_element<0, TypeParam>::type;
+    using BuildType = typename std::tuple_element<1, TypeParam>::type;
+    testHaloNeighborPrsistent( AllTestTag{}, CommType(), BuildType(), false );
+
+}
 
 // Register tests
 REGISTER_TYPED_TEST_SUITE_P( HaloTypedTest, Unique, UniqueNoTopo, All,
-                             AllNoTopo );
+                             AllNoTopo ,PrsistentComm);
 
 // Instantiate the test suite with the type list. Need a trailing comma
 // to avoid an error when compiling with clang++

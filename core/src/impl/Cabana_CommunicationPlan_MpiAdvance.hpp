@@ -17,6 +17,10 @@
 #ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 #define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 
+
+
+
+
 #include <Cabana_Utils.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -1156,10 +1160,70 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
 
 
   public:
-    bool setup_persistent=false;
-    std::shared_ptr<MPIX_Request> neighbor_request;
-    std::shared_ptr<MPIX_Info> xinfo;
+    template <class HaloType>
+    void setupPersistent( const HaloType& _halo){
+        auto send_buffer = this->getSendBuffer();
+        auto recv_buffer = this->getReceiveBuffer();
+        int num_n = _halo.numNeighbor();
 
+        this->setup_persistent =true;
+
+        std::vector<int> send_counts( num_n ), recv_counts( num_n );
+        std::vector<int> send_displs( num_n ), recv_displs( num_n );
+
+        std::size_t send_offset = 0, recv_offset = 0;
+        for ( int n = 0; n < num_n; ++n )
+        {
+            recv_counts[n] =
+                _halo.numImport( n ) * this->buff_size;
+            recv_displs[n] = recv_offset;
+            recv_offset += recv_counts[n];
+
+
+            {
+                send_counts[n] = _halo.numExport( n ) *
+                                 this->buff_size ;
+                send_displs[n] = send_offset;
+                send_offset += send_counts[n];
+            }
+        }
+
+        // Allocate and initialize the persistent request
+        auto xinfo_deleter = [](MPIX_Info** info) {
+            if (info) {
+                MPIX_Info_free(info);
+                delete info; 
+            }
+        };
+        MPIX_Info **raw_xinfo = new MPIX_Info *;
+        *raw_xinfo = nullptr;
+        xinfo = std::shared_ptr<MPIX_Info *>(raw_xinfo, xinfo_deleter);
+        MPIX_Info_init(xinfo.get());
+
+        auto neighbor_request_deleter = [](MPIX_Request** req) {
+            if (req) {
+                MPIX_Request_free(req);
+                delete req; 
+            }
+        };
+
+        MPIX_Request **raw_xreq = new MPIX_Request *;
+        *raw_xreq = nullptr;
+        neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
+        MPI_Datatype datatype = MPI_BYTE;
+        auto xcomm = _halo.xcomm();
+
+        MPIX_Neighbor_alltoallv_init(
+            send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+            recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
+            xcomm, *xinfo, neighbor_request.get());
+    }
+
+    int buff_size =-1;
+    bool setup_persistent=false;
+    std::shared_ptr<MPIX_Request *> neighbor_request;
+    std::shared_ptr<MPIX_Info *> xinfo;
+    std::shared_ptr<int> counter;
 
     // Put MPIAdvance-specific functions and variables here...
 };

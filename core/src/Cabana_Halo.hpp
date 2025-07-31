@@ -530,7 +530,9 @@ class Gather<HaloType, SliceType,
     /*!
     \brief Perform the gather operation.
     */
-    void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
+    void apply() override {
+         applyImpl( execution_space{}, commspace_type{} );
+    }
 
     template <class ExecutionSpace, class CommSpaceType>
     std::enable_if_t<std::is_same<CommSpaceType, CommSpace::Mpi>::value, void>
