@@ -649,6 +649,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->comm(), num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, 0,
             &xcomm0 );
+        // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
+        // We still need to keep the xcomm too.
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
 
         // Use MPIX_Neighbor_alltoallv_init to send number of imports to each
