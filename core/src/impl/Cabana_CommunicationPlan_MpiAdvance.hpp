@@ -109,6 +109,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
       \brief Get the MPI Advance communicator.
     */
     MPIX_Comm* xcomm() const { return _xcomm_ptr.get(); }
+    MPIX_Topo* xtopo() const { return _xtopo_ptr.get(); }
 
     /*!
       \brief Neighbor and export rank creator. Use this when you already know
@@ -1107,6 +1108,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
   private:
     // Variables needed only for MPI Advance
     std::shared_ptr<MPIX_Comm> _xcomm_ptr;
+    std::shared_ptr<MPIX_Topo> _xtopo_ptr;
 };
 
 template <class CommPlanType, class CommDataType>
