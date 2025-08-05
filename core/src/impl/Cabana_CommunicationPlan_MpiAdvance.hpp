@@ -1247,12 +1247,12 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         *raw_xreq = nullptr;
         neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
         MPI_Datatype datatype = MPI_BYTE;
-        auto xcomm = _halo.xcomm();
 
-        MPIX_Neighbor_alltoallv_init(
+
+     MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-            xcomm, *xinfo, neighbor_request.get());
+            _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
     }
 
     int buff_size =-1;
