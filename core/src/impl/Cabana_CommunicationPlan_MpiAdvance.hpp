@@ -1261,6 +1261,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
     std::shared_ptr<MPIX_Info *> xinfo;
     std::shared_ptr<int> counter;
 
+
     // Put MPIAdvance-specific functions and variables here...
 };
 
