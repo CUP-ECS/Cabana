@@ -179,12 +179,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
         
-        if (num_n == 0) printf("No neighbors!\n");
-        for (int i = 0; i < num_n; i++)
-        {
-            printf("Neighbors[%d]: %d\n", i, this->_neighbors[0]);
-        }
-
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
@@ -231,8 +225,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPIX_Request* neighbor_request;
         MPIX_Info* xinfo;
         MPIX_Info_init( &xinfo );
-
-        printf("Before MPIX_Neighbor_alltoallv_init_topo\n");
 
         MPI_Barrier(MPI_COMM_WORLD);
         MPIX_Neighbor_alltoallv_init_topo(
