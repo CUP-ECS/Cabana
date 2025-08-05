@@ -121,24 +121,33 @@ void migrateData(
 
     // MPI Advance does not currently support GPU communication,
     // so buffers need to be copied to host memory
+    auto send_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
+    auto recv_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
     MPI_Datatype datatype = MPI_BYTE;
     auto xcomm = distributor.xcomm();
+    auto xtopo = distributor.xtopo();
 
     MPIX_Request* neighbor_request;
     MPIX_Info* xinfo;
     MPIX_Info_init( &xinfo );
-//std
-    MPIX_Neighbor_alltoallv_init(
+
+    MPIX_Neighbor_alltoallv_init_topo(
         send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
         recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-        xcomm, xinfo, &neighbor_request );
+        xtopo, xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
     MPIX_Start( neighbor_request );
     MPIX_Wait( neighbor_request, &status );
     MPIX_Request_free( &neighbor_request );
     MPIX_Info_free( &xinfo );
+
+    // Copy recv buffer back to device memory
+    recv_buffer = Kokkos::create_mirror_view_and_copy(
+        typename Distributor_t::memory_space(), recv_buffer_h );
 
     Kokkos::parallel_for(
         "Cabana::Impl::migrateData::extract_recv_buffer",
@@ -276,17 +285,25 @@ void migrateSlice(
         }
     }
 
+    // MPI Advance does not currently support GPU communication,
+    // so buffers need to be copied to host memory
+    auto send_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), send_buffer );
+    auto recv_buffer_h =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
+
     MPI_Datatype datatype = MPI_BYTE;
     auto xcomm = distributor.xcomm();
+    auto xtopo = distributor.xtopo();
 
     MPIX_Request* neighbor_request;
     MPIX_Info* xinfo;
     MPIX_Info_init( &xinfo );
 
-    MPIX_Neighbor_alltoallv_init(
-        send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
-        recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-        xcomm, xinfo, &neighbor_request );
+    MPIX_Neighbor_alltoallv_init_topo(
+        send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
+        recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
+        xtopo, xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
     MPIX_Start( neighbor_request );
@@ -294,6 +311,9 @@ void migrateSlice(
     MPIX_Request_free( &neighbor_request );
     MPIX_Info_free( &xinfo );
 
+    // Copy recv buffer back to device memory
+    recv_buffer = Kokkos::create_mirror_view_and_copy(
+        typename Distributor_t::memory_space(), recv_buffer_h );
 
     Kokkos::parallel_for(
         "Cabana::migrate::extract_recv_buffer",
