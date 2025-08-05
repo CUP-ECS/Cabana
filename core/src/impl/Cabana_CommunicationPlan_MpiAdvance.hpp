@@ -166,13 +166,18 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         // Create a neighbor communicator
         // Assume we send to and receive from each neighbor
         MPIX_Comm* xcomm0;
+        MPIX_Topo* xtopo0;
+        MPIX_Info* xinfo0;
         MPIX_Comm_init( &xcomm0, this->comm() );
-        MPIX_Dist_graph_create_adjacent(
-            this->comm(), num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, 0,
-            &xcomm0 );
-
+        MPIX_Info_init(&xinfo0);
+        MPIX_Topo_init(
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+        // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
+        // We still need to keep the xcomm too.
+        MPIX_Info_free(&xinfo0);
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
 
         // Get the size of this communicator.
         int comm_size = -1;
@@ -444,13 +449,20 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
+        auto num_n = this->_neighbors.size();
         MPIX_Comm* xcomm1;
+        MPIX_Topo* xtopo1;
+        MPIX_Info* xinfo1;
         MPIX_Comm_init( &xcomm1, this->comm() );
-        MPIX_Dist_graph_create_adjacent(
-            this->comm(), this->_neighbors.size(), this->_neighbors.data(),
-            MPI_UNWEIGHTED, this->_neighbors.size(), this->_neighbors.data(),
-            MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &xcomm1 );
+        MPIX_Info_init(&xinfo1);
+        MPIX_Topo_init(
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
+        // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
+        // We still need to keep the xcomm too.
+        MPIX_Info_free( &xinfo1 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm1, MPIX_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo1, MPIX_Topo_free );
 
         // Return the neighbor ids.
         return counts_and_ids.second;
@@ -645,14 +657,18 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         // Create a neighbor communicator
         // Assume we send to and receive from each neighbor
         MPIX_Comm* xcomm0;
+        MPIX_Topo* xtopo0;
+        MPIX_Info* xinfo0;
         MPIX_Comm_init( &xcomm0, this->comm() );
-        MPIX_Dist_graph_create_adjacent(
-            this->comm(), num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, 0,
-            &xcomm0 );
+        MPIX_Info_init(&xinfo0);
+        MPIX_Topo_init(
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
         // We still need to keep the xcomm too.
+        MPIX_Info_free(&xinfo0);
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
 
         // Use MPIX_Neighbor_alltoallv_init to send number of imports to each
         // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
@@ -1054,13 +1070,20 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
+        auto num_n = this->_neighbors.size();
         MPIX_Comm* xcomm1;
+        MPIX_Topo* xtopo1;
+        MPIX_Info* xinfo1;
         MPIX_Comm_init( &xcomm1, this->comm() );
-        MPIX_Dist_graph_create_adjacent(
-            this->comm(), this->_neighbors.size(), this->_neighbors.data(),
-            MPI_UNWEIGHTED, this->_neighbors.size(), this->_neighbors.data(),
-            MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &xcomm1 );
+        MPIX_Info_init(&xinfo1);
+        MPIX_Topo_init(
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
+        // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
+        // We still need to keep the xcomm too.
+        MPIX_Info_free(&xinfo1);
         _xcomm_ptr = make_raw_ptr_shared( xcomm1, MPIX_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo1, MPIX_Topo_free );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
