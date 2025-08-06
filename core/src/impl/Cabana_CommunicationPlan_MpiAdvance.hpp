@@ -1253,7 +1253,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
     }
 
-    int buff_size =-1;
+    int buff_size =0;
     bool setup_persistent=false;
     std::shared_ptr<MPIX_Request *> neighbor_request;
     std::shared_ptr<MPIX_Info *> xinfo;
