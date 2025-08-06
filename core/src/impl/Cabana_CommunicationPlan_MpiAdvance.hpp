@@ -1216,12 +1216,22 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             recv_offset += recv_counts[n];
 
 
+
+            if ( _halo.neighborRank( n ) == my_rank )
             {
-                send_counts[n] = _halo.numExport( n ) *
+                send_counts[n] = 0;
+                send_displs[n] = 0;
+            }
+            else
+            {
+               send_counts[n] = _halo.numExport( n ) *
                                  this->buff_size ;
                 send_displs[n] = send_offset;
                 send_offset += send_counts[n];
             }
+
+
+
         }
 
         // Allocate and initialize the persistent request
@@ -1249,7 +1259,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         MPI_Datatype datatype = MPI_BYTE;
 
 
-     MPIX_Neighbor_alltoallv_init_topo(
+        MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());

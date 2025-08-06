@@ -47,7 +47,7 @@ Gather<HaloType, AoSoAType,
        Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
         // Get the buffers and particle data (local copies for lambdas below).
-    auto send_buffer = this->getSendBuffer();
+        auto send_buffer = this->getSendBuffer();
 
         auto aosoa = this->getData();
         int num_n = _halo.numNeighbor();
