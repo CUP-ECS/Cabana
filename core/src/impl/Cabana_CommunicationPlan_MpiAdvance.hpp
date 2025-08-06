@@ -1247,7 +1247,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         MPI_Datatype datatype = MPI_BYTE;
 
 
-        MPIX_Neighbor_alltoallv_init(
+          MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
