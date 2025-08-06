@@ -16,7 +16,12 @@
 */
 #ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 #define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
-
+#define debug                                 \
+    do {                                                  \
+        std::cout << "File: " << __FILE__                 \
+                  << ", Line: " << __LINE__ << std::endl; \
+        fflush(stdout);                                   \
+    } while (0);
 
 
 
@@ -112,8 +117,10 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
     /*!
       \brief Get the MPI Advance communicator.
     */
-    MPIX_Comm* xcomm() const { return _xcomm_ptr.get(); }
-    MPIX_Topo* xtopo() const { return _xtopo_ptr.get(); }
+    MPIX_Comm* xcomm() const { debug
+return _xcomm_ptr.get(); }
+    MPIX_Topo* xtopo() const { debug
+return _xtopo_ptr.get(); }
 
     /*!
       \brief Neighbor and export rank creator. Use this when you already know
@@ -159,14 +166,14 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
                         const std::vector<int>& neighbor_ranks )
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
-
+debug
         // Store the number of export elements.
         this->_num_export_element = element_export_ranks.size();
 
         // Store the unique neighbors (this rank first).
         this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
         int num_n = this->_neighbors.size();
-
+debug
         // Create a neighbor communicator
         // Assume we send to and receive from each neighbor
         MPIX_Comm* xcomm0;
@@ -188,11 +195,11 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         {
             printf("Neighbors[%d]: %d\n", i, this->_neighbors[0]);
         }
-fflush(stdout);
+        fflush(stdout);
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
-
+debug
         // Get the MPI rank we are currently on.
         int my_rank = -1;
         MPI_Comm_rank( this->comm(), &my_rank );
