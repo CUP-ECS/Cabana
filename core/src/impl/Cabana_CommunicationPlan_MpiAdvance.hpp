@@ -188,7 +188,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         {
             printf("Neighbors[%d]: %d\n", i, this->_neighbors[0]);
         }
-
+fflush(stdout);
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
@@ -237,7 +237,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPIX_Info_init( &xinfo );
 
         printf("Before MPIX_Neighbor_alltoallv_init_topo\n");
-
+        fflush(stdout);
         MPI_Barrier(MPI_COMM_WORLD);
         MPIX_Neighbor_alltoallv_init_topo(
             this->_num_export.data(), sendcounts.data(), sdispls.data(),
