@@ -1210,22 +1210,16 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
         std::size_t send_offset = 0, recv_offset = 0;
+
         for ( int n = 0; n < num_n; ++n )
         {
-            recv_counts[n] =
-                _halo.numImport( n ) * this->buff_size;
+            recv_counts[n] = _halo.numImport( n ) * this->buff_size;
             recv_displs[n] = recv_offset;
             recv_offset += recv_counts[n];
 
-            {
-               send_counts[n] = _halo.numExport( n ) *
-                                 this->buff_size ;
-                send_displs[n] = send_offset;
-                send_offset += send_counts[n];
-            }
-
-
-
+            send_counts[n] = _halo.numExport( n ) * this->buff_size ;
+            send_displs[n] = send_offset;
+            send_offset += send_counts[n];
         }
 
         // Allocate and initialize the persistent request
@@ -1256,7 +1250,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         MPIX_Neighbor_alltoallv_init(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-             _halo.xcomm(),  *xinfo, neighbor_request.get());
+            _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
     }
 
     int buff_size =-1;
