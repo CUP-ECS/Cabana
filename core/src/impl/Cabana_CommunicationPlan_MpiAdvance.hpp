@@ -1201,8 +1201,6 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
         int num_n = _halo.numNeighbor();
-        int my_rank = -1;
-        MPI_Comm_rank( _halo.comm(), &my_rank );
 
         this->setup_persistent =true;
 
