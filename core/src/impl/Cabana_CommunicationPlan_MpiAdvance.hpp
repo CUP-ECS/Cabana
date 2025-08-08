@@ -180,11 +180,13 @@ PRINT_DEBUG
         MPIX_Info* xinfo0;
         MPIX_Comm_init( &xcomm0, this->comm() );
         MPIX_Info_init(&xinfo0);
+PRINT_DEBUG
         MPIX_Topo_init(
             num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
         // We still need to keep the xcomm too.
+PRINT_DEBUG
         MPIX_Info_free(&xinfo0);
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
@@ -245,12 +247,13 @@ PRINT_DEBUG
         printf("Before MPIX_Neighbor_alltoallv_init_topo\n");
         fflush(stdout);
         MPI_Barrier(MPI_COMM_WORLD);
+PRINT_DEBUG
         MPIX_Neighbor_alltoallv_init_topo(
             this->_num_export.data(), sendcounts.data(), sdispls.data(),
             MPI_UNSIGNED_LONG, this->_num_import.data(), recvcounts.data(),
             rdispls.data(), MPI_UNSIGNED_LONG, xtopo(), xcomm(), xinfo,
             &neighbor_request );
-
+PRINT_DEBUG
         MPI_Status status;
         MPIX_Start( neighbor_request );
         MPIX_Wait( neighbor_request, &status );
@@ -769,7 +772,7 @@ PRINT_DEBUG
             ids_sorted_host.data(), num_import.data(), sdispls.data(), MPI_INT,
             received_indices.data(), recvcounts.data(), rdispls.data(), MPI_INT,
             xtopo(), xcomm(), xinfo2, &neighbor_index_request );
-
+PRINT_DEBUG
         MPI_Status status2;
         MPIX_Start( neighbor_index_request );
         MPIX_Wait( neighbor_index_request, &status2 );
@@ -1251,12 +1254,13 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         *raw_xreq = nullptr;
         neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
         MPI_Datatype datatype = MPI_BYTE;
-
+PRINT_DEBUG
 
           MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+PRINT_DEBUG
     }
 
     int buff_size =0;
