@@ -167,9 +167,6 @@ PRINT_DEBUG
 PRINT_DEBUG
     MPIX_Wait(*(this->neighbor_request), &status);
 
-PRINT_DEBUG
-    auto recv_buffer = this->getReceiveBuffer();
-PRINT_DEBUG
 
 
     // Extract the receive buffer into the ghosted elements.
@@ -247,9 +244,7 @@ PRINT_DEBUG
 PRINT_DEBUG
     MPIX_Wait(*(this->neighbor_request), &status);
 
-PRINT_DEBUG
-    auto recv_buffer = this->getReceiveBuffer();
-PRINT_DEBUG
+
 
 
 
