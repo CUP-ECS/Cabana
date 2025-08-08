@@ -27,7 +27,11 @@
 
 #include <exception>
 #include <vector>
-
+#define PRINT_DEBUG \
+    do { \
+        printf("DEBUG: File: %s, Line: %d\n", __FILE__, __LINE__); \
+        fflush(stdout); \
+    } while (0);
 
 
 namespace Cabana

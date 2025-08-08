@@ -16,11 +16,10 @@
 */
 #ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 #define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
-#define debug                                 \
-    do {                                                  \
-        std::cout << "File: " << __FILE__                 \
-                  << ", Line: " << __LINE__ << std::endl; \
-        fflush(stdout);                                   \
+#define PRINT_DEBUG \
+    do { \
+        printf("DEBUG: File: %s, Line: %d\n", __FILE__, __LINE__); \
+        fflush(stdout); \
     } while (0);
 
 
@@ -117,9 +116,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
     /*!
       \brief Get the MPI Advance communicator.
     */
-    MPIX_Comm* xcomm() const { debug
+    MPIX_Comm* xcomm() const { PRINT_DEBUG
 return _xcomm_ptr.get(); }
-    MPIX_Topo* xtopo() const { debug
+    MPIX_Topo* xtopo() const { PRINT_DEBUG
 return _xtopo_ptr.get(); }
 
     /*!
@@ -166,14 +165,14 @@ return _xtopo_ptr.get(); }
                         const std::vector<int>& neighbor_ranks )
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
-debug
+PRINT_DEBUG
         // Store the number of export elements.
         this->_num_export_element = element_export_ranks.size();
 
         // Store the unique neighbors (this rank first).
         this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
         int num_n = this->_neighbors.size();
-debug
+PRINT_DEBUG
         // Create a neighbor communicator
         // Assume we send to and receive from each neighbor
         MPIX_Comm* xcomm0;
@@ -199,7 +198,7 @@ debug
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
-debug
+PRINT_DEBUG
         // Get the MPI rank we are currently on.
         int my_rank = -1;
         MPI_Comm_rank( this->comm(), &my_rank );
@@ -420,12 +419,13 @@ debug
         int num_import_rank = -1;
         int* src;
         unsigned long* import_sizes;
+PRINT_DEBUG
         // std::vector<std::size_t> import_sizes( comm_size );
         MPIX_Alltoall_crs( num_export_rank, this->_neighbors.data(), 1,
                            MPI_UNSIGNED_LONG, this->_num_export.data(),
                            &num_import_rank, &src, 1, MPI_UNSIGNED_LONG,
                            (void**)&import_sizes, xinfo, xcomm0 );
-
+PRINT_DEBUG
         MPIX_Info_free( &xinfo );
         MPIX_Comm_free( &xcomm0 );
 
@@ -578,7 +578,7 @@ debug
 
         if ( element_import_ids.size() != element_import_ranks.size() )
             throw std::runtime_error( "Export ids and ranks different sizes!" );
-
+PRINT_DEBUG
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
 
@@ -604,7 +604,7 @@ debug
                 order_neighbors.insert( neighbors[i], i );
             } );
         Kokkos::fence();
-
+PRINT_DEBUG
         // 2. Generate rank order keys based on element_import_ranks
         Kokkos::View<int*, memory_space> rank_orders( "rank_orders",
                                                       this->_total_num_import );
@@ -640,7 +640,7 @@ debug
 
         bin_sort.create_permute_vector();
         bin_sort.sort( indices );
-
+PRINT_DEBUG
         // 4. Apply permutation
         Kokkos::View<int*, memory_space> ranks_sorted(
             "ranks_sorted", this->_total_num_import );
@@ -661,19 +661,19 @@ debug
             exec_space, element_import_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
-
+PRINT_DEBUG
         // Copy the counts to the host.
         auto neighbor_counts_host = Kokkos::create_mirror_view_and_copy(
             Kokkos::HostSpace(), counts_and_ids.first );
-
+PRINT_DEBUG
         // Initialize import/export sizes.
         this->_num_export.assign( num_n, 0 );
         this->_num_import.assign( num_n, 0 );
-
+PRINT_DEBUG
         // Get the import counts.
         for ( int n = 0; n < num_n; ++n )
             this->_num_import[n] = neighbor_counts_host( this->_neighbors[n] );
-
+PRINT_DEBUG
         // Create a neighbor communicator
         // Assume we send to and receive from each neighbor
         MPIX_Comm* xcomm0;
@@ -700,7 +700,7 @@ debug
         std::vector<int> recvcounts( num_n, 1 );
         std::vector<int> sdispls( num_n );
         std::vector<int> rdispls( num_n );
-
+PRINT_DEBUG
         for ( int i = 0; i < num_n; ++i )
         {
             sdispls[i] = i;
@@ -710,13 +710,13 @@ debug
         MPIX_Request* neighbor_request;
         MPIX_Info* xinfo;
         MPIX_Info_init( &xinfo );
-
+PRINT_DEBUG
         MPIX_Neighbor_alltoallv_init_topo(
             this->_num_import.data(), sendcounts.data(), sdispls.data(),
             MPI_UNSIGNED_LONG, this->_num_export.data(), recvcounts.data(),
             rdispls.data(), MPI_UNSIGNED_LONG, xtopo(), xcomm(), xinfo,
             &neighbor_request );
-
+PRINT_DEBUG
         MPI_Status status;
         MPIX_Start( neighbor_request );
         MPIX_Wait( neighbor_request, &status );
@@ -764,7 +764,7 @@ debug
         MPIX_Request* neighbor_index_request;
         MPIX_Info* xinfo2;
         MPIX_Info_init( &xinfo2 );
-
+PRINT_DEBUG
         MPIX_Neighbor_alltoallv_init_topo(
             ids_sorted_host.data(), num_import.data(), sdispls.data(), MPI_INT,
             received_indices.data(), recvcounts.data(), rdispls.data(), MPI_INT,
@@ -775,7 +775,7 @@ debug
         MPIX_Wait( neighbor_index_request, &status2 );
         MPIX_Request_free( &neighbor_index_request );
         MPIX_Info_free( &xinfo2 );
-
+PRINT_DEBUG
         // Now, build the export steering
         // Export rank in _neighbors and rdispls
         Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
@@ -800,7 +800,7 @@ debug
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
-
+PRINT_DEBUG
         // Return the neighbor ids, export ranks, and export indices
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
@@ -849,6 +849,7 @@ debug
                              const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
+PRINT_DEBUG
         return createFromTopology( execution_space{}, Import(),
                                    element_import_ranks, element_import_ids,
                                    neighbor_ranks );
