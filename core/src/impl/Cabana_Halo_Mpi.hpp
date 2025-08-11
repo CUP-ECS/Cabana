@@ -207,6 +207,7 @@ Gather<HaloType, SliceType,
         throw std::logic_error(
             "Cabana::gather::apply (SliceType): Failed MPI Communication" );
 
+
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _halo.numLocal();
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
