@@ -76,7 +76,7 @@ Gather<HaloType, AoSoAType,
         Kokkos::fence();
 
 
-    this->buff_size =sizeof( buffer_type );
+    this->element_size =sizeof( data_type );
     if (!this->setup_persistent) {
         this->setupPersistent(_halo);
     }
@@ -144,7 +144,9 @@ Gather<HaloType, SliceType,
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
                           gather_send_buffer_func );
     Kokkos::fence();
-    this->buff_size =num_comp * sizeof( typename SliceType::value_type );
+
+
+    this->element_size =num_comp * sizeof( typename SliceType::value_type );
     if (!this->setup_persistent) {
         this->setupPersistent(_halo);
     }
@@ -220,7 +222,8 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
-    this->buff_size =num_comp * sizeof( typename SliceType::value_type );
+    this->element_size =num_comp * sizeof( typename SliceType::value_type );
+
     if (!this->setup_persistent) {
         this->setupPersistent(_halo);
     }

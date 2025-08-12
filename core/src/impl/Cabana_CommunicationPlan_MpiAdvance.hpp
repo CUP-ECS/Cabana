@@ -1213,7 +1213,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         for ( int n = 0; n < num_n; ++n )
         {
             recv_counts[n] =
-                _halo.numImport( n ) * this->buff_size;
+                _halo.numImport( n ) * this->element_size;
             recv_displs[n] = recv_offset;
             recv_offset += recv_counts[n];
 
@@ -1221,7 +1221,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
 
 
             send_counts[n] = _halo.numExport( n ) *
-                             this->buff_size ;
+                             this->element_size ;
             send_displs[n] = send_offset;
             send_offset += send_counts[n];
 
@@ -1261,7 +1261,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
     }
 
-    int buff_size =-1;
+    int element_size =-1;
     bool setup_persistent=false;
     std::shared_ptr<MPIX_Request *> neighbor_request;
     std::shared_ptr<MPIX_Info *> xinfo;
