@@ -1228,6 +1228,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
                    n, recv_counts[n], n, send_counts[n]);
 
         }
+        fflush(stdout);
 
         // Allocate and initialize the persistent request
         auto xinfo_deleter = [](MPIX_Info** info) {
