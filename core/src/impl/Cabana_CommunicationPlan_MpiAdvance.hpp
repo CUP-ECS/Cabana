@@ -1209,6 +1209,8 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
+
+        printf("element size: %d\n ", this->element_size );
         std::size_t send_offset = 0, recv_offset = 0;
         for ( int n = 0; n < num_n; ++n )
         {
@@ -1217,16 +1219,13 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             recv_displs[n] = recv_offset;
             recv_offset += recv_counts[n];
 
-
-
-
             send_counts[n] = _halo.numExport( n ) *
                              this->element_size ;
             send_displs[n] = send_offset;
             send_offset += send_counts[n];
 
-
-
+            printf("recv_counts[%d] = %d, send_count[%d] = %d\n",
+                   n, recv_counts[n], n, send_counts[n]);
 
         }
 
