@@ -56,12 +56,12 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
   void* setup(const ExecutionSpace& a){
     if constexpr(std::is_same_v<ExecutionSpace, Kokkos::HIP>){
-      std::cout << "HIP STREAM!" << std::endl;
+      //std::cout << "HIP STREAM!" << std::endl; // debug?
       return a.hip_stream();
     }
     else
     {
-      std::cout << "Base" << std::endl;
+      //std::cout << "Base" << std::endl;
       return nullptr;
     }
   }
@@ -88,30 +88,17 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
         // We fence before posting receives in case the stream
         // is already using our buffers.
-        //this->_exec_space.fence();
 	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[0]);
         // Pack and send the data.
         this->enqueuePackBuffers( halo_type::_owned_buffers,
                                   halo_type::_owned_steering,
                                   arrays.view()... );
-        //this->_exec_space.fence();
 
-	//MPI_Barrier(MPI_COMM_WORLD);
-	/*for( int n = 0; n < 2*num_n; n++)
-	  {
-	    //MPIS_Enqueue_start(my_queue, scatter_requests[n]);
-	    MPIS_Enqueue_start(my_queue, gather_requests[n]);
-	    }*/
-	//MPIS_Enqueue_startall(my_queue, 2*num_n, gather_requests.data());
+	// do sends which are the last half of gather_requests
 	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[num_n]);
 	MPIS_Enqueue_waitall(my_queue);
-	//MPIS_Queue_wait(my_queue);
 	
         // Unpack receive buffers.        
-	//MPIS_Queue_wait(my_queue);
-	
-        //MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
-
         this->enqueueUnpackBuffers(
             ScatterReduce::Replace(), halo_type::_ghosted_buffers,
             halo_type::_ghosted_steering, arrays.view()... );
@@ -142,22 +129,11 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         this->enqueuePackBuffers( halo_type::_ghosted_buffers,
                                   halo_type::_ghosted_steering,
                                   arrays.view()... );
-        //this->_exec_space.fence();
-
-        //MPI_Waitall( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
-	//MPI_Barrier(MPI_COMM_WORLD);
-	/*for( int n = 0; n < 2*num_n; n++)
-	  {
-	    MPIS_Enqueue_start(my_queue, scatter_requests[n]);
-	    //MPIS_Enqueue_start(my_queue, gather_requests[n]);
-	    }*/
 	
 	// Begin Send inits
-	//MPIS_Enqueue_startall(my_queue, 2*num_n, scatter_requests.data());
 	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[num_n]);
 	
 	MPIS_Enqueue_waitall(my_queue);
-	//MPIS_Queue_wait(my_queue);
 
         this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
                                     halo_type::_owned_steering,
@@ -175,11 +151,16 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     {
       int num_n = halo_type::_neighbor_ranks.size();
 
-      //my_queue = MPIS_QUEUE_NULL;
       // set up queue stream, if hip stream returns executionspace.hip_stream
       // else use nullptr for default functionality
       my_stream = setup(exec_space);
+      // Note, change for other systems
       MPIS_Queue_init(&my_queue, CXI, &my_stream);
+
+      MPI_Info_create(&mem_info);
+      // Note, change for other systems
+      MPI_Info_set(mem_info, "MPIS_GPU_MEM_TYPE", "COARSE");
+
       // scatter
       for ( int n = 0; n < num_n; ++n )
       {
@@ -201,11 +182,11 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			    halo_type::_ghosted_buffers[n].size(), MPI_BYTE,
 			    halo_type::_neighbor_ranks[n],
 			    1234 + halo_type::_send_tags[n], _comm,
-			    MPI_INFO_NULL,
+			    mem_info,
 			    &scatter_requests[num_n + n] );
 	    }
       }
-      //MPI_Barrier(MPI_COMM_WORLD);
+
     // gather
     for ( int n = 0; n < num_n; ++n )
       {
@@ -225,35 +206,21 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			    halo_type::_owned_buffers[n].size(), MPI_BYTE,
 			    halo_type::_neighbor_ranks[n],
 			    5678 + halo_type::_send_tags[n], _comm,
-			    MPI_INFO_NULL,
+			    mem_info,
 			    &gather_requests[num_n + n] ); 
           }
       }
 
- // match requests = count of gather + count of scatter, 4*num_n    
-    /*  hipStreamCreateWithFlags(&my_stream, hipStreamNonBlocking);
-    {
-    Kokkos::Experimental::HIP(my_stream);
-    }*/
-    /*  if constexpr(std::is_same_v<ExecutionSpace, Kokkos::Experimental::HIP>){
-       my_stream = TEST_EXECSPACE().hip_stream();
-      std::cout << "HIP SPACE " << std::endl;
-      }*/
-    //auto stream = get_stream<ExecutionSpace>(TEST_EXECSPACE());
-    //auto my_stream = get_stream<ExecutionSpace>(exec_space);
+    // match requests = count of gather + count of scatter, 4*num_n        
     std::vector<MPIS_Request> match_requests(4*num_n, MPIS_REQUEST_NULL);
 
     //for(int n = 0; n < 2*num_n; ++n)
     for(int n = 0, m = 0; n < 2*num_n; ++n, m+=2)
       {
-        //MPIS_Queue_match(my_queue, scatter_requests[n]);
-        //MPIS_Queue_match(my_queue, gather_requests[n]);
         MPIS_Imatch(&scatter_requests[n], &match_requests[m] );
         MPIS_Imatch(&gather_requests[n], &match_requests[m+1]);
 
       }
-    //MPIS_Matchall(4*num_n, &match_requests[0], MPI_STATUSES_IGNORE);
-    //MPI_Barrier(MPI_COMM_WORLD);
     MPIS_Waitall(4*num_n, &match_requests[0], MPI_STATUSES_IGNORE);
     
     }
@@ -265,17 +232,18 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	MPIS_Request_free(&scatter_requests[n]);
 	MPIS_Request_free(&gather_requests[n]);
       }
-
     MPIS_Queue_free(&my_queue);
+    MPI_Info_free(&mem_info);
   }
 
   private:
-  //using stream_type = T::type;
-    void* my_stream;
-    const MPI_Comm _comm;
-    MPIS_Queue my_queue;
-    std::vector<MPIS_Request> scatter_requests;
-    std::vector<MPIS_Request> gather_requests;
+  void* my_stream;
+  const MPI_Comm _comm;
+  MPIS_Queue my_queue;
+  std::vector<MPIS_Request> scatter_requests;
+  std::vector<MPIS_Request> gather_requests;
+  MPI_Info mem_info;
+  
 }; // StreamHalo<Commspace::MpiAdvance>
   
 } // namespace Experimental

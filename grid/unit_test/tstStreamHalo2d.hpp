@@ -78,27 +78,32 @@ void checkGather( const std::array<bool, 2>& is_dim_periodic,
     };
 
     // Check the gather.
-    for ( unsigned i = 0; i < ghosted_space.extent( 0 ); ++i )
-        for ( unsigned j = 0; j < ghosted_space.extent( 1 ); ++j )
-            for ( unsigned l = 0; l < ghosted_space.extent( 2 ); ++l )
+    for ( unsigned i = 0; i < ghosted_space.extent( 0 ); ++i ){
+      for ( unsigned j = 0; j < ghosted_space.extent( 1 ); ++j ){
+	for ( unsigned l = 0; l < ghosted_space.extent( 2 ); ++l ){
                 if ( in_boundary_min_halo( i, Dim::I ) ||
                      in_boundary_min_halo( j, Dim::J ) ||
                      in_boundary_max_halo( i, Dim::I ) ||
                      in_boundary_max_halo( j, Dim::J ) )
                 {
-                    EXPECT_DOUBLE_EQ( host_view( i, j, l ), 0.0 );
-                }
+		  EXPECT_DOUBLE_EQ( host_view( i, j, l ), 0.0 );
+		}
                 else if ( i < owned_space.min( Dim::I ) - halo_width ||
                           i >= owned_space.max( Dim::I ) + halo_width + pad_i ||
                           j < owned_space.min( Dim::J ) - halo_width ||
                           j >= owned_space.max( Dim::J ) + halo_width + pad_j )
                 {
-                    EXPECT_DOUBLE_EQ( host_view( i, j, l ), 0.0 );
+		  EXPECT_DOUBLE_EQ( host_view( i, j, l ), 0.0 );		  		  
                 }
                 else
                 {
-                    EXPECT_DOUBLE_EQ( host_view( i, j, l ), 1.0 );
+		  EXPECT_DOUBLE_EQ( host_view( i, j, l ), 1.0 );
                 }
+	}
+      }
+      
+    }
+
 }
 
 //---------------------------------------------------------------------------//
@@ -204,7 +209,7 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
 
         // Check the scatter.
         checkScatter( is_dim_periodic, halo_width, *array );
-    }
+	}
 
     // Repeat the process but this time with multiple arrays in a Halo
     for ( unsigned halo_width = 1; halo_width <= array_halo_width;
@@ -249,24 +254,25 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
             TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *cell_array,
             *node_array, *face_i_array, *face_j_array );
 
+	TEST_EXECSPACE().fence();
         // Gather into the ghosts.
         halo->enqueueGather( *cell_array, *node_array, *face_i_array,
                              *face_j_array );
         TEST_EXECSPACE().fence();
 
         // Check the gather.
-        checkGather( is_dim_periodic, halo_width, *cell_array );
-        checkGather( is_dim_periodic, halo_width, *node_array );
-        checkGather( is_dim_periodic, halo_width, *face_i_array );
-        checkGather( is_dim_periodic, halo_width, *face_j_array );
+	checkGather( is_dim_periodic, halo_width, *cell_array );
+	checkGather( is_dim_periodic, halo_width, *node_array );
+	checkGather( is_dim_periodic, halo_width, *face_i_array );
+	checkGather( is_dim_periodic, halo_width, *face_j_array );
 
         // Scatter from the ghosts back to owned.
         halo->enqueueScatter( ScatterReduce::Sum(), *cell_array, *node_array,
-                              *face_i_array, *face_j_array );
+			      *face_i_array, *face_j_array );
         TEST_EXECSPACE().fence();
 
         // Check the scatter.
-        checkScatter( is_dim_periodic, halo_width, *cell_array );
+	checkScatter( is_dim_periodic, halo_width, *cell_array );
         checkScatter( is_dim_periodic, halo_width, *node_array );
         checkScatter( is_dim_periodic, halo_width, *face_i_array );
         checkScatter( is_dim_periodic, halo_width, *face_j_array );
@@ -389,7 +395,6 @@ void scatterReduceTest( const ReduceFunc& reduce )
 //---------------------------------------------------------------------------//
 TEST( TEST_CATEGORY, not_periodic_test )
 {
-  MPIS_Hello_world();
     // Let MPI compute the partitioning for this test.
     int comm_size;
     MPI_Comm_size( MPI_COMM_WORLD, &comm_size );
