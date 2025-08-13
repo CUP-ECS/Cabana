@@ -221,7 +221,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         }
 
         MPIX_Request* neighbor_request;
-        MPI_Barrier(MPI_COMM_WORLD);
         MPIX_Neighbor_alltoallv_init_topo(
             this->_num_export.data(), sendcounts.data(), sdispls.data(),
             MPI_UNSIGNED_LONG, this->_num_import.data(), recvcounts.data(),
@@ -450,6 +449,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPIX_Info_free( &xinfo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+
+        // Barrier before continuing to ensure synchronization.
+        MPI_Barrier( this->comm() );
 
         // Return the neighbor ids.
         return counts_and_ids.second;
@@ -757,6 +759,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
+            
+        // Barrier before continuing to ensure synchronization.
+        MPI_Barrier( this->comm() );
 
         // Return the neighbor ids, export ranks, and export indices
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
@@ -1053,6 +1058,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPIX_Info_free(&xinfo0);
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+    
+        // Barrier before continuing to ensure synchronization.
+        MPI_Barrier( this->comm() );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
