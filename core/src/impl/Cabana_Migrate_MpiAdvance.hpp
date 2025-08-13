@@ -128,15 +128,16 @@ void migrateData(
 
     MPI_Datatype datatype = MPI_BYTE;
     auto xcomm = distributor.xcomm();
+    auto xtopo = distributor.xtopo();
 
     MPIX_Request* neighbor_request;
     MPIX_Info* xinfo;
     MPIX_Info_init( &xinfo );
 
-    MPIX_Neighbor_alltoallv_init(
+    MPIX_Neighbor_alltoallv_init_topo(
         send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
         recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-        xcomm, xinfo, &neighbor_request );
+        xtopo, xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
     MPIX_Start( neighbor_request );
@@ -293,15 +294,16 @@ void migrateSlice(
 
     MPI_Datatype datatype = MPI_BYTE;
     auto xcomm = distributor.xcomm();
+    auto xtopo = distributor.xtopo();
 
     MPIX_Request* neighbor_request;
     MPIX_Info* xinfo;
     MPIX_Info_init( &xinfo );
 
-    MPIX_Neighbor_alltoallv_init(
+    MPIX_Neighbor_alltoallv_init_topo(
         send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
         recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
-        xcomm, xinfo, &neighbor_request );
+        xtopo, xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
     MPIX_Start( neighbor_request );
