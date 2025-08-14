@@ -1192,6 +1192,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             }
         }
 
+
         // Allocate and initialize the persistent request
         auto xinfo_deleter = [](MPIX_Info** info) {
             if (info) {
