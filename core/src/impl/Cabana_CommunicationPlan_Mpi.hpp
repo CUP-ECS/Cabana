@@ -563,8 +563,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         if ( MPI_SUCCESS != ec )
             throw std::logic_error( "Failed MPI Communication" );
 
-        // This barrier is needed to ensure all the above Isends and IRecvs
-        // complete before the next echange starts. If there is no barrier
+        // This barrier is needed to ensure all the above Isends and Irecvs
+        // complete before the next exchange starts. If there is no barrier
         // sometimes the send_to data will be populated incorrectly and cause
         // the code to hang.
         MPI_Barrier( this->comm() );
@@ -815,8 +815,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         if ( MPI_SUCCESS != ec0 )
             throw std::logic_error( "Failed MPI Communication" );
 
-        // This barrier is needed to ensure all the above Isends and IRecvs
-        // complete before the next echange starts. If there is no barrier
+        // This barrier is needed to ensure all the above Isends and Irecvs
+        // complete before the next exchange starts. If there is no barrier
         // sometimes the send_to data will be populated incorrectly and cause
         // the code to hang.
         MPI_Barrier( this->comm() );
