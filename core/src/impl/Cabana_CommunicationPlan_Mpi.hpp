@@ -563,6 +563,12 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         if ( MPI_SUCCESS != ec )
             throw std::logic_error( "Failed MPI Communication" );
 
+        // This barrier is needed to ensure all the above Isends and IRecvs
+        // complete before the next echange starts. If there is no barrier
+        // sometimes the send_to data will be populated incorrectly and cause
+        // the code to hang.
+        MPI_Barrier( this->comm() );
+
         // Get the total number of imports/exports.
         this->_total_num_export = std::accumulate( this->_num_export.begin(),
                                                    this->_num_export.end(), 0 );
@@ -808,6 +814,13 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             MPI_Waitall( num_recvs, mpi_requests.data(), mpi_statuses.data() );
         if ( MPI_SUCCESS != ec0 )
             throw std::logic_error( "Failed MPI Communication" );
+
+        // This barrier is needed to ensure all the above Isends and IRecvs
+        // complete before the next echange starts. If there is no barrier
+        // sometimes the send_to data will be populated incorrectly and cause
+        // the code to hang.
+        MPI_Barrier( this->comm() );
+
         // Save ranks we got messages from and track total messages to size
         // buffers
         this->_total_num_export = 0;
