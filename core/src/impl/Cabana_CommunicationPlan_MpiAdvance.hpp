@@ -1217,7 +1217,6 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
         MPI_Datatype datatype = MPI_BYTE;
 
-
      MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
