@@ -181,8 +181,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         this->_total_num_import = std::accumulate( this->_num_import.begin(),
                                                    this->_num_import.end(), 0 );
 
-        // Barrier before continuing to ensure synchronization.
-        MPI_Barrier( this->comm() );
+        // No barrier is needed because all ranks know who they are receiving
+        // and sending to.
 
         // Return the neighbor ids.
         return counts_and_ids.second;
@@ -395,7 +395,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             }
         }
 
-        // Barrier before continuing to ensure synchronization.
+        // A barrier is needed because of the use of wildcard receives. This avoids
+        // successive calls interfering with each other.
         MPI_Barrier( this->comm() );
 
         // Return the neighbor ids.
@@ -563,6 +564,12 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         if ( MPI_SUCCESS != ec )
             throw std::logic_error( "Failed MPI Communication" );
 
+        // This barrier is needed to ensure all the above Isends and Irecvs
+        // complete before the next exchange starts. If there is no barrier
+        // sometimes the send_to data will be populated incorrectly and cause
+        // the code to hang.
+        // MPI_Barrier( this->comm() );
+
         // Get the total number of imports/exports.
         this->_total_num_export = std::accumulate( this->_num_export.begin(),
                                                    this->_num_export.end(), 0 );
@@ -584,7 +591,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             for ( std::size_t j = 0; j < this->_num_export[i]; j++ )
             {
                 MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
-                           this->_neighbors[i], mpi_tag, this->comm(),
+                           this->_neighbors[i], mpi_tag + 1, this->comm(),
                            &mpi_requests[idx] );
                 idx++;
             }
@@ -594,7 +601,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         for ( std::size_t i = 0; i < element_import_ranks.extent( 0 ); i++ )
         {
             MPI_Isend( element_import_ids.data() + i, 1, MPI_INT,
-                       *( element_import_ranks.data() + i ), mpi_tag,
+                       *( element_import_ranks.data() + i ), mpi_tag + 1,
                        this->comm(), &mpi_requests[idx++] );
         }
 
@@ -620,6 +627,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
+        
+        // No barrier is needed because all ranks know who they are receiving
+        // and sending to.
 
         // Return the neighbor ids, export ranks, and export indices
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
@@ -808,6 +818,13 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             MPI_Waitall( num_recvs, mpi_requests.data(), mpi_statuses.data() );
         if ( MPI_SUCCESS != ec0 )
             throw std::logic_error( "Failed MPI Communication" );
+
+        // This barrier is needed to ensure all the above Isends and Irecvs
+        // complete before the next exchange starts. If there is no barrier
+        // sometimes the send_to data will be populated incorrectly and cause
+        // the code to hang.
+        // MPI_Barrier( this->comm() );
+
         // Save ranks we got messages from and track total messages to size
         // buffers
         this->_total_num_export = 0;
@@ -890,7 +907,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             for ( int j = 0; j < send_counts( i ); j++ )
             {
                 MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
-                           send_to( i ), mpi_tag, this->comm(),
+                           send_to( i ), mpi_tag + 1, this->comm(),
                            &mpi_requests[idx] );
                 idx++;
             }
@@ -900,7 +917,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         for ( std::size_t i = 0; i < element_import_ranks.extent( 0 ); i++ )
         {
             MPI_Isend( element_import_ids.data() + i, 1, MPI_INT,
-                       *( element_import_ranks.data() + i ), mpi_tag,
+                       *( element_import_ranks.data() + i ), mpi_tag + 1,
                        this->comm(), &mpi_requests[idx++] );
         }
 
@@ -926,6 +943,10 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
+        
+        // A barrier is needed because of the use of wildcard receives. This avoids
+        // successive calls interfering with each other.
+        MPI_Barrier( this->comm() );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
