@@ -1221,6 +1221,8 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+    MPI_Barrier(MPI_COMM_WORLD);
+
     }
 
     int buff_size =-1;
