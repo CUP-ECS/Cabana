@@ -83,6 +83,8 @@ Gather<HaloType, AoSoAType,
 
     MPI_Status status;
     MPIX_Start(*(this->neighbor_request));
+
+    MPI_Barrier(MPI_COMM_WORLD);
     MPIX_Wait(*(this->neighbor_request), &status);
 
     auto recv_buffer = this->getReceiveBuffer();
