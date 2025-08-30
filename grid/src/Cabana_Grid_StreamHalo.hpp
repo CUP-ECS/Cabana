@@ -25,7 +25,7 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Profiling_ScopedRegion.hpp>
 
-#include <Cuda/Kokkos_Cuda.hpp>
+//#include <Cuda/Kokkos_Cuda.hpp>
 
 #include <mpi.h>
 
