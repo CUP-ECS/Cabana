@@ -862,6 +862,13 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         if ( element_import_ids.size() != element_import_ranks.size() )
             throw std::runtime_error( "Export ids and ranks different sizes!" );
 
+        // Initialize data structures neeeded for communication
+        auto out = this->initializeCommunication(exec_space, Import(), element_import_ranks, element_import_ids);
+        auto sendcounts = std::get<0>(out);
+        auto sdispls = std::get<1>(out);
+        auto ranks_sorted = std::get<2>(out);
+        auto ids_sorted = std::get<3>(out);
+
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
@@ -869,81 +876,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         // Get the MPI rank we are currently on.
         int rank = -1;
         MPI_Comm_rank( this->comm(), &rank );
-
-        this->_total_num_import = element_import_ranks.extent( 0 );
-
-        // Step 1: Initialize indices
-        Kokkos::View<int*, memory_space> indices( "indices",
-                                                  this->_total_num_import );
-        Kokkos::parallel_for(
-            "InitIndices",
-            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
-            KOKKOS_LAMBDA( int i ) { indices( i ) = i; } );
-
-        // Step 2: Set up bin sort
-        using BinOp = Kokkos::BinOp1D<Kokkos::View<int*, memory_space>>;
-        BinOp bin_op( comm_size, 0, comm_size - 1 );
-        Kokkos::BinSort<Kokkos::View<int*, memory_space>, BinOp> bin_sort(
-            element_import_ranks, bin_op, true );
-
-        // Step 3: Sort indices
-        bin_sort.create_permute_vector();
-        bin_sort.sort( indices );
-
-        // Step 4: Permute both arrays
-        Kokkos::View<int*, memory_space> ranks_sorted(
-            "ranks_sorted", this->_total_num_import );
-        Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
-                                                     this->_total_num_import );
-        Kokkos::parallel_for(
-            "PermuteExports",
-            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
-            KOKKOS_LAMBDA( int i ) {
-                int sorted_i = indices( i );
-                ranks_sorted( i ) = element_import_ranks( sorted_i );
-                ids_sorted( i ) = element_import_ids( sorted_i );
-            } );
-
-        // Count the number of imports this rank needs from other ranks. Keep
-        // track of which slot we get in our neighbor's send buffer?
-        auto counts_and_ids = Impl::countSendsAndCreateSteering(
-            exec_space, ranks_sorted, comm_size,
-            typename Impl::CountSendsAndCreateSteeringAlgorithm<
-                ExecutionSpace>::type() );
-
-        // Copy the counts to the host.
-        auto neighbor_counts_host = Kokkos::create_mirror_view_and_copy(
-            Kokkos::HostSpace(), counts_and_ids.first );
-
-        // Clear vectors before we use them
-        this->_neighbors.clear();
-        this->_num_export.clear();
-        this->_num_import.clear();
-
-        for ( size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
-        {
-            if ( neighbor_counts_host( i ) != 0 )
-            {
-                // Store we are importing this many from this rank
-                this->_neighbors.push_back( i );
-                this->_num_import.push_back( neighbor_counts_host( i ) );
-            }
-        }
-
-        // Store offsets into ranks_sorted to send
-        std::vector<int> sdispls;
-        sdispls.push_back( 0 );
-        for ( int neighbor_rank : this->_neighbors )
-            sdispls.push_back( sdispls.back() +
-                               neighbor_counts_host( neighbor_rank ) );
-
-        // Store send counts to each rank
-        std::vector<int> sendcounts;
-        for ( int neighbor_rank : this->_neighbors )
-            sendcounts.push_back( neighbor_counts_host( neighbor_rank ) );
-
-        // Assign all exports to zero
-        this->_num_export.assign( this->_num_import.size(), 0 );
 
         // Create MPI Advance objects 
         MPIX_Comm* xcomm0;

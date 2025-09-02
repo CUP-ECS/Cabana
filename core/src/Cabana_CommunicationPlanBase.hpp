@@ -20,6 +20,8 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
+#include <Kokkos_Sort.hpp>
+#include <Kokkos_UnorderedMap.hpp>
 
 #include <mpi.h>
 
@@ -577,7 +579,14 @@ class CommunicationPlanBase
       to be a Kokkos view or Cabana slice in the same memory space as the
       communication plan.
     */
-    void initializeCommunication()
+    template <class ExecutionSpace, class RankViewType, class IdViewType>
+    auto initializeCommunication( ExecutionSpace exec_space, Import,
+                            const RankViewType& element_import_ranks,
+                            const IdViewType& element_import_ids )
+        -> std::tuple<
+                  std::vector<int>, std::vector<int>,
+				  Kokkos::View<int*, typename RankViewType::memory_space>,
+				  Kokkos::View<int*, typename IdViewType::memory_space>>
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -588,17 +597,19 @@ class CommunicationPlanBase
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
 
-        // Get the MPI rank we are currently on.
-        int rank = -1;
-        MPI_Comm_rank( this->comm(), &rank );
-
         this->_total_num_import = element_import_ranks.extent( 0 );
+        
+        /**
+         * Sort element_import_ranks by increasing rank and permute element_import_ids
+         * accordingly. This makes the data contiguous and lets us send one message
+         * with all import ids to each rank we are communicating with.
+         */
 
         // Step 1: Initialize indices
         Kokkos::View<int*, memory_space> indices( "indices",
                                                 this->_total_num_import );
         Kokkos::parallel_for(
-            "InitIndices",
+            "CommunicationPlan::initializeCommunication::init_indices",
             Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
             KOKKOS_LAMBDA( int i ) { indices( i ) = i; } );
 
@@ -612,13 +623,13 @@ class CommunicationPlanBase
         bin_sort.create_permute_vector();
         bin_sort.sort( indices );
 
-        // Step 4: Permute both arrays
+        // Step 4: Permute both views
         Kokkos::View<int*, memory_space> ranks_sorted(
-            "ranks_sorted", this->_total_num_import );
+            "CommunicationPlan::initializeCommunication::ranks_sorted", this->_total_num_import );
         Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
                                                     this->_total_num_import );
         Kokkos::parallel_for(
-            "PermuteExports",
+            "CommunicationPlan::initializeCommunication::permute_view",
             Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
             KOKKOS_LAMBDA( int i ) {
                 int sorted_i = indices( i );
@@ -666,6 +677,9 @@ class CommunicationPlanBase
 
         // Assign all exports to zero
         this->_num_export.assign( this->_num_import.size(), 0 );
+
+        // Return sorted rank and ids views
+        return std::tuple{ sendcounts, sdispls, ranks_sorted, ids_sorted };
     } 
     
     /*!
