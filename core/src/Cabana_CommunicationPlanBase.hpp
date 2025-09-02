@@ -566,12 +566,15 @@ class CommunicationPlanBase
     // with lambda functions.
   public:
     /*!
-      \brief TODO
+      \brief Initialize the following class member variables:
+        1. _neighbors (partially)
+        2. _num_import (partially)
+        4. _total_num_import
+      Based on the ranks being imported from and the ids requested from them.
+      No MPI communication is performed, meaning the _neigbors and _num_import vectors
+      may not be complete if some import requests are one-sided.
 
-      Creates an array describing which export element ids are moved to which
-      location in the send buffer of the communication plan. Ordered such that
-      if a rank sends to itself then those values come first.
-
+    
       \param neighbor_ids The id of each element in the neighbor send buffers.
 
       \param ranks_view The ranks to which we are exporting each
@@ -580,9 +583,9 @@ class CommunicationPlanBase
       communication plan.
     */
     template <class ExecutionSpace, class RankViewType, class IdViewType>
-    auto initializeCommunication( ExecutionSpace exec_space, Import,
-                            const RankViewType& element_import_ranks,
-                            const IdViewType& element_import_ids )
+    auto initialize( ExecutionSpace exec_space, Import,
+                     const RankViewType& element_import_ranks,
+                     const IdViewType& element_import_ids )
         -> std::tuple<
                   std::vector<int>, std::vector<int>,
 				  Kokkos::View<int*, typename RankViewType::memory_space>,

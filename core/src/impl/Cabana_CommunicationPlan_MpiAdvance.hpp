@@ -862,8 +862,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         if ( element_import_ids.size() != element_import_ranks.size() )
             throw std::runtime_error( "Export ids and ranks different sizes!" );
 
-        // Initialize data structures neeeded for communication
-        auto out = this->initializeCommunication(exec_space, Import(), element_import_ranks, element_import_ids);
+        // Initialize _neighbors (partially), _num_import (partially), _total_num_import
+        auto out = this->initialize(exec_space, Import(), element_import_ranks, element_import_ids);
         auto sendcounts = std::get<0>(out);
         auto sdispls = std::get<1>(out);
         auto ranks_sorted = std::get<2>(out);
