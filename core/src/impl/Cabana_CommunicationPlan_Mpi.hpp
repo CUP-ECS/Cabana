@@ -573,39 +573,108 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                                                    this->_num_import.end(), 0 );
         this->_num_export_element = this->_total_num_export;
 
+        // Count the number of neighbors we are importing from. This is the
+        // number of non-zero elements in _num_export.
+        // std::set<int> tmp;
+        // for (int x : _num_import) {
+        //     if (x != 0) {
+        //         tmp.insert(x);
+        //     }
+        // }
+        // int num_ranks_importing = tmp.size();
+        // Step 1: Initialize indices
+        Kokkos::View<int*, memory_space> indices( "indices",
+                                                  this->_total_num_import );
+        Kokkos::parallel_for(
+            "InitIndices",
+            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
+            KOKKOS_LAMBDA( int i ) { indices( i ) = i; } );
+
+        // Step 2: Set up bin sort
+        using BinOp = Kokkos::BinOp1D<Kokkos::View<int*, memory_space>>;
+        BinOp bin_op( comm_size, 0, comm_size - 1 );
+        Kokkos::BinSort<Kokkos::View<int*, memory_space>, BinOp> bin_sort(
+            element_import_ranks, bin_op, true );
+
+        // Step 3: Sort indices
+        bin_sort.create_permute_vector();
+        bin_sort.sort( indices );
+
+        // Step 4: Permute both arrays
+        Kokkos::View<int*, memory_space> ranks_sorted(
+            "ranks_sorted", this->_total_num_import );
+        Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
+                                                     this->_total_num_import );
+        Kokkos::parallel_for(
+            "PermuteExports",
+            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
+            KOKKOS_LAMBDA( int i ) {
+                int sorted_i = indices( i );
+                ranks_sorted( i ) = element_import_ranks( sorted_i );
+                ids_sorted( i ) = element_import_ids( sorted_i );
+            } );
+
+        // Store offsets into ranks_sorted to send
+        std::vector<int> sdispls;
+        sdispls.push_back( 0 );
+        for ( int neighbor_rank : this->_neighbors )
+            sdispls.push_back( sdispls.back() +
+                            neighbor_counts_host( neighbor_rank ) );
+
+        // Store send counts to each rank
+        std::vector<int> sendcounts;
+        for ( int neighbor_rank : this->_neighbors )
+            sendcounts.push_back( neighbor_counts_host( neighbor_rank ) );
+
         // Post receives to get the indices other processes are requesting
         // i.e. our export indices
         Kokkos::View<int*, memory_space> export_indices(
             "export_indices", this->_total_num_export );
         std::size_t idx = 0;
         int num_messages =
-            this->_total_num_export + element_import_ranks.extent( 0 );
+            num_n + neighbor_counts_host.extent( 0 );
+
+        // Reset request and status vectors.
         requests.clear(); requests.reserve( num_messages );
         status.clear();
+        std::size_t num_recvs = 0;
         for ( std::size_t i = 0; i < num_n; i++ )
         {
-            for ( std::size_t j = 0; j < this->_num_export[i]; j++ )
+            auto count = this->_num_export[i];
+            if (count)
             {
+                auto count = this->_num_export[i];
                 requests.push_back( MPI_Request() );
-                MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
-                           this->_neighbors[i], mpi_tag + 1, this->comm(),
-                           &( requests.back() ) );
-                idx++;
+                MPI_Irecv( export_indices.data() + idx, count, MPI_INT,
+                            this->_neighbors[i], mpi_tag + 1, this->comm(),
+                            &( requests.back() ) );
+                idx += count;
+                num_recvs++;
             }
         }
 
-        // Send the indices we need
-        for ( std::size_t i = 0; i < element_import_ranks.extent( 0 ); i++ )
+        std::size_t counter = 0;
+        idx = 0;
+        for ( std::size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
         {
-            requests.push_back( MPI_Request() );
-            MPI_Isend( element_import_ids.data() + i, 1, MPI_INT,
-                       *( element_import_ranks.data() + i ), mpi_tag + 1,
-                       this->comm(), &( requests.back() ) );
+            if ( neighbor_counts_host( i ) != 0 )
+            {
+                // The first rank to send to begins at offset = sdispls(0) = 0.
+                // The nth rank to send to begins at offset = sdispls(n).
+                int to_rank = ranks_sorted( sdispls[counter] );
+                int count = sendcounts[counter];
+                requests.push_back( MPI_Request() );
+                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT,
+                        to_rank, mpi_tag + 1, this->comm(),
+                        &( requests.back() ) );
+                counter++;
+                idx += count;
+            }
         }
 
         // Wait for all count exchanges to complete
         status.resize( requests.size() );
-        const int ec1 = MPI_Waitall( num_messages, requests.data(),
+        const int ec1 = MPI_Waitall( requests.size(), requests.data(),
                                      status.data() );
         if ( MPI_SUCCESS != ec1 )
             throw std::logic_error( "Failed MPI Communication" );
@@ -615,9 +684,14 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // Export ID in export_indices(i)
         Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
             "element_export_ranks_h", this->_total_num_export );
-        for ( std::size_t i = 0; i < this->_total_num_export; i++ )
+        counter = 0;
+        for ( std::size_t i = 0; i < num_recvs; i++ )
         {
-            element_export_ranks_h[i] = status[i].MPI_SOURCE;
+            int export_rank = status[i].MPI_SOURCE;
+            for (int j = 0; j < this->_num_export[i]; j++)
+            {
+                element_export_ranks_h(counter++) = export_rank;
+            }
         }
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
             memory_space(), element_export_ranks_h );
