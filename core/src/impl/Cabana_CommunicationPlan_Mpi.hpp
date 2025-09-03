@@ -954,30 +954,24 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             num_neighbors + num_recvs;
         mpi_requests.resize( num_messages );
         mpi_statuses.resize( num_messages );
+        std::size_t counter = 0;
         for ( int i = 0; i < num_recvs; i++ )
         {
             int count = send_counts(i);
             MPI_Irecv( export_indices.data() + idx, count, MPI_INT,
                send_to( i ), mpi_tag + 1, this->comm(),
-               &mpi_requests[idx] );
-            printf("R%d: Irecv: into d(%d), count %d, from R%d\n", rank, idx, count, send_to(i));
+               &mpi_requests[counter] );
             idx += count;
-            // for ( int j = 0; j < send_counts( i ); j++ )
-            // {
-            //     MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
-            //                send_to( i ), mpi_tag + 1, this->comm(),
-            //                &mpi_requests[idx] );
-            //     idx++;
-            // }
+            counter++;
         }
 
         // The number of valid neighbors in neighbor_counts_host is equal to the
         // number of unique ranks in ranks_sorted. We use this information to
         // retrieve the correct rank to send data to.
-        std::size_t counter = 0;
-
+        
+        
         // Send the indices in one message per neighbor
-        idx = 0;
+        idx = 0; counter = 0;
         for ( std::size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
         {
             if ( neighbor_counts_host( i ) != 0 )
@@ -989,7 +983,6 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                 MPI_Isend( ids_sorted.data() + idx, count, MPI_INT,
                         to_rank, mpi_tag + 1, this->comm(),
                         &mpi_requests[num_recvs + counter] );
-                printf("R%d: Isend: from d(%d), count %d, to R%d\n", rank, idx, count, to_rank);
                 counter++;
                 idx += count;
             }
@@ -1014,9 +1007,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             for (int j = 0; j < send_counts(i); j++)
             {
                 element_export_ranks_h(counter++) = export_rank;
-                printf("R%d: element_export_ranks_h(%d): %d\n", rank, counter-1, element_export_ranks_h(i));
             }
-            
         }
 
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
