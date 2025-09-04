@@ -93,7 +93,7 @@ if(Cabana_ENABLE_SILO)
 endif()
 
 if(Cabana_ENABLE_MPIADVANCE)
-  target_link_libraries(Core INTERFACE mpiadvance::mpi_advance)
+  target_link_libraries(Core INTERFACE MPIAdvance::mpi_advance)
 endif()
 
 if(Cabana_ENABLE_HDF5)
