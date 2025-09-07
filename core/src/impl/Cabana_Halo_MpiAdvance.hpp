@@ -44,41 +44,36 @@ Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
-       Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+    Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
-        // Get the buffers and particle data (local copies for lambdas below).
+    // Get the buffers and particle data (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
 
-        auto aosoa = this->getData();
-        int num_n = _halo.numNeighbor();
-        int my_rank = -1;
-        MPI_Comm_rank( _halo.comm(), &my_rank );
+    auto aosoa = this->getData();
+    int num_n = _halo.numNeighbor();
+    int my_rank = -1;
+    MPI_Comm_rank( _halo.comm(), &my_rank );
 
-        std::size_t num_stay =
-                ( num_n > 0 && _halo.neighborRank( 0 ) == my_rank )
-                    ? _halo.numExport( 0 )
-                    : 0;
+    std::size_t num_stay =
+            ( num_n > 0 && _halo.neighborRank( 0 ) == my_rank )
+              ? _halo.numExport( 0 )
+              : 0;
 
+    // Get the steering vector for the sends.
+    auto steering = _halo.getExportSteering();
+    // Gather from the local data into a tuple-contiguous send buffer.
+    auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        send_buffer( i ) = aosoa.getTuple( steering( i ) );
+    };
+    Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
+    Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
+                          gather_send_buffer_func );
+    Kokkos::fence();
 
-
-
-
-        // Get the steering vector for the sends.
-        auto steering = _halo.getExportSteering();
-        // Gather from the local data into a tuple-contiguous send buffer.
-        auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-        {
-            send_buffer( i ) = aosoa.getTuple( steering( i ) );
-        };
-        Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
-        Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                              gather_send_buffer_func );
-        Kokkos::fence();
-
-
-    this->buff_size =sizeof( buffer_type );
+    // this->buff_size =sizeof( buffer_type );
     if (!this->setup_persistent) {
-        this->setupPersistent(_halo);
+        this->setupPersistent(_halo, sizeof(data_type));
     }
 
     MPI_Status status;
@@ -89,20 +84,20 @@ Gather<HaloType, AoSoAType,
 
     auto recv_buffer = this->getReceiveBuffer();
 
-        // Extract the receive buffer into the ghosted elements.
-        std::size_t num_local = _halo.numLocal();
-        auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-        {
-            std::size_t ghost_idx = i + num_local;
-            aosoa.setTuple( ghost_idx, recv_buffer( i ) );
-        };
-        Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-        Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
-                              recv_policy, extract_recv_buffer_func );
-        Kokkos::fence();
-
-        // Barrier before completing to ensure synchronization.
-        MPI_Barrier( _halo.comm() );
+    // Extract the receive buffer into the ghosted elements.
+    std::size_t num_local = _halo.numLocal();
+    auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        std::size_t ghost_idx = i + num_local;
+        aosoa.setTuple( ghost_idx, recv_buffer( i ) );
+    };  
+    Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
+    Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
+        recv_policy, extract_recv_buffer_func );
+    Kokkos::fence();
+    
+    // Barrier before completing to ensure synchronization.
+    MPI_Barrier( _halo.comm() );
 }
 
 /*!
@@ -146,17 +141,14 @@ Gather<HaloType, SliceType,
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
                           gather_send_buffer_func );
     Kokkos::fence();
-    this->buff_size =num_comp * sizeof( typename SliceType::value_type );
+
     if (!this->setup_persistent) {
-        this->setupPersistent(_halo);
+        this->setupPersistent(_halo, num_comp * sizeof( typename SliceType::value_type ));
     }
 
     MPI_Status status;
     MPIX_Start(*(this->neighbor_request));
     MPIX_Wait(*(this->neighbor_request), &status);
-
-
-
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _halo.numLocal();
@@ -222,9 +214,8 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
-    this->buff_size =num_comp * sizeof( typename SliceType::value_type );
     if (!this->setup_persistent) {
-        this->setupPersistent(_halo);
+        this->setupPersistent(_halo, num_comp * sizeof( typename SliceType::value_type ));
     }
 
     MPI_Status status;

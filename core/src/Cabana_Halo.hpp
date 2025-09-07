@@ -439,7 +439,6 @@ class Gather<HaloType, AoSoAType,
         if ( !haloCheckValidSize( halo, aosoa ) )
             throw std::runtime_error( "Cabana::gather:reserve (AoSoAType): "
                                       "AoSoA is the wrong size for gather!" );
-
         this->reserveImpl( halo, aosoa, totalSend(), totalReceive() );
     }
     /*!

@@ -1155,17 +1155,18 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         : CommunicationDataBase<CommPlanType, CommDataType>(
               comm_plan, particles, overallocation )
     {
-
-
-
-
     }
 
-
-
   public:
+    /* Setup persistent communication for the communicaiton plan associated 
+      * with this CommunicationData. This can only be called after the 
+      * send buffer and receive buffer have been reallocated and reserved,
+      * and they cannot be reallocated after that or the neighbor collective
+      * will point to the wrong place! XXX We should add code to check for
+      * this appropriately XXX */
     template <class HaloType>
-    void setupPersistent( const HaloType& _halo){
+    void setupPersistent( const HaloType& _halo, std::size_t elem_size)
+    {
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
         int num_n = _halo.numNeighbor();
@@ -1178,20 +1179,15 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         std::size_t send_offset = 0, recv_offset = 0;
         for ( int n = 0; n < num_n; ++n )
         {
-            recv_counts[n] =
-                _halo.numImport( n ) * this->buff_size;
+            recv_counts[n] = _halo.numImport( n ) * elem_size;
             recv_displs[n] = recv_offset;
             recv_offset += recv_counts[n];
 
-
-            {
-                send_counts[n] = _halo.numExport( n ) *
-                                 this->buff_size ;
-                send_displs[n] = send_offset;
-                send_offset += send_counts[n];
-            }
+            send_counts[n] = _halo.numExport( n ) * elem_size ;
+            send_displs[n] = send_offset;
+            send_offset += send_counts[n];
+            
         }
-
 
         // Allocate and initialize the persistent request
         auto xinfo_deleter = [](MPIX_Info** info) {
@@ -1217,20 +1213,20 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
         MPI_Datatype datatype = MPI_BYTE;
 
-     MPIX_Neighbor_alltoallv_init_topo(
+        assert(send_buffer.extent(0) * elem_size >= send_offset);
+        assert(recv_buffer.extent(0) * elem_size >= recv_offset);
+
+        MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
-    MPI_Barrier(MPI_COMM_WORLD);
-
+        MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    int buff_size =-1;
     bool setup_persistent=false;
-    std::shared_ptr<MPIX_Request *> neighbor_request;
-    std::shared_ptr<MPIX_Info *> xinfo;
-    std::shared_ptr<int> counter;
-
+    std::shared_ptr<MPIX_Request *> neighbor_request = nullptr;
+    std::shared_ptr<MPIX_Info *> xinfo = nullptr;
+    std::shared_ptr<int> counter = nullptr;
 
     // Put MPIAdvance-specific functions and variables here...
 };
