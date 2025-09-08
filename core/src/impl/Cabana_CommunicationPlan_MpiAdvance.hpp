@@ -182,8 +182,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
 
         // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( this->comm(), &my_rank );
+        int rank = -1;
+        MPI_Comm_rank( this->comm(), &rank );
 
         // Initialize import/export sizes.
         this->_num_export.assign( num_n, 0 );
@@ -335,8 +335,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( this->comm(), &my_rank );
+        int rank = -1;
+        MPI_Comm_rank( this->comm(), &rank );
 
         // Create MPI Advance objects 
         MPIX_Comm* xcomm0;
@@ -382,7 +382,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         // list and assign the number of imports to be the number of exports.
         bool self_send = false;
         for ( int n = 0; n < num_export_rank; ++n )
-            if ( this->_neighbors[n] == my_rank )
+            if ( this->_neighbors[n] == rank )
             {
                 std::swap( this->_neighbors[n], this->_neighbors[0] );
                 std::swap( this->_num_export[n], this->_num_export[0] );
@@ -551,8 +551,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
 
-        int my_rank = -1;
-        MPI_Comm_rank( this->comm(), &my_rank );
+        int rank = -1;
+        MPI_Comm_rank( this->comm(), &rank );
 
         this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
         int num_n = this->_neighbors.size();
