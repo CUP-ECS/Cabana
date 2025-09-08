@@ -102,7 +102,7 @@ class CommSpaceTester
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test1( const bool use_topology )
+void testExport1( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_tmp( MPI_COMM_WORLD );
@@ -155,7 +155,7 @@ void test1( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test2( const bool use_topology )
+void testExport2( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -218,7 +218,7 @@ void test2( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test3( const bool use_topology )
+void testExport3( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -276,7 +276,7 @@ void test3( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test4( const bool use_topology )
+void testExport4( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -395,7 +395,7 @@ void test4( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test5( const bool use_topology )
+void testExport5( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -481,7 +481,7 @@ void test5( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test6( const bool use_topology )
+void testExport6( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -552,7 +552,7 @@ void test6( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test7( const bool use_topology )
+void testExport7( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -632,7 +632,7 @@ void testTopology()
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test8( const bool use_topology )
+void testImport1( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -699,7 +699,7 @@ void test8( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test9( const bool use_topology )
+void testImport2( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -777,7 +777,7 @@ void test9( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test10( const bool use_topology )
+void testImport3( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -889,7 +889,7 @@ void test10( const bool use_topology )
 
 //---------------------------------------------------------------------------//
 template <class TEST_COMMSPACE>
-void test11( const bool use_topology )
+void testImport4( const bool use_topology )
 {
     // Make a communication plan.
     CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
@@ -1007,84 +1007,84 @@ using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::Mpi
 TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes );
 
 // Export tests
-TYPED_TEST( CommunicationPlanTypedTest, Test1 ) { test1<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport1 ) { testExport1<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test2 ) { test2<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport2 ) { testExport2<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test3 ) { test3<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport3 ) { testExport3<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test4 ) { test4<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport4 ) { testExport4<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test5 ) { test5<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport5 ) { testExport5<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test6 ) { test6<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport6 ) { testExport6<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test7 ) { test7<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport7 ) { testExport7<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test1NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport1NoTopo )
 {
-    test1<TypeParam>( false );
+    testExport1<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test2NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport2NoTopo )
 {
-    test2<TypeParam>( false );
+    testExport2<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test3NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport3NoTopo )
 {
-    test3<TypeParam>( false );
+    testExport3<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test4NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport4NoTopo )
 {
-    test4<TypeParam>( false );
+    testExport4<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test5NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport5NoTopo )
 {
-    test5<TypeParam>( false );
+    testExport5<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test6NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport6NoTopo )
 {
-    test6<TypeParam>( false );
+    testExport6<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test7NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestExport7NoTopo )
 {
-    test7<TypeParam>( false );
+    testExport7<TypeParam>( false );
 }
 
 TEST( CommSpace, TestTopology ) { testTopology(); }
 
 // Import tests
-TYPED_TEST( CommunicationPlanTypedTest, Test8 ) { test8<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport1 ) { testImport1<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test9 ) { test9<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport2 ) { testImport2<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test10 ) { test10<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport3 ) { testImport3<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test11 ) { test11<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport4 ) { testImport4<TypeParam>( true ); }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test8NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestImport1NoTopo )
 {
-    test8<TypeParam>( false );
+    testImport1<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test9NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestImport2NoTopo )
 {
-    test9<TypeParam>( false );
+    testImport2<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test10NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestImport3NoTopo )
 {
-    test10<TypeParam>( false );
+    testImport3<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, Test11NoTopo )
+TYPED_TEST( CommunicationPlanTypedTest, TestImport4NoTopo )
 {
-    test11<TypeParam>( false );
+    testImport4<TypeParam>( false );
 }
 
 //---------------------------------------------------------------------------//
