@@ -1109,26 +1109,35 @@ TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes );
 // Export tests
 TYPED_TEST( CommunicationPlanTypedTest, TestExport1 )
 {
+    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testExport1<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestExport2 )
 {
+    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testExport2<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestExport3 )
 {
+    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testExport3<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestExport4 )
 {
+    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testExport4<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestExport5 )
 {
+
     testExport5<TypeParam>( true );
 }
 
@@ -1191,42 +1200,51 @@ TEST( CommSpace, TestTopology ) { testTopology(); }
 
 // Import tests
 TYPED_TEST( CommunicationPlanTypedTest, TestImport1 )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport1<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport2 )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport2<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport3 )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport3<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport4 )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport4<TypeParam>( true );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport1NoTopo )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport1<TypeParam>( false );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport2NoTopo )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport2<TypeParam>( false );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport3NoTopo )
-{
+{    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport3<TypeParam>( false );
 }
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport4NoTopo )
 {
+    mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+
     testImport4<TypeParam>( false );
 }
 
