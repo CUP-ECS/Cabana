@@ -124,8 +124,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( this->comm(), &my_rank );
+        int rank = -1;
+        MPI_Comm_rank( this->comm(), &rank );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
@@ -154,7 +154,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         std::vector<MPI_Request> requests;
         requests.reserve( num_neighbors );
         for ( int n = 0; n < num_neighbors; ++n )
-            if ( my_rank != this->_neighbors[n] )
+            if ( rank != this->_neighbors[n] )
             {
                 requests.push_back( MPI_Request() );
                 MPI_Irecv( &this->_num_import[n], 1, MPI_UNSIGNED_LONG,
@@ -166,7 +166,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
 
         // Send the number of exports to each of our neighbors.
         for ( int n = 0; n < num_neighbors; ++n )
-            if ( my_rank != this->_neighbors[n] )
+            if ( rank != this->_neighbors[n] )
                 MPI_Send( &this->_num_export[n], 1, MPI_UNSIGNED_LONG,
                           this->_neighbors[n], mpi_tag, this->comm() );
 
@@ -280,8 +280,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( this->comm(), &my_rank );
+        int rank = -1;
+        MPI_Comm_rank( this->comm(), &rank );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
@@ -321,7 +321,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // list and assign the number of imports to be the number of exports.
         bool self_send = false;
         for ( int n = 0; n < num_export_rank; ++n )
-            if ( this->_neighbors[n] == my_rank )
+            if ( this->_neighbors[n] == rank )
             {
                 std::swap( this->_neighbors[n], this->_neighbors[0] );
                 std::swap( this->_num_export[n], this->_num_export[0] );
@@ -505,8 +505,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( this->comm(), &my_rank );
+        int rank = -1;
+        MPI_Comm_rank( this->comm(), &rank );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
@@ -537,7 +537,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         std::vector<MPI_Request> requests;
         requests.reserve( num_n * 2 );
         for ( std::size_t n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
+            if ( rank != this->_neighbors[n] )
             {
                 requests.push_back( MPI_Request() );
                 MPI_Irecv( &this->_num_export[n], 1, MPI_UNSIGNED_LONG,
@@ -551,7 +551,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
 
         // Send the number of imports to each of our neighbors.
         for ( std::size_t n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
+            if ( rank != this->_neighbors[n] )
             {
                 requests.push_back( MPI_Request() );
                 MPI_Isend( &this->_num_import[n], 1, MPI_UNSIGNED_LONG,
