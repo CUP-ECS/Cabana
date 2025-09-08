@@ -607,6 +607,106 @@ void testExport7( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TEST_COMMSPACE>
+void testExport8( const bool use_topology )
+{
+    // Make a communication plan.
+    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+
+    // Get my rank.
+    int my_rank = -1;
+    MPI_Comm_rank( MPI_COMM_WORLD, &my_rank );
+
+    // Get the comm size.
+    int my_size = -1;
+    MPI_Comm_size( MPI_COMM_WORLD, &my_size );
+
+    // Rank 0 will export data to all other ranks, including itself.
+    // No other rank will export data.
+    int num_data = ( my_rank == 0 ) ? my_size : 0;
+
+    // Fill neighbor ranks
+    std::vector<int> neighbor_ranks;
+    if ( 0 == my_rank )
+    {
+        neighbor_ranks.resize( my_size );
+        std::iota( neighbor_ranks.begin(), neighbor_ranks.end(), 0 );
+    }
+    else
+    {
+        neighbor_ranks.assign( 1, 0 );
+    }
+
+    // Fill export ranks
+    Kokkos::View<int*, Kokkos::HostSpace> export_ranks_host( "export_ranks",
+                                                             num_data );
+    for ( int n = 0; n < num_data; ++n )
+    {
+        export_ranks_host[n] = n;
+    }
+    auto export_ranks = Kokkos::create_mirror_view_and_copy(
+        TEST_MEMSPACE(), export_ranks_host );
+
+    // Create the plan.
+    using size_type = typename TEST_MEMSPACE::size_type;
+    Kokkos::View<size_type*, TEST_MEMSPACE> neighbor_ids;
+    if ( use_topology )
+        neighbor_ids = comm_plan.createFromExportsAndNeighbors(
+            export_ranks, neighbor_ranks );
+    else
+        neighbor_ids = comm_plan.createFromExports( export_ranks );
+
+    // Check the plan.
+    if ( my_rank == 0 )
+    {
+        EXPECT_EQ( comm_plan.numNeighbor(), my_size )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.neighborRank( 0 ), 0 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.numExport( 0 ), 1 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.totalNumExport(), my_size )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.numImport( 0 ), 1 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.totalNumImport(), 1 )
+            << "Rank " << my_rank << std::endl;
+    }
+    else
+    {
+        EXPECT_EQ( comm_plan.numNeighbor(), 1 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.neighborRank( 0 ), 0 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.numExport( 0 ), 0 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.totalNumExport(), 0 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.numImport( 0 ), 1 )
+            << "Rank " << my_rank << std::endl;
+        EXPECT_EQ( comm_plan.totalNumImport(), 1 )
+            << "Rank " << my_rank << std::endl;
+    }
+
+    // Create the export steering vector.
+    comm_plan.createSteering( neighbor_ids, export_ranks );
+
+    // Check the steering vector. We thread the creation of the steering
+    // vector so we don't really know what order it is in - only that it is
+    // grouped by the ranks to which we are exporting. In this case just sort
+    // the steering vector and make sure all of the ranks are there. We can do
+    // this because one rank is sending all other other ranks, including itself.
+    auto steering = comm_plan.getExportSteering();
+    auto host_steering =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), steering );
+    std::sort( host_steering.data(),
+               host_steering.data() + host_steering.size() );
+    EXPECT_EQ( host_steering.size(), num_data );
+    for ( int n = 0; n < num_data; ++n )
+        EXPECT_EQ( n, host_steering( n ) );
+}
+
+//---------------------------------------------------------------------------//
 void testTopology()
 {
     // Get my rank.
@@ -1007,19 +1107,45 @@ using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::Mpi
 TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes );
 
 // Export tests
-TYPED_TEST( CommunicationPlanTypedTest, TestExport1 ) { testExport1<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport1 )
+{
+    testExport1<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport2 ) { testExport2<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport2 )
+{
+    testExport2<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport3 ) { testExport3<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport3 )
+{
+    testExport3<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport4 ) { testExport4<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport4 )
+{
+    testExport4<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport5 ) { testExport5<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport5 )
+{
+    testExport5<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport6 ) { testExport6<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport6 )
+{
+    testExport6<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport7 ) { testExport7<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestExport7 )
+{
+    testExport7<TypeParam>( true );
+}
+
+TYPED_TEST( CommunicationPlanTypedTest, TestExport8 )
+{
+    testExport8<TypeParam>( true );
+}
 
 TYPED_TEST( CommunicationPlanTypedTest, TestExport1NoTopo )
 {
@@ -1056,16 +1182,33 @@ TYPED_TEST( CommunicationPlanTypedTest, TestExport7NoTopo )
     testExport7<TypeParam>( false );
 }
 
+TYPED_TEST( CommunicationPlanTypedTest, TestExport8NoTopo )
+{
+    testExport8<TypeParam>( false );
+}
+
 TEST( CommSpace, TestTopology ) { testTopology(); }
 
 // Import tests
-TYPED_TEST( CommunicationPlanTypedTest, TestImport1 ) { testImport1<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport1 )
+{
+    testImport1<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestImport2 ) { testImport2<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport2 )
+{
+    testImport2<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestImport3 ) { testImport3<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport3 )
+{
+    testImport3<TypeParam>( true );
+}
 
-TYPED_TEST( CommunicationPlanTypedTest, TestImport4 ) { testImport4<TypeParam>( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, TestImport4 )
+{
+    testImport4<TypeParam>( true );
+}
 
 TYPED_TEST( CommunicationPlanTypedTest, TestImport1NoTopo )
 {
