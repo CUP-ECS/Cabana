@@ -810,41 +810,42 @@ using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::Mpi
 
 TYPED_TEST_SUITE( DistributorTypedTest, CommSpaceTypes );
 
-TYPED_TEST( DistributorTypedTest, Test1 ) { test1<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test1 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;
+test1<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test2 ) { test2<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test2 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test2<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test3 ) { test3<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test3 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test3<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test4 ) { test4<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test4 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test4<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test5 ) { test5<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test5 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test5<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test6 ) { test6<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test6 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test6<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test7 ) { test7<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test7 ) { mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY; test7<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test8 ) { test8<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test8 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test8<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test9 ) { test9<TypeParam>( true ); }
+TYPED_TEST( DistributorTypedTest, Test9 ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test9<TypeParam>( true ); }
 
-TYPED_TEST( DistributorTypedTest, Test1NoTopo ) { test1<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test1NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test1<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test2NoTopo ) { test2<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test2NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test2<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test3NoTopo ) { test3<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test3NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test3<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test4NoTopo ) { test4<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test4NoTopo ) { mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY; test4<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test5NoTopo ) { test5<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test5NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test5<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test6NoTopo ) { test6<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test6NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test6<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test7NoTopo ) { test7<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test7NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test7<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test8NoTopo ) { test8<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test8NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test8<TypeParam>( false ); }
 
-TYPED_TEST( DistributorTypedTest, Test9NoTopo ) { test9<TypeParam>( false ); }
+TYPED_TEST( DistributorTypedTest, Test9NoTopo ) {  mpix_neighbor_alltoallv_init_implementation = NEIGHBOR_ALLTOALLV_INIT_LOCALITY;test9<TypeParam>( false ); }
 
 //---------------------------------------------------------------------------//
 
