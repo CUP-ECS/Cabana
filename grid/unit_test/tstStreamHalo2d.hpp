@@ -193,7 +193,7 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
         ArrayOp::assign( *array, 1.0, Own() );
 
         // Create a halo.
-        auto halo = Experimental::createStreamHalo<CommSpace::MpiAdvance>(
+        auto halo = Experimental::createStreamHalo<Cabana::CommSpace::MpiAdvance>(
             TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *array );
 
         // Gather into the ghosts.
@@ -250,7 +250,7 @@ void gatherScatterTest( const ManualBlockPartitioner<2>& partitioner,
         ArrayOp::assign( *face_j_array, 1.0, Own() );
 
         // Create a multihalo.
-        auto halo = Experimental::createStreamHalo<CommSpace::MpiAdvance>(
+        auto halo = Experimental::createStreamHalo<Cabana::CommSpace::MpiAdvance>(
             TEST_EXECSPACE(), NodeHaloPattern<2>(), halo_width, *cell_array,
             *node_array, *face_i_array, *face_j_array );
 
@@ -362,7 +362,7 @@ void scatterReduceTest( const ReduceFunc& reduce )
     pattern.setNeighbors( neighbors );
 
     // Create a halo.
-    auto halo = Experimental::createStreamHalo<CommSpace::MpiAdvance>(
+    auto halo = Experimental::createStreamHalo<Cabana::CommSpace::MpiAdvance>(
                 TEST_EXECSPACE(), pattern, array_halo_width, *array );
 
     // Scatter.
