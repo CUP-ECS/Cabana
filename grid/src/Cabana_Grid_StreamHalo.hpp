@@ -197,29 +197,15 @@ namespace Experimental
   \param arrays The arrays over which to build the halo.
   \return Shared pointer to a Halo.
 */
-template <class ExecutionSpace, class Pattern, class... ArrayTypes>
+template <class CommSpace, class ExecutionSpace, class Pattern, class... ArrayTypes>
 auto createStreamHalo( const ExecutionSpace& exec_space, const Pattern& pattern,
                        const int width, const ArrayTypes&... arrays )
 {
     using memory_space = typename ArrayPackMemorySpace<ArrayTypes...>::type;
 
-#if defined( Cabana_ENABLE_MPI_ADVANCE )
     return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::MpiAdvance>>(
+        StreamHalo<ExecutionSpace, memory_space, CommSpace>>(
         exec_space, pattern, width, arrays... );
-#elif defined( CABANA_ENABLE_MPICH )
-    return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::Mpich>>(
-        exec_space, pattern, width, arrays... );
-#elif defined( CABANA_ENABLE_CRAY_MPI )
-    return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::CrayMpi>>(
-        exec_space, pattern, width, arrays... );
-#else
-    return std::make_shared<
-        StreamHalo<ExecutionSpace, memory_space, CommSpace::Mpi>>(
-        exec_space, pattern, width, arrays... );
-#endif
 }
 
 } // namespace Experimental
