@@ -159,7 +159,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
       MPI_Info_create(&mem_info);
       // Note, change for other systems
-      MPI_Info_set(mem_info, "MPIS_GPU_MEM_TYPE", "COARSE");
+      //MPI_Info_set(mem_info, "MPIS_GPU_MEM_TYPE", "COARSE");
+      MPI_Info_set(mem_info, "mpi_memory_alloc_kinds", "rocm:device:coarse");
 
       // scatter
       for ( int n = 0; n < num_n; ++n )
