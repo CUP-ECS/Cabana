@@ -115,20 +115,22 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
         // We fence before posting receives in case the stream
         // is already using our buffers.
-	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[0]);
+	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[halo_phase][0]);
         // Pack and send the data.
-        this->enqueuePackBuffers( halo_type::_owned_buffers,
+        this->enqueuePackBuffers( stream_owned_buffers[halo_phase],
                                   halo_type::_owned_steering,
                                   arrays.view()... );
 
 	// do sends which are the last half of gather_requests
-	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[num_n]);
+	MPIS_Enqueue_startall(my_queue, num_n, &gather_requests[halo_phase][num_n]);
 	MPIS_Enqueue_waitall(my_queue);
-	
+
         // Unpack receive buffers.        
         this->enqueueUnpackBuffers(
-            ScatterReduce::Replace(), halo_type::_ghosted_buffers,
+            ScatterReduce::Replace(), stream_ghosted_buffers[halo_phase],
             halo_type::_ghosted_steering, arrays.view()... );
+
+	if (double_buffer) halo_phase ^= 1;
     }
 
     /*!
@@ -151,20 +153,22 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
             return;
 
 	// Begin Recv inits
-	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[0]);
+	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[halo_phase][0]);
         // Pack and send the data.
-        this->enqueuePackBuffers( halo_type::_ghosted_buffers,
+        this->enqueuePackBuffers( stream_ghosted_buffers[halo_phase],
                                   halo_type::_ghosted_steering,
                                   arrays.view()... );
 	
 	// Begin Send inits
-	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[num_n]);
+	MPIS_Enqueue_startall(my_queue, num_n, &scatter_requests[halo_phase][num_n]);
 	
 	MPIS_Enqueue_waitall(my_queue);
 
-        this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
+        this->enqueueUnpackBuffers( reduce_op, stream_owned_buffers[halo_phase],
                                     halo_type::_owned_steering,
                                     arrays.view()... );
+
+	if (double_buffer) halo_phase ^= 1;
     }
 
     template <class Pattern, class... ArrayTypes>
@@ -182,44 +186,22 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
       memorySetup();
       halo_phase = 0;
       
-      // Get the neighbor ranks we will exchange with in the halo and
-      // allocate buffers. If any of the exchanges are self sends mark these
-      // so we know which send buffers correspond to which receive buffers.
-      auto local_grid = halo_type::getLocalGrid( arrays ... );
-      auto neighbors = pattern.getNeighbors();
-      std::cout << "memory is setup!" << std::endl;
-      for ( const auto& n : neighbors )
-        {
-            // Get the rank of the neighbor.
-            int rank = local_grid->neighborRank( n );
-
-            // If this is a valid rank add it as a neighbor.
-            if ( rank >= 0 )
-            {
-	      // Create communication data for owned entities.
-	      halo_type::buildCommData( Own(), width, n, stream_owned_buffers[0],
-					stream_owned_steering[0],
-					arrays... );
-	      
-	      // Create communication data for ghosted entities.
-	      halo_type::buildCommData( Ghost(), width, n, stream_ghosted_buffers[0],
-			     stream_ghosted_steering[0], arrays... );
-
-	      //if( double_buffer == 1 )
-	      //{
-		  	      // Create communication data for owned entities.
-	      halo_type::buildCommData( Own(), width, n, stream_owned_buffers[1],
-					stream_owned_steering[1],
-					arrays... );
-	      
-	      // Create communication data for ghosted entities.
-	      halo_type::buildCommData( Ghost(), width, n, stream_ghosted_buffers[1],
-			     stream_ghosted_steering[1], arrays... );
-	      //}
-            }
-        }
-
-
+      // Superclass has initialized the steering vector and a set of views for
+      // owned and ghosted buffers. We can reuse the steering vector and the 
+      // buffers from the superclass for phase 0. We need our own views for
+      // phase 1.
+      for ( int n = 0; n < owned_buffers.size(); n++ ) {
+          auto v0 = owned_buffers[n];
+          stream_owned_buffers[0].push_back(v0)
+          auto v1 = Kokkos::View<char*, memory_space>( "halo buffer", v0.size());
+          stream_owned_buffers[1].push_back(v1);
+      }
+      for ( int n = 0; n < ghosted_buffers.size(); n++ ) {
+          auto v0 = ghosted_buffers[n];
+          stream_ghosted_buffers[0].push_back(v0)
+          auto v1 = Kokkos::View<char*, memory_space>( "halo buffer", v0.size());
+          stream_ghosted_buffers[1].push_back(v1);
+      }
       
       // set up queue stream, if hip stream returns executionspace.hip_stream
       // else use nullptr for default functionality
@@ -233,95 +215,99 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
       MPI_Info_set(mem_info, "mpi_memory_alloc_kinds", "rocm:device:coarse");
 
       // scatter
-      for ( int n = 0; n < num_n; ++n )
+      for ( int p = 0; p < 2; ++p )
       {
-	// Only process this neighbor if there is work to do.
-	if ( 0 < stream_owned_buffers[n].size() )
+          for ( int n = 0; n < num_n; ++n )
           {
-	    MPIS_Recv_init( stream_owned_buffers[halo_phase][n].data(),
-			    stream_owned_buffers[halo_phase][n].size(), MPI_BYTE,
-			    halo_type::_neighbor_ranks[n],
-			    1234 + halo_type::_receive_tags[n], _comm,
-			    MPI_INFO_NULL,
-			    &scatter_requests[n] );
+	      // Only process this neighbor if there is work to do.
+	      if ( 0 < stream_owned_buffers[p][n].size() )
+              {
+	          MPIS_Recv_init( stream_owned_buffers[p][n].data(),
+	                          stream_owned_buffers[p][n].size(), MPI_BYTE,
+			          halo_type::_neighbor_ranks[n],
+			          1234 + halo_type::_receive_tags[n], _comm,
+			          MPI_INFO_NULL,
+			          &scatter_requests[p][n] );
+              }
+	      // Create a send.
+	      if ( 0 < stream_ghosted_buffers[p][n].size() )
+              {
+	          if( double_buffer == 1)
+		  {
+		      MPIS_Rsend_init(stream_ghosted_buffers[p][n].data(),
+			              stream_ghosted_buffers[p][n].size(),
+			              MPI_BYTE,
+			              halo_type::_neighbor_ranks[n],
+			              1234 + halo_type::_send_tags[n], _comm,
+		                      mem_info,
+		  	              &scatter_requests[p][num_n + n] );
+		  }
+	          else
+		  {
+		      MPIS_Send_init(stream_ghosted_buffers[p][n].data(),
+			              stream_ghosted_buffers[p][n].size(),
+			              MPI_BYTE,
+			              halo_type::_neighbor_ranks[n],
+			              1234 + halo_type::_send_tags[n], _comm,
+		                      mem_info,
+		  	              &scatter_requests[p][num_n + n] );
+		  }
+	      }
           }
-	// Post a send.
-	if ( 0 < stream_ghosted_buffers[n].size() )
-            {
-	      if( double_buffer == 1)
-		{
-		  // int MPI_Rsend(const void* buffer, int count,
-		  // MPI_Datatype datatype, int recipient,
-		  // int tag, MPI_Comm communicator);
-		  MPI_Rsend(stream_ghosted_buffers[halo_phase][n].data(),
-			    stream_ghosted_buffers[halo_phase][n].size(),
-			    MPI_BYTE,
-			    halo_type::_neighbor_ranks[n],
-			    1234 + halo_type::_send_tags[n], _comm);
-		  //mem_info,
-		  //	    &scatter_requests[num_n + n] );
-		}
-	      else
-		{
-		  MPIS_Send_init( stream_ghosted_buffers[halo_phase][n].data(),
-				  stream_ghosted_buffers[halo_phase][n].size(), MPI_BYTE,
-				  halo_type::_neighbor_ranks[n],
-				  1234 + halo_type::_send_tags[n], _comm,
-				  mem_info,
-				  &scatter_requests[num_n + n] );
-		}
-	    }
       }
-
-    // gather
-    for ( int n = 0; n < num_n; ++n )
+      for ( int p = 0; p < 2; ++p )
       {
-	if ( 0 < stream_ghosted_buffers[n].size() )
-	  {
-		// Only process this neighbor if there is work to do.
-		MPIS_Recv_init( stream_ghosted_buffers[halo_phase][n].data(),
-				stream_ghosted_buffers[halo_phase][n].size(), MPI_BYTE,
-				halo_type::_neighbor_ranks[n],
-				5678 + halo_type::_receive_tags[n], _comm,
-				MPI_INFO_NULL,
-				&gather_requests[n] );
-	  }
-	if ( 0 < stream_owned_buffers[n].size() )
+          for ( int n = 0; n < num_n; ++n )
           {
-	    if( double_buffer == 1)
-	      {
-		// rsend
-		MPI_Rsend(stream_owned_buffers[halo_phase][n].data(),
-			    stream_owned_buffers[halo_phase][n].size(), MPI_BYTE,
-			    halo_type::_neighbor_ranks[n],
-			  5678 + halo_type::_send_tags[n], _comm);
-		//mem_info,
-		//	    &gather_requests[num_n + n] )
-		
-	      }
-	    else
-	      {
-	    MPIS_Send_init( stream_owned_buffers[halo_phase][n].data(),
-			    stream_owned_buffers[halo_phase][n].size(), MPI_BYTE,
-			    halo_type::_neighbor_ranks[n],
-			    5678 + halo_type::_send_tags[n], _comm,
-			    mem_info,
-			    &gather_requests[num_n + n] );
-	      }
+	      // Only process this neighbor if there is work to do.
+	      if ( 0 < stream_ghosted_buffers[p][n].size() )
+              {
+	          MPIS_Recv_init( stream_ghosted_buffers[p][n].data(),
+	                          stream_ghosted_buffers[p][n].size(), MPI_BYTE,
+			          halo_type::_neighbor_ranks[n],
+			          5678 + halo_type::_receive_tags[n], _comm,
+			          MPI_INFO_NULL,
+			          &gather_requests[p][n] );
+              }
+	      // Create a send.
+	      if ( 0 < stream_owned_buffers[p][n].size() )
+              {
+	          if( double_buffer == 1)
+		  {
+		      MPIS_Rsend_init(stream_owned_buffers[p][n].data(),
+			              stream_owned_buffers[p][n].size(),
+			              MPI_BYTE,
+			              halo_type::_neighbor_ranks[n],
+			              5678 + halo_type::_send_tags[n], _comm,
+		                      mem_info,
+		  	              &gather_requests[p][num_n + n] );
+		  }
+	          else
+		  {
+		      MPIS_Send_init(stream_owned_buffers[p][n].data(),
+			             stream_owned_buffers[p][n].size(),
+			             MPI_BYTE,
+			             halo_type::_neighbor_ranks[n],
+			             5678 + halo_type::_send_tags[n], _comm,
+		                     mem_info,
+		  	             &gather_requests[p][num_n + n] );
+		  }
+              }
           }
       }
 
     // match requests = count of gather + count of scatter, 4*num_n        
-    std::vector<MPIS_Request> match_requests(4*num_n, MPIS_REQUEST_NULL);
+    std::vector<MPIS_Request> match_requests(8*num_n, MPIS_REQUEST_NULL);
 
-    //for(int n = 0; n < 2*num_n; ++n)
-    for(int n = 0, m = 0; n < 2*num_n; ++n, m+=2)
-      {
-        MPIS_Imatch(&scatter_requests[n], &match_requests[m] );
-        MPIS_Imatch(&gather_requests[n], &match_requests[m+1]);
+    for(int n = 0, m = 0; n < 2*num_n; ++n, m+=4)
+    {
+        MPIS_Imatch(&scatter_requests[0][n], &match_requests[m] );
+        MPIS_Imatch(&gather_requests[0][n], &match_requests[m+1]);
+        MPIS_Imatch(&scatter_requests[1][n], &match_requests[m+2]);
+        MPIS_Imatch(&gather_requests[1][n], &match_requests[m+3]);
 
-      }
-    MPIS_Waitall(4*num_n, &match_requests[0], MPI_STATUSES_IGNORE);
+    }
+    MPIS_Waitall(8*num_n, &match_requests[0], MPI_STATUSES_IGNORE);
     
     }
   
@@ -329,8 +315,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
   ~StreamHalo(){
     for( int n =0; n < 2*halo_type::_neighbor_ranks.size(); ++n)
       {
-	MPIS_Request_free(&scatter_requests[n]);
-	MPIS_Request_free(&gather_requests[n]);
+	MPIS_Request_free(&scatter_requests[0][n]);
+	MPIS_Request_free(&gather_requests[0][n]);
+	MPIS_Request_free(&scatter_requests[1][n]);
+	MPIS_Request_free(&gather_requests[1][n]);
       }
     MPIS_Queue_free(&my_queue);
     MPI_Info_free(&mem_info);
@@ -340,8 +328,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
   void* my_stream;
   const MPI_Comm _comm;
   MPIS_Queue my_queue;
-  std::vector<MPIS_Request> scatter_requests;
-  std::vector<MPIS_Request> gather_requests;
+  std::array<std::vector<MPIS_Request>, 2> scatter_requests;
+  std::array<std::vector<MPIS_Request>, 2> gather_requests;
   MPI_Info mem_info;
   int double_buffer, fine_grain;
   int halo_phase;
@@ -350,12 +338,6 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
   std::array<std::vector<Kokkos::View<char*, memory_space>>, 2> stream_owned_buffers;  
   // For each neighbor, send/receive buffers for data we ghost.
   std::array<std::vector<Kokkos::View<char*, memory_space>>, 2> stream_ghosted_buffers;
-
-  // For each neighbor, steering vector for the owned buffer.
-  std::array<std::vector<Kokkos::View<int**, memory_space>>, 2> stream_owned_steering;
-  // For each neighbor, steering vector for the ghosted buffer.
-  std::array<std::vector<Kokkos::View<int**, memory_space>>, 2> stream_ghosted_steering;
-  
 }; // StreamHalo<Commspace::MpiAdvance>
   
 } // namespace Experimental
