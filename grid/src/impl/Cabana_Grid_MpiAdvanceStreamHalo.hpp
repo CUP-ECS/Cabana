@@ -78,7 +78,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     // if no env variable is found, set to zero
     else
       {
-	double_buffer = 0;
+	double_buffer = 1;
       }
     // set up fine grain memory
     if(const char* env_fg = std::getenv("MPI_ADVANCE_DOUBLE_BUFFERING"))
@@ -176,11 +176,13 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
                 const int width, const ArrayTypes&... arrays )
         : StreamHaloBase<ExecutionSpace, MemorySpace>( exec_space, pattern,
                                                        width, arrays... )
-        , scatter_requests( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL )
-	, gather_requests( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL )
         , _comm( Halo<MemorySpace>::getComm( arrays... ) )
     {
       int num_n = halo_type::_neighbor_ranks.size();
+      scatter_requests[0] = std::vector( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
+      scatter_requests[1] = std::vector( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
+      gather_requests[0] = std::vector( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
+      gather_requests[1] = std::vector( 2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
 
       // set up double buffering and/or fine grain memory
       memorySetup();
@@ -190,15 +192,15 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
       // owned and ghosted buffers. We can reuse the steering vector and the 
       // buffers from the superclass for phase 0. We need our own views for
       // phase 1.
-      for ( int n = 0; n < owned_buffers.size(); n++ ) {
-          auto v0 = owned_buffers[n];
-          stream_owned_buffers[0].push_back(v0)
+      for ( int n = 0; n < halo_type::_owned_buffers.size(); n++ ) {
+	auto v0 = halo_type::_owned_buffers[n];
+	stream_owned_buffers[0].push_back(v0);
           auto v1 = Kokkos::View<char*, memory_space>( "halo buffer", v0.size());
           stream_owned_buffers[1].push_back(v1);
       }
-      for ( int n = 0; n < ghosted_buffers.size(); n++ ) {
-          auto v0 = ghosted_buffers[n];
-          stream_ghosted_buffers[0].push_back(v0)
+      for ( int n = 0; n < halo_type::_ghosted_buffers.size(); n++ ) {
+	auto v0 = halo_type::_ghosted_buffers[n];
+	stream_ghosted_buffers[0].push_back(v0);
           auto v1 = Kokkos::View<char*, memory_space>( "halo buffer", v0.size());
           stream_ghosted_buffers[1].push_back(v1);
       }
@@ -234,7 +236,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
               {
 	          if( double_buffer == 1)
 		  {
-		      MPIS_Rsend_init(stream_ghosted_buffers[p][n].data(),
+		    //MPIS_Rsend_init(stream_ghosted_buffers[p][n].data(),
+		    MPIS_Send_init(stream_ghosted_buffers[p][n].data(),
 			              stream_ghosted_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
@@ -274,7 +277,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
               {
 	          if( double_buffer == 1)
 		  {
-		      MPIS_Rsend_init(stream_owned_buffers[p][n].data(),
+		    //MPIS_Rsend_init(stream_owned_buffers[p][n].data(),
+		    MPIS_Send_init(stream_owned_buffers[p][n].data(),
 			              stream_owned_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
