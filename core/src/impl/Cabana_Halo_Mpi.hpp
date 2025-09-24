@@ -67,16 +67,20 @@ Gather<HaloType, AoSoAType,
     int num_n = _halo.numNeighbor();
     std::vector<MPI_Request> requests( num_n );
     std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
+    int requestsN= 0;
+
     for ( int n = 0; n < num_n; ++n )
     {
         recv_range.second = recv_range.first + _halo.numImport( n );
 
         auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
+        if(recv_subview.size()){
+             MPI_Irecv( recv_subview.data(),
+                               recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                               _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                               &( requests[requestsN++] ) );
+        }
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                   &( requests[n] ) );
 
         recv_range.first = recv_range.second;
     }
@@ -88,10 +92,12 @@ Gather<HaloType, AoSoAType,
         send_range.second = send_range.first + _halo.numExport( n );
 
         auto send_subview = Kokkos::subview( send_buffer, send_range );
+        if(send_subview.size() ){
+               MPI_Send( send_subview.data(),
+                              send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                              _halo.neighborRank( n ), mpi_tag, _halo.comm() );
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+        }
 
         send_range.first = send_range.second;
     }
@@ -99,7 +105,7 @@ Gather<HaloType, AoSoAType,
     // Wait on non-blocking receives.
     std::vector<MPI_Status> status( num_n );
     const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
+        MPI_Waitall( requestsN, requests.data(), status.data() );
     if ( MPI_SUCCESS != ec )
         throw std::logic_error(
             "Cabana::Gather::apply: Failed MPI Communication" );
