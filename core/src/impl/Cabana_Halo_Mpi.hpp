@@ -27,6 +27,9 @@
 
 #include <exception>
 #include <vector>
+#include <chrono>
+#include <iostream>
+
 
 namespace Cabana
 {
@@ -41,89 +44,110 @@ Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+ Kokkos::Profiling::ScopedRegion region("Cabana::gather");
 
-    // Get the buffers and particle data (local copies for lambdas below).
-    auto send_buffer = this->getSendBuffer();
-    auto recv_buffer = this->getReceiveBuffer();
-    auto aosoa = this->getData();
+// timers
+auto t_start = std::chrono::high_resolution_clock::now();
+auto t0 = t_start;
 
-    // Get the steering vector for the sends.
-    auto steering = _halo.getExportSteering();
-    // Gather from the local data into a tuple-contiguous send buffer.
-    auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        send_buffer( i ) = aosoa.getTuple( steering( i ) );
-    };
-    Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
-    Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
-                          gather_send_buffer_func );
-    Kokkos::fence();
+// Get the buffers and particle data (local copies for lambdas below).
+auto send_buffer = this->getSendBuffer();
+auto recv_buffer = this->getReceiveBuffer();
+auto aosoa       = this->getData();
 
-    // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
+// Get the steering vector for the sends.
+auto steering = _halo.getExportSteering();
 
-    // Post non-blocking receives.
-    int num_n = _halo.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    int requestsN= 0;
+// Gather from the local data into a tuple-contiguous send buffer.
+auto t_gather_start = std::chrono::high_resolution_clock::now();
+auto gather_send_buffer_func = KOKKOS_LAMBDA(const std::size_t i) {
+    send_buffer(i) = aosoa.getTuple(steering(i));
+};
+Kokkos::RangePolicy<ExecutionSpace> send_policy(0, _send_size);
+Kokkos::parallel_for("Cabana::gather::gather_send_buffer", send_policy,
+                     gather_send_buffer_func);
+Kokkos::fence();
+auto t_gather_end = std::chrono::high_resolution_clock::now();
 
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _halo.numImport( n );
+// The halo has it's own communication space so choose any mpi tag.
+const int mpi_tag = 2345;
 
-        auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
-        if(recv_subview.size()){
-             MPI_Irecv( recv_subview.data(),
-                               recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                               _halo.neighborRank( n ), mpi_tag, _halo.comm(),
-                               &( requests[requestsN++] ) );
-        }
+// Post non-blocking receives.
+auto t_recv_start = std::chrono::high_resolution_clock::now();
+int num_n = _halo.numNeighbor();
+std::vector<MPI_Request> requests(num_n);
+std::pair<std::size_t, std::size_t> recv_range = {0, 0};
+int requestsN = 0;
 
+for (int n = 0; n < num_n; ++n) {
+    recv_range.second = recv_range.first + _halo.numImport(n);
 
-        recv_range.first = recv_range.second;
+    auto recv_subview = Kokkos::subview(recv_buffer, recv_range);
+    if (recv_subview.size()) {
+        MPI_Irecv(recv_subview.data(),
+                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _halo.neighborRank(n), mpi_tag, _halo.comm(),
+                  &(requests[requestsN++]));
     }
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _halo.numExport( n );
+    recv_range.first = recv_range.second;
+}
+auto t_recv_end = std::chrono::high_resolution_clock::now();
 
-        auto send_subview = Kokkos::subview( send_buffer, send_range );
-        if(send_subview.size() ){
-               MPI_Send( send_subview.data(),
-                              send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                              _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+// Do blocking sends.
+auto t_send_start = std::chrono::high_resolution_clock::now();
+std::pair<std::size_t, std::size_t> send_range = {0, 0};
+for (int n = 0; n < num_n; ++n) {
+    send_range.second = send_range.first + _halo.numExport(n);
 
-        }
-
-        send_range.first = send_range.second;
+    auto send_subview = Kokkos::subview(send_buffer, send_range);
+    if (send_subview.size()) {
+        MPI_Send(send_subview.data(),
+                 send_subview.size() * sizeof(data_type), MPI_BYTE,
+                 _halo.neighborRank(n), mpi_tag, _halo.comm());
     }
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requestsN, requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::Gather::apply: Failed MPI Communication" );
+    send_range.first = send_range.second;
+}
+auto t_send_end = std::chrono::high_resolution_clock::now();
 
-    // Extract the receive buffer into the ghosted elements.
-    std::size_t num_local = _halo.numLocal();
-    auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
-    {
-        std::size_t ghost_idx = i + num_local;
-        aosoa.setTuple( ghost_idx, recv_buffer( i ) );
-    };
-    Kokkos::RangePolicy<ExecutionSpace> recv_policy( 0, _recv_size );
-    Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
-                          recv_policy, extract_recv_buffer_func );
-    Kokkos::fence();
+// Wait on non-blocking receives.
+auto t_wait_start = std::chrono::high_resolution_clock::now();
+std::vector<MPI_Status> status(num_n);
+const int ec = MPI_Waitall(requestsN, requests.data(), status.data());
+if (MPI_SUCCESS != ec)
+    throw std::logic_error("Cabana::Gather::apply: Failed MPI Communication");
+auto t_wait_end = std::chrono::high_resolution_clock::now();
 
-    // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _halo.comm() );
+// Extract the receive buffer into the ghosted elements.
+auto t_extract_start = std::chrono::high_resolution_clock::now();
+std::size_t num_local = _halo.numLocal();
+auto extract_recv_buffer_func = KOKKOS_LAMBDA(const std::size_t i) {
+    std::size_t ghost_idx = i + num_local;
+    aosoa.setTuple(ghost_idx, recv_buffer(i));
+};
+Kokkos::RangePolicy<ExecutionSpace> recv_policy(0, _recv_size);
+Kokkos::parallel_for("Cabana::gather::apply::extract_recv_buffer",
+                     recv_policy, extract_recv_buffer_func);
+Kokkos::fence();
+auto t_extract_end = std::chrono::high_resolution_clock::now();
+
+// Barrier before completing to ensure synchronization.
+MPI_Barrier(_halo.comm());
+auto t_end = std::chrono::high_resolution_clock::now();
+
+// Print timings
+auto ms = [](auto t1, auto t2) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+};
+
+std::cout << "Timing results (ms):\n";
+std::cout << "  Gather kernel     : " << ms(t_gather_start, t_gather_end) << "\n";
+std::cout << "  Post Irecv        : " << ms(t_recv_start, t_recv_end) << "\n";
+std::cout << "  Blocking sends    : " << ms(t_send_start, t_send_end) << "\n";
+std::cout << "  Waitall           : " << ms(t_wait_start, t_wait_end) << "\n";
+std::cout << "  Extract recv buf  : " << ms(t_extract_start, t_extract_end) << "\n";
+std::cout << "  Total section     : " << ms(t_start, t_end) << "\n";
 }
 
 /*!
