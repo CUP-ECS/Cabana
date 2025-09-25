@@ -227,7 +227,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	          MPIS_Recv_init( stream_owned_buffers[p][n].data(),
 	                          stream_owned_buffers[p][n].size(), MPI_BYTE,
 			          halo_type::_neighbor_ranks[n],
-			          1234 + halo_type::_receive_tags[n], _comm,
+			          1234 + halo_type::_receive_tags[n]+p*10000, _comm,
 			          MPI_INFO_NULL,
 			          &scatter_requests[p][n] );
               }
@@ -241,7 +241,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			              stream_ghosted_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
-			              1234 + halo_type::_send_tags[n], _comm,
+				   1234 + halo_type::_send_tags[n]+p*10000, _comm,
 		                      mem_info,
 		  	              &scatter_requests[p][num_n + n] );
 		  }
@@ -251,9 +251,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			              stream_ghosted_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
-			              1234 + halo_type::_send_tags[n], _comm,
+			              1234 + halo_type::_send_tags[n]+p*10000, _comm,
 		                      mem_info,
 		  	              &scatter_requests[p][num_n + n] );
+		      std::cout << "SHOULDNT RUN" << std::endl;
 		  }
 	      }
           }
@@ -268,7 +269,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	          MPIS_Recv_init( stream_ghosted_buffers[p][n].data(),
 	                          stream_ghosted_buffers[p][n].size(), MPI_BYTE,
 			          halo_type::_neighbor_ranks[n],
-			          5678 + halo_type::_receive_tags[n], _comm,
+			          5678 + halo_type::_receive_tags[n]+p*10000, _comm,
 			          MPI_INFO_NULL,
 			          &gather_requests[p][n] );
               }
@@ -282,7 +283,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			              stream_owned_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
-			              5678 + halo_type::_send_tags[n], _comm,
+				   5678 + halo_type::_send_tags[n]+p*10000, _comm,
 		                      mem_info,
 		  	              &gather_requests[p][num_n + n] );
 		  }
@@ -292,7 +293,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			             stream_owned_buffers[p][n].size(),
 			             MPI_BYTE,
 			             halo_type::_neighbor_ranks[n],
-			             5678 + halo_type::_send_tags[n], _comm,
+			             5678 + halo_type::_send_tags[n]+p*10000, _comm,
 		                     mem_info,
 		  	             &gather_requests[p][num_n + n] );
 		  }
