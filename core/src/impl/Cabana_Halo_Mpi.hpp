@@ -66,6 +66,7 @@ auto gather_send_buffer_func = KOKKOS_LAMBDA(const std::size_t i) {
 Kokkos::RangePolicy<ExecutionSpace> send_policy(0, _send_size);
 Kokkos::parallel_for("Cabana::gather::gather_send_buffer", send_policy,
                      gather_send_buffer_func);
+
 Kokkos::fence();
 auto t_gather_end = std::chrono::high_resolution_clock::now();
 
