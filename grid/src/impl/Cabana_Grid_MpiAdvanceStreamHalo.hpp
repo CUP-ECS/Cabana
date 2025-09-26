@@ -78,6 +78,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     // if no env variable is found, set to zero
     else
       {
+	//std::cout << "Default double buffer val set." << std::endl;
 	double_buffer = 1;
       }
     // set up fine grain memory
@@ -237,11 +238,11 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	          if( double_buffer == 1)
 		  {
 		    //MPIS_Rsend_init(stream_ghosted_buffers[p][n].data(),
-		    MPIS_Send_init(stream_ghosted_buffers[p][n].data(),
+		    MPIS_Rsend_init(stream_ghosted_buffers[p][n].data(),
 			              stream_ghosted_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
-				   1234 + halo_type::_send_tags[n]+p*10000, _comm,
+				      1234 + halo_type::_send_tags[n]+p*10000, _comm,
 		                      mem_info,
 		  	              &scatter_requests[p][num_n + n] );
 		  }
@@ -254,7 +255,6 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 			              1234 + halo_type::_send_tags[n]+p*10000, _comm,
 		                      mem_info,
 		  	              &scatter_requests[p][num_n + n] );
-		      std::cout << "SHOULDNT RUN" << std::endl;
 		  }
 	      }
           }
@@ -279,11 +279,11 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 	          if( double_buffer == 1)
 		  {
 		    //MPIS_Rsend_init(stream_owned_buffers[p][n].data(),
-		    MPIS_Send_init(stream_owned_buffers[p][n].data(),
+		    MPIS_Rsend_init(stream_owned_buffers[p][n].data(),
 			              stream_owned_buffers[p][n].size(),
 			              MPI_BYTE,
 			              halo_type::_neighbor_ranks[n],
-				   5678 + halo_type::_send_tags[n]+p*10000, _comm,
+    				      5678 + halo_type::_send_tags[n]+p*10000, _comm,
 		                      mem_info,
 		  	              &gather_requests[p][num_n + n] );
 		  }
