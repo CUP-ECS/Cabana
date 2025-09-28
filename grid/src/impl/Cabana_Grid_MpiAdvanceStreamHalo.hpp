@@ -24,7 +24,6 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Profiling_ScopedRegion.hpp>
 
-#include <Cuda/Kokkos_Cuda.hpp>
 #include <hip/hip_runtime.h>
 #include <stream-triggering.h>
 
@@ -199,16 +198,17 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     {
         if ( _fine_grain )
         {
-            void* b;
-            MPIS_Alloc_mem( bytes, _mem_info, &b );
+            char* b;
+            MPIS_Alloc_mem( bytes, _mem_info, (void **)&b );
             _raw_buffers.push_back( b );
-            return Kokkos::View<char*, memory_space,
-                                Kokkos::MemoryTraits<Kokkos::Unmanaged>>(
-                bytes );
+            Kokkos::View<char*, memory_space, 
+	        Kokkos::MemoryTraits<Kokkos::Unmanaged>> v( b, bytes );
+	    return v;
         }
         else
         {
-            return Kokkos::View<char*, memory_space>( bytes );
+            Kokkos::View<char*, memory_space> v( "halo buffer", bytes );
+	    return v;
         }
     }
 
@@ -242,10 +242,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
             auto v0 = halo_type::_owned_buffers[n];
             if ( _fine_grain )
             {
-                v0 = allocateCommunicationBuffer( v0.size() );
+                v0 = allocateCommunicationView( v0.size() );
             }
             _stream_owned_buffers[0].push_back( v0 );
-            auto v1 = allocateCommunicationBuffer( v0.size() );
+            auto v1 = allocateCommunicationView( v0.size() );
             _stream_owned_buffers[1].push_back( v1 );
         }
         for ( int n = 0; n < halo_type::_ghosted_buffers.size(); n++ )
@@ -253,10 +253,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
             auto v0 = halo_type::_ghosted_buffers[n];
             if ( _fine_grain )
             {
-                v0 = allocateCommunicationBuffer( v0.size() );
+                v0 = allocateCommunicationView( v0.size() );
             }
             _stream_ghosted_buffers[0].push_back( v0 );
-            auto v1 = allocateCommunicationBuffer( v0.size() );
+            auto v1 = allocateCommunicationView( v0.size() );
             _stream_ghosted_buffers[1].push_back( v1 );
         }
 
@@ -265,7 +265,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         auto my_stream = findStream( exec_space );
         MPIS_Queue_type backend;
         // Note, change for other systems
-        const char* env_db = std::getenv( "MPI_ADVANCE_STREAM_BACKEND" ) )
+        const char* env_db = std::getenv( "MPI_ADVANCE_STREAM_BACKEND" );
         if (!env_db || strcmp(env_db, "CXI") == 0)
         {
             backend = CXI;
