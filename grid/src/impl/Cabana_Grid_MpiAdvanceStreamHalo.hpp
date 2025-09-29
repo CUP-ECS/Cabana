@@ -198,7 +198,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     {
         if ( _fine_grain )
         {
-            char* b;
+            char* b = nullptr;
             MPIS_Alloc_mem( bytes, _mem_info, (void **)&b );
             _raw_buffers.push_back( b );
             Kokkos::View<char*, memory_space, 
@@ -262,7 +262,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
 
         // set up queue stream, if hip stream returns executionspace.hip_stream
         // else use nullptr for default functionality
-        auto my_stream = findStream( exec_space );
+        _my_stream = findStream( exec_space );
         MPIS_Queue_type backend;
         // Note, change for other systems
         const char* env_db = std::getenv( "MPI_ADVANCE_STREAM_BACKEND" );
@@ -279,7 +279,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         {
             backend = CXI;
         }
-        MPIS_Queue_init( &_my_queue, backend, &my_stream );
+        MPIS_Queue_init( &_my_queue, backend, &_my_stream );
 
         // scatter
         for ( int p = 0; p < 2; ++p )
@@ -394,6 +394,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
     }
 
   private:
+    void* _my_stream;
     const MPI_Comm _comm;
     MPIS_Queue _my_queue;
     std::array<std::vector<MPIS_Request>, 2> _scatter_requests;
