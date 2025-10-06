@@ -1248,15 +1248,17 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
 
   		MPIX_Topo* xtopo0;
   		MPIX_Topo_init(
+            new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
             new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED,
-            new_n_s, send_neighbors.data(), MPI_UNWEIGHTED, *xinfo, &xtopo0 );
-        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+			*xinfo, &xtopo0 );
+        _xtopo_ptra = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+        MPI_Barrier(MPI_COMM_WORLD);
 
 
         MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-            _xtopo_ptr.get(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+            _xtopo_ptra.get(), _halo.xcomm(),  *xinfo, neighbor_request.get());
 
 
 
@@ -1264,7 +1266,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
 
         MPI_Barrier(MPI_COMM_WORLD);
     }
-  	std::shared_ptr<MPIX_Topo> _xtopo_ptr;
+  	std::shared_ptr<MPIX_Topo> _xtopo_ptra;
 
     bool setup_persistent=false;
     std::shared_ptr<MPIX_Request *> neighbor_request = nullptr;
