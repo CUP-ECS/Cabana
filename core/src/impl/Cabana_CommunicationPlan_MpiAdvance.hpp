@@ -1199,14 +1199,14 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
             	recv_counts[new_n_r] = _halo.numImport( n ) * elem_size;
             	recv_displs[new_n_r] = recv_offset;
             	recv_offset += recv_counts[new_n_r];
-				recv_neighbors[n]=_halo._neighbors[n];
+				recv_neighbors[n]=this->neighborRank(n);
 				new_n_r++;
 			}
 			if (  _halo.numExport( n ) != 0 ){
  				send_counts[new_n_s] = _halo.numExport( n ) * elem_size ;
             	send_displs[new_n_s] = send_offset;
             	send_offset += send_counts[new_n_s];
-     			send_neighbors[new_n_s]=_halo._neighbors[n];
+     			send_neighbors[new_n_s]=this->neighborRank(n);
 				new_n_s++;
 			}
         }
