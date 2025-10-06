@@ -180,7 +180,9 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
-        
+
+
+
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
@@ -614,7 +616,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         bin_sort.create_permute_vector();
         bin_sort.sort( indices );
 
-        // 4. Apply permutation
+        // 4.  Apply permutation
         Kokkos::View<int*, memory_space> ranks_sorted(
             "ranks_sorted", this->_total_num_import );
         Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
@@ -626,7 +628,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
                 int sorted_i = indices( i );
                 ranks_sorted( i ) = element_import_ranks( sorted_i );
                 ids_sorted( i ) = element_import_ids( sorted_i );
-            } );
+            });
 
         // Count the number of imports this rank needs from other ranks. Keep
         // track of which slot we get in our neighbor's send buffer?
@@ -652,15 +654,22 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPIX_Info* xinfo0;
         MPIX_Topo* xtopo0;
 
+
+
+
+
         // Initialize MPI Advance objects.
         // Topo object must be initialized later after more information is gained
         MPIX_Comm_init( &xcomm0, this->comm() );
         MPIX_Info_init( &xinfo0 );
         MPIX_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED,
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+
+
+
 
         // Use MPIX_Neighbor_alltoallv_init_topo to send number of imports to each
         // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
@@ -973,6 +982,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
         this->_total_num_export = total_num_export;
 
+
+
         // Save ranks we got messages from and track total messages to size
         // buffers. Track which ranks we received data from
         for ( int i = 0; i < num_export_rank; ++i )
@@ -1053,16 +1064,17 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
+
         auto num_n = this->_neighbors.size();
         MPIX_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED,
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
         // We still need to keep the xcomm too.
         MPIX_Info_free(&xinfo0);
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
-    
+
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
 
@@ -1175,19 +1187,34 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
 
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
+        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
 
         std::size_t send_offset = 0, recv_offset = 0;
+		int new_n_r = 0;
+		int new_n_s = 0;
+
         for ( int n = 0; n < num_n; ++n )
         {
-            recv_counts[n] = _halo.numImport( n ) * elem_size;
-            recv_displs[n] = recv_offset;
-            recv_offset += recv_counts[n];
-
-            send_counts[n] = _halo.numExport( n ) * elem_size ;
-            send_displs[n] = send_offset;
-            send_offset += send_counts[n];
-            
+			if (  _halo.numImport( n ) != 0 ){
+            	recv_counts[new_n_r] = _halo.numImport( n ) * elem_size;
+            	recv_displs[new_n_r] = recv_offset;
+            	recv_offset += recv_counts[new_n_r];
+				recv_neighbors[n]=_neighbors[n];
+				new_n_r++;
+			}
+			if (  _halo.numExport( n ) != 0 ){
+ 				send_counts[new_n_s] = _halo.numExport( n ) * elem_size ;
+            	send_displs[new_n_s] = send_offset;
+            	send_offset += send_counts[new_n_s];
+     			send_neighbors[new_n_s]=_neighbors[n];
+				new_n_s++;
+			}
         }
+
+
+
+
+
 
         // Allocate and initialize the persistent request
         auto xinfo_deleter = [](MPIX_Info** info) {
@@ -1216,12 +1243,28 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         assert(send_buffer.extent(0) * elem_size >= send_offset);
         assert(recv_buffer.extent(0) * elem_size >= recv_offset);
 
+
+
+
+  		MPIX_Topo* xtopo0;
+  		MPIX_Topo_init(
+            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED,
+            new_n_s, send_neighbors.data(), MPI_UNWEIGHTED, *xinfo, &xtopo0 );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+
+
         MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-            _halo.xtopo(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+            _xtopo_ptr.get(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+
+
+
+
+
         MPI_Barrier(MPI_COMM_WORLD);
     }
+  	std::shared_ptr<MPIX_Topo> _xtopo_ptr;
 
     bool setup_persistent=false;
     std::shared_ptr<MPIX_Request *> neighbor_request = nullptr;
