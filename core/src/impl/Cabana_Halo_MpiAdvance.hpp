@@ -79,13 +79,14 @@ Gather<HaloType, AoSoAType,
         this->setupPersistent(_halo, sizeof(data_type));
     }
 	printf("HERE 4\n");
-
+fflush(stdout);
     MPI_Status status;
     MPIX_Start(*(this->neighbor_request));
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPIX_Wait(*(this->neighbor_request), &status);
 	printf("HERE 5\n");
+fflush(stdout);
 
     auto recv_buffer = this->getReceiveBuffer();
 
