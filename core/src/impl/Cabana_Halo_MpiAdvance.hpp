@@ -46,6 +46,9 @@ Gather<HaloType, AoSoAType,
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
+
+
+
     // Get the buffers and particle data (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
 
@@ -75,12 +78,14 @@ Gather<HaloType, AoSoAType,
     if (!this->setup_persistent) {
         this->setupPersistent(_halo, sizeof(data_type));
     }
+	printf("HERE 4\n");
 
     MPI_Status status;
     MPIX_Start(*(this->neighbor_request));
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPIX_Wait(*(this->neighbor_request), &status);
+	printf("HERE 5\n");
 
     auto recv_buffer = this->getReceiveBuffer();
 

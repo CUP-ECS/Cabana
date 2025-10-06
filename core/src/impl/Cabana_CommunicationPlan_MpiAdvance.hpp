@@ -1244,7 +1244,8 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         assert(recv_buffer.extent(0) * elem_size >= recv_offset);
 
 
-
+        MPI_Barrier(MPI_COMM_WORLD);
+printf("HERE 1\n");
 
   		MPIX_Topo* xtopo0;
   		MPIX_Topo_init(
@@ -1254,12 +1255,13 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         _xtopo_ptra = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
         MPI_Barrier(MPI_COMM_WORLD);
 
+printf("HERE 2\n");
 
         MPIX_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
             recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
             _xtopo_ptra.get(), _halo.xcomm(),  *xinfo, neighbor_request.get());
-
+printf("HERE 3\n");
 
 
 
