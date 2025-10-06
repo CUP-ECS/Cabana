@@ -1250,9 +1250,9 @@ fflush(stdout);
 
   		MPIX_Topo* xtopo0;
   		MPIX_Topo_init(
-     new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
+  //   new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
             new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED,
-       //     new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
+           new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
 			*xinfo, &xtopo0 );
         _xtopo_ptra = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
         MPI_Barrier(MPI_COMM_WORLD);
