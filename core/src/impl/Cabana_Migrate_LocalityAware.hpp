@@ -10,11 +10,11 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Migrate_MpiAdvance.hpp
+  \file Cabana_Migrate_LocalityAware.hpp
   \brief MPI Advance implementation of Cabana::migrate variations
 */
-#ifndef CABANA_MIGRATE_MPIADVANCE_HPP
-#define CABANA_MIGRATE_MPIADVANCE_HPP
+#ifndef CABANA_MIGRATE_LOCALITYAWARE_HPP
+#define CABANA_MIGRATE_LOCALITYAWARE_HPP
 
 #include <Cabana_AoSoA.hpp>
 #include <Cabana_Slice.hpp>
@@ -24,7 +24,7 @@
 
 #include <mpi.h>
 
-#include <mpi_advance.h>
+#include <locality_aware.h>
 
 #include <exception>
 #include <vector>
@@ -41,14 +41,14 @@ namespace Impl
 // the forward communication plan.
 template <class ExecutionSpace, class Distributor_t, class AoSoA_t>
 void migrateData(
-    CommSpace::MpiAdvance, ExecutionSpace, const Distributor_t& distributor,
+    CommSpace::LocalityAware, ExecutionSpace, const Distributor_t& distributor,
     const AoSoA_t& src, AoSoA_t& dst,
     typename std::enable_if<( ( is_distributor<Distributor_t>::value ) &&
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
     Kokkos::Profiling::ScopedRegion region(
-        "Cabana::migrateData (MpiAdvance)" );
+        "Cabana::migrateData (LocalityAware)" );
 
     static_assert( is_accessible_from<typename Distributor_t::memory_space,
                                       ExecutionSpace>{},
@@ -130,20 +130,20 @@ void migrateData(
     auto xcomm = distributor.xcomm();
     auto xtopo = distributor.xtopo();
 
-    MPIX_Request* neighbor_request;
-    MPIX_Info* xinfo;
-    MPIX_Info_init( &xinfo );
+    MPIL_Request* neighbor_request;
+    MPIL_Info* xinfo;
+    MPIL_Info_init( &xinfo );
 
-    MPIX_Neighbor_alltoallv_init_topo(
+    MPIL_Neighbor_alltoallv_init_topo(
         send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
         recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
         xtopo, xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
-    MPIX_Start( neighbor_request );
-    MPIX_Wait( neighbor_request, &status );
-    MPIX_Request_free( &neighbor_request );
-    MPIX_Info_free( &xinfo );
+    MPIL_Start( neighbor_request );
+    MPIL_Wait( neighbor_request, &status );
+    MPIL_Request_free( &neighbor_request );
+    MPIL_Info_free( &xinfo );
 
     // Copy recv buffer back to device memory
     recv_buffer = Kokkos::create_mirror_view_and_copy(
@@ -183,7 +183,7 @@ void migrateData(
 */
 template <class ExecutionSpace, class Distributor_t, class Slice_t>
 void migrateSlice(
-    CommSpace::MpiAdvance, ExecutionSpace, const Distributor_t& distributor,
+    CommSpace::LocalityAware, ExecutionSpace, const Distributor_t& distributor,
     const Slice_t& src, Slice_t& dst,
     typename std::enable_if<( ( is_distributor<Distributor_t>::value ) &&
                               is_slice<Slice_t>::value ),
@@ -296,20 +296,20 @@ void migrateSlice(
     auto xcomm = distributor.xcomm();
     auto xtopo = distributor.xtopo();
 
-    MPIX_Request* neighbor_request;
-    MPIX_Info* xinfo;
-    MPIX_Info_init( &xinfo );
+    MPIL_Request* neighbor_request;
+    MPIL_Info* xinfo;
+    MPIL_Info_init( &xinfo );
 
-    MPIX_Neighbor_alltoallv_init_topo(
+    MPIL_Neighbor_alltoallv_init_topo(
         send_buffer_h.data(), send_counts.data(), send_displs.data(), datatype,
         recv_buffer_h.data(), recv_counts.data(), recv_displs.data(), datatype,
         xtopo, xcomm, xinfo, &neighbor_request );
 
     MPI_Status status;
-    MPIX_Start( neighbor_request );
-    MPIX_Wait( neighbor_request, &status );
-    MPIX_Request_free( &neighbor_request );
-    MPIX_Info_free( &xinfo );
+    MPIL_Start( neighbor_request );
+    MPIL_Wait( neighbor_request, &status );
+    MPIL_Request_free( &neighbor_request );
+    MPIL_Info_free( &xinfo );
 
     // Copy recv buffer back to device memory
     recv_buffer = Kokkos::create_mirror_view_and_copy(
@@ -338,4 +338,4 @@ void migrateSlice(
 
 } // end namespace Cabana
 
-#endif // CABANA_MIGRATE_MPIADVANCE_HPP
+#endif // CABANA_MIGRATE_LOCALITYAWARE_HPP

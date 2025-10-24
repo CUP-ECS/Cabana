@@ -1098,9 +1098,9 @@ class CommunicationPlanTypedTest : public ::testing::Test
 };
 
 using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::Mpi
-#ifdef Cabana_ENABLE_MPIADVANCE
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
                                         ,
-                                        Cabana::CommSpace::MpiAdvance
+                                        Cabana::CommSpace::LocalityAware
 #endif
                                         >;
 

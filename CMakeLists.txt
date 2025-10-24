@@ -106,9 +106,9 @@ if(HEFFTE_FOUND)
   endif()
 endif()
 
-# find mpiadvance
-Cabana_add_dependency( PACKAGE mpiadvance )
-set_package_properties(MPIADVANCE PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
+# find localityaware
+Cabana_add_dependency( PACKAGE locality_aware )
+set_package_properties(locality_aware PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
 
 # find Silo
 Cabana_add_dependency( PACKAGE SILO )

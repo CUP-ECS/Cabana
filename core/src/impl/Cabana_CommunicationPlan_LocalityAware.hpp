@@ -17,10 +17,6 @@
 #ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 #define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
 
-
-
-
-
 #include <Cabana_Utils.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -180,9 +176,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
-
-
-
+        
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
@@ -616,7 +610,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         bin_sort.create_permute_vector();
         bin_sort.sort( indices );
 
-        // 4.  Apply permutation
+        // 4. Apply permutation
         Kokkos::View<int*, memory_space> ranks_sorted(
             "ranks_sorted", this->_total_num_import );
         Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
@@ -628,7 +622,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
                 int sorted_i = indices( i );
                 ranks_sorted( i ) = element_import_ranks( sorted_i );
                 ids_sorted( i ) = element_import_ids( sorted_i );
-            });
+            } );
 
         // Count the number of imports this rank needs from other ranks. Keep
         // track of which slot we get in our neighbor's send buffer?
@@ -654,22 +648,15 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPIX_Info* xinfo0;
         MPIX_Topo* xtopo0;
 
-
-
-
-
         // Initialize MPI Advance objects.
         // Topo object must be initialized later after more information is gained
         MPIX_Comm_init( &xcomm0, this->comm() );
         MPIX_Info_init( &xinfo0 );
         MPIX_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED,
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
-
-
-
 
         // Use MPIX_Neighbor_alltoallv_init_topo to send number of imports to each
         // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
@@ -982,8 +969,6 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
         this->_total_num_export = total_num_export;
 
-
-
         // Save ranks we got messages from and track total messages to size
         // buffers. Track which ranks we received data from
         for ( int i = 0; i < num_export_rank; ++i )
@@ -1064,17 +1049,16 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
-
         auto num_n = this->_neighbors.size();
         MPIX_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED,
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
         // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
         // We still need to keep the xcomm too.
         MPIX_Info_free(&xinfo0);
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
-
+    
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
 
@@ -1147,7 +1131,6 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
     // //! Particle data type.
     using typename CommunicationDataBase<CommPlanType,
                                          CommDataType>::particle_data_type;
-
     // //! Kokkos memory space.
     // using memory_space = typename comm_data_type::memory_space;
     // //! Communication data type.
@@ -1170,8 +1153,8 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
     }
 
   public:
-    /* Setup persistent communication for the communicaiton plan associated 
-      * with this CommunicationData. This can only be called after the 
+    /* Setup persistent communication for the communicaiton plan associated
+      * with this CommunicationData. This can only be called after the
       * send buffer and receive buffer have been reallocated and reserved,
       * and they cannot be reallocated after that or the neighbor collective
       * will point to the wrong place! XXX We should add code to check for
@@ -1220,7 +1203,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         auto xinfo_deleter = [](MPIX_Info** info) {
             if (info) {
                 MPIX_Info_free(info);
-                delete info; 
+                delete info;
             }
         };
         MPIX_Info **raw_xinfo = new MPIX_Info *;
@@ -1231,7 +1214,7 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
         auto neighbor_request_deleter = [](MPIX_Request** req) {
             if (req) {
                 MPIX_Request_free(req);
-                delete req; 
+                delete req;
             }
         };
 

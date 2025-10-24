@@ -37,7 +37,7 @@ struct Mpi
 /*!
     \brief MPI Advance comm tag.
 */
-struct MpiAdvance
+struct LocalityAware
 {
 };
 } // end namespace CommSpace
