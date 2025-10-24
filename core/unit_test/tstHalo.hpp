@@ -714,11 +714,11 @@ void testHaloBuffers( TestTag tag, CommType comm_space, BuildType build_type,
 // RUN TESTS
 //---------------------------------------------------------------------------//
 // Define the type list
-using HaloTestTypes =
-    ::testing::Types<std::tuple<Cabana::CommSpace::Mpi, Cabana::Export>,
-                     std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>,
-                     std::tuple<Cabana::CommSpace::LocalityAware, Cabana::Export>,
-                     std::tuple<Cabana::CommSpace::LocalityAware, Cabana::Import>>;
+using HaloTestTypes = ::testing::Types<
+    std::tuple<Cabana::CommSpace::Mpi, Cabana::Export>,
+    std::tuple<Cabana::CommSpace::Mpi, Cabana::Import>,
+    std::tuple<Cabana::CommSpace::LocalityAware, Cabana::Export>,
+    std::tuple<Cabana::CommSpace::LocalityAware, Cabana::Import>>;
 
 // Test fixture template
 template <typename T>

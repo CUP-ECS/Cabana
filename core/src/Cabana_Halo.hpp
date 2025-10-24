@@ -424,8 +424,8 @@ class Gather<HaloType, AoSoAType,
         applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
-                     void>
+    std::enable_if_t<
+        std::is_same<CommSpaceType, CommSpace::LocalityAware>::value, void>
         applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
@@ -537,8 +537,8 @@ class Gather<HaloType, SliceType,
         applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
-                     void>
+    std::enable_if_t<
+        std::is_same<CommSpaceType, CommSpace::LocalityAware>::value, void>
         applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
@@ -654,8 +654,8 @@ class Scatter
         applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
-                     void>
+    std::enable_if_t<
+        std::is_same<CommSpaceType, CommSpace::LocalityAware>::value, void>
         applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
