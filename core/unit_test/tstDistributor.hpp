@@ -753,8 +753,6 @@ void test9( const bool use_topology )
     // Create the plan.
     if ( use_topology )
     {
-        printf("Test9 using topo test\n");
-        MPI_Barrier(MPI_COMM_WORLD);
         std::vector<int> neighbor_ranks;
         distributor = std::make_shared<
             Cabana::Distributor<TEST_MEMSPACE, TEST_COMMSPACE>>(
@@ -802,9 +800,9 @@ class DistributorTypedTest : public ::testing::Test
 };
 
 using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::Mpi
-#ifdef Cabana_ENABLE_MPIADVANCE
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
                                         ,
-                                        Cabana::CommSpace::MpiAdvance
+                                        Cabana::CommSpace::LocalityAware
 #endif
                                         >;
 

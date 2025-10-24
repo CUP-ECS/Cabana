@@ -10,11 +10,11 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Halo_MpiAdvance.hpp
-  \brief Multi-node particle scatter/gather, MpiAdvance implementations
+  \file Cabana_Halo_LocalityAware.hpp
+  \brief Multi-node particle scatter/gather, LocalityAware implementations
 */
-#ifndef CABANA_HALO_MPIADVANCE_HPP
-#define CABANA_HALO_MPIADVANCE_HPP
+#ifndef CABANA_HALO_LOCALITYAWARE_HPP
+#define CABANA_HALO_LOCALITYAWARE_HPP
 
 #include <Cabana_AoSoA.hpp>
 #include <Cabana_CommunicationPlanBase.hpp>
@@ -36,7 +36,7 @@ namespace Cabana
 */
 template <class HaloType, class AoSoAType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
                  void>
 Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
@@ -126,7 +126,7 @@ Gather<HaloType, AoSoAType,
 */
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
                  void>
 Gather<HaloType, SliceType,
        typename std::enable_if<is_slice<SliceType>::value>::type>::
@@ -236,7 +236,7 @@ Gather<HaloType, SliceType,
 
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
                  void>
 Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 {
@@ -344,4 +344,4 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 
 } // end namespace Cabana
 
-#endif // end CABANA_HALO_MPIADVANCE_HPP
+#endif // end CABANA_HALO_LOCALITYAWARE_HPP

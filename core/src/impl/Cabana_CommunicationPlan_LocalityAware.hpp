@@ -10,12 +10,12 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_CommunicationPlan_MpiAdvance.hpp
+  \file Cabana_CommunicationPlan_LocalityAware.hpp
   \brief Multi-node communication patterns.
   MPI Advance backend.
 */
-#ifndef CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
-#define CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
+#ifndef CABANA_COMMUNICATIONPLAN_LOCALITYAWARE_HPP
+#define CABANA_COMMUNICATIONPLAN_LOCALITYAWARE_HPP
 
 #include <Cabana_Utils.hpp>
 
@@ -26,7 +26,7 @@
 
 #include <mpi.h>
 
-#include <mpi_advance.h>
+#include <locality_aware.h>
 
 #include <algorithm>
 #include <exception>
@@ -81,7 +81,7 @@ make_raw_ptr_shared( RawPointerType* raw_ptr, FreeFunction free_function )
   is being exported will appear first in the steering vector.
 */
 template <class MemorySpace>
-class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
+class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
     : public CommunicationPlanBase<MemorySpace>
 {
   public:
@@ -108,8 +108,8 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
     /*!
       \brief Get the MPI Advance communicator.
     */
-    MPIX_Comm* xcomm() const { return _xcomm_ptr.get(); }
-    MPIX_Topo* xtopo() const { return _xtopo_ptr.get(); }
+    MPIL_Comm* xcomm() const { return _xcomm_ptr.get(); }
+    MPIL_Topo* xtopo() const { return _xtopo_ptr.get(); }
 
     /*!
       \brief Neighbor and export rank creator. Use this when you already know
@@ -164,22 +164,22 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         int num_n = this->_neighbors.size();
 
         // Create MPI Advance objects 
-        MPIX_Comm* xcomm0;
-        MPIX_Info* xinfo0;
-        MPIX_Topo* xtopo0;
+        MPIL_Comm* xcomm0;
+        MPIL_Info* xinfo0;
+        MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
-        MPIX_Comm_init( &xcomm0, this->comm() );
-        MPIX_Info_init( &xinfo0 );
-        MPIX_Topo_init(
+        MPIL_Comm_init( &xcomm0, this->comm() );
+        MPIL_Info_init( &xinfo0 );
+        MPIL_Topo_init(
             num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
-        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
-        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
         
         // Get the size of this communicator.
         int comm_size = -1;
-        MPI_Comm_size( _xcomm_ptr->global_comm, &comm_size );
+        MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
         int rank = -1;
@@ -204,7 +204,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
 
-        // Use MPIX_Neighbor_alltoallv_init_topo to send number of exports to each
+        // Use MPIL_Neighbor_alltoallv_init_topo to send number of exports to each
         // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
         // not currently have a Neighbor_alltoall.
 
@@ -220,17 +220,17 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             rdispls[i] = i;
         }
 
-        MPIX_Request* neighbor_request;
-        MPIX_Neighbor_alltoallv_init_topo(
+        MPIL_Request* neighbor_request;
+        MPIL_Neighbor_alltoallv_init_topo(
             this->_num_export.data(), sendcounts.data(), sdispls.data(),
             MPI_UNSIGNED_LONG, this->_num_import.data(), recvcounts.data(),
             rdispls.data(), MPI_UNSIGNED_LONG, xtopo(), xcomm(), xinfo0,
             &neighbor_request );
         MPI_Status status;
-        MPIX_Start( neighbor_request );
-        MPIX_Wait( neighbor_request, &status );
-        MPIX_Request_free( &neighbor_request );
-        MPIX_Info_free( &xinfo0 );
+        MPIL_Start( neighbor_request );
+        MPIL_Wait( neighbor_request, &status );
+        MPIL_Request_free( &neighbor_request );
+        MPIL_Info_free( &xinfo0 );
 
         // Get the total number of imports/exports.
         this->_total_num_export = std::accumulate( this->_num_export.begin(),
@@ -339,14 +339,14 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         MPI_Comm_rank( this->comm(), &rank );
 
         // Create MPI Advance objects 
-        MPIX_Comm* xcomm0;
-        MPIX_Info* xinfo0;
-        MPIX_Topo* xtopo0;
+        MPIL_Comm* xcomm0;
+        MPIL_Info* xinfo0;
+        MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
         // Topo object must be initialized later after more information is gained
-        MPIX_Comm_init( &xcomm0, this->comm() );
-        MPIX_Info_init( &xinfo0 );
+        MPIL_Comm_init( &xcomm0, this->comm() );
+        MPIL_Info_init( &xinfo0 );
 
         // Count the number of sends this rank will do to other ranks. Keep
         // track of which slot we get in our neighbor's send buffer.
@@ -395,7 +395,7 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         int* src;
         unsigned long* import_sizes;
         // std::vector<std::size_t> import_sizes( comm_size );
-        MPIX_Alltoall_crs( num_export_rank, this->_neighbors.data(), 1,
+        MPIL_Alltoall_crs( num_export_rank, this->_neighbors.data(), 1,
                            MPI_UNSIGNED_LONG, this->_num_export.data(),
                            &num_import_rank, &src, 1, MPI_UNSIGNED_LONG,
                            (void**)&import_sizes, xinfo0, xcomm0 );
@@ -435,20 +435,20 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             }
         }
 
-        MPIX_Free( src );
-        MPIX_Free( import_sizes );
+        MPIL_Free( src );
+        MPIL_Free( import_sizes );
 
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
         auto num_n = this->_neighbors.size();
-        MPIX_Topo_init(
+        MPIL_Topo_init(
             num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
-        // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
+        // Use MPIL_Topo_init here with topology object and then store the topology object as a shared pointer.
         // We still need to keep the xcomm too.
-        MPIX_Info_free( &xinfo0 );
-        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
-        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+        MPIL_Info_free( &xinfo0 );
+        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
 
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
@@ -644,21 +644,21 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             this->_num_import[n] = neighbor_counts_host( this->_neighbors[n] );
 
         // Create MPI Advance objects 
-        MPIX_Comm* xcomm0;
-        MPIX_Info* xinfo0;
-        MPIX_Topo* xtopo0;
+        MPIL_Comm* xcomm0;
+        MPIL_Info* xinfo0;
+        MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
         // Topo object must be initialized later after more information is gained
-        MPIX_Comm_init( &xcomm0, this->comm() );
-        MPIX_Info_init( &xinfo0 );
-        MPIX_Topo_init(
+        MPIL_Comm_init( &xcomm0, this->comm() );
+        MPIL_Info_init( &xinfo0 );
+        MPIL_Topo_init(
             num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
-        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
-        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
 
-        // Use MPIX_Neighbor_alltoallv_init_topo to send number of imports to each
+        // Use MPIL_Neighbor_alltoallv_init_topo to send number of imports to each
         // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
         // not currently have a Neighbor_alltoall. We need to send this so the
         // receive buffers for the indices can be sized correctly.
@@ -675,16 +675,16 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             rdispls[i] = i;
         }
 
-        MPIX_Request* neighbor_request;
-        MPIX_Neighbor_alltoallv_init_topo(
+        MPIL_Request* neighbor_request;
+        MPIL_Neighbor_alltoallv_init_topo(
             this->_num_import.data(), sendcounts.data(), sdispls.data(),
             MPI_UNSIGNED_LONG, this->_num_export.data(), recvcounts.data(),
             rdispls.data(), MPI_UNSIGNED_LONG, xtopo(), xcomm(), xinfo0,
             &neighbor_request );
         MPI_Status status;
-        MPIX_Start( neighbor_request );
-        MPIX_Wait( neighbor_request, &status );
-        MPIX_Request_free( &neighbor_request );
+        MPIL_Start( neighbor_request );
+        MPIL_Wait( neighbor_request, &status );
+        MPIL_Request_free( &neighbor_request );
 
         // Get the total number of imports/exports.
         this->_total_num_export = std::accumulate( this->_num_export.begin(),
@@ -723,17 +723,17 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         Kokkos::View<int*, Kokkos::HostSpace> received_indices(
             "received_indices", this->_total_num_export );
 
-        // Setup and call MPIX_Neighbor_alltoallv_init_topo
-        MPIX_Request* neighbor_index_request;
-        MPIX_Neighbor_alltoallv_init_topo(
+        // Setup and call MPIL_Neighbor_alltoallv_init_topo
+        MPIL_Request* neighbor_index_request;
+        MPIL_Neighbor_alltoallv_init_topo(
             ids_sorted_host.data(), num_import.data(), sdispls.data(), MPI_INT,
             received_indices.data(), recvcounts.data(), rdispls.data(), MPI_INT,
             xtopo(), xcomm(), xinfo0, &neighbor_index_request );
 
-        MPIX_Start( neighbor_index_request );
-        MPIX_Wait( neighbor_index_request, &status );
-        MPIX_Request_free( &neighbor_index_request );
-        MPIX_Info_free( &xinfo0 );
+        MPIL_Start( neighbor_index_request );
+        MPIL_Wait( neighbor_index_request, &status );
+        MPIL_Request_free( &neighbor_index_request );
+        MPIL_Info_free( &xinfo0 );
 
         // Now, build the export steering
         // Export rank in _neighbors and rdispls
@@ -946,21 +946,21 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         this->_num_export.assign( this->_num_import.size(), 0 );
 
         // Create MPI Advance objects 
-        MPIX_Comm* xcomm0;
-        MPIX_Info* xinfo0;
-        MPIX_Topo* xtopo0;
+        MPIL_Comm* xcomm0;
+        MPIL_Info* xinfo0;
+        MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
         // Topo object must be initialized later after more information is gained
-        MPIX_Comm_init( &xcomm0, this->comm() );
-        MPIX_Info_init( &xinfo0 );
+        MPIL_Comm_init( &xcomm0, this->comm() );
+        MPIL_Info_init( &xinfo0 );
 
         int num_export_rank = -1, total_num_export = -1;
         int *src, *recv_counts, *recv_displs, *recv_vals;
         // std::vector<std::size_t> import_sizes( comm_size );
         auto ids_sorted_host = Kokkos::create_mirror_view_and_copy(
             Kokkos::HostSpace(), ids_sorted );
-        MPIX_Alltoallv_crs( this->_neighbors.size(), this->_total_num_import,
+        MPIL_Alltoallv_crs( this->_neighbors.size(), this->_total_num_import,
                             this->_neighbors.data(), sendcounts.data(),
                             sdispls.data(), MPI_INT, ids_sorted_host.data(),
                             &num_export_rank, &total_num_export, &src,
@@ -1032,10 +1032,10 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
             }
         }
 
-        MPIX_Free( src );
-        MPIX_Free( recv_counts );
-        MPIX_Free( recv_displs );
-        MPIX_Free( recv_vals );
+        MPIL_Free( src );
+        MPIL_Free( recv_counts );
+        MPIL_Free( recv_displs );
+        MPIL_Free( recv_vals );
 
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
             memory_space(), element_export_ranks_h );
@@ -1050,14 +1050,14 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
         auto num_n = this->_neighbors.size();
-        MPIX_Topo_init(
+        MPIL_Topo_init(
             num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
             this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
-        // Use MPIX_Topo_init here with topology object and then store the topology object as a shared pointer.
+        // Use MPIL_Topo_init here with topology object and then store the topology object as a shared pointer.
         // We still need to keep the xcomm too.
-        MPIX_Info_free(&xinfo0);
-        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIX_Comm_free );
-        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+        MPIL_Info_free(&xinfo0);
+        _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
+        _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
     
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
@@ -1107,12 +1107,12 @@ class CommunicationPlan<MemorySpace, CommSpace::MpiAdvance>
 
   private:
     // Variables needed only for MPI Advance
-    std::shared_ptr<MPIX_Comm> _xcomm_ptr;
-    std::shared_ptr<MPIX_Topo> _xtopo_ptr;
+    std::shared_ptr<MPIL_Comm> _xcomm_ptr;
+    std::shared_ptr<MPIL_Topo> _xtopo_ptr;
 };
 
 template <class CommPlanType, class CommDataType>
-class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
+class CommunicationData<CommPlanType, CommDataType, CommSpace::LocalityAware>
     : public CommunicationDataBase<CommPlanType, CommDataType>
 {
   protected:
@@ -1153,9 +1153,9 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::MpiAdvance>
     }
 
   public:
-    // Put MPIAdvance-specific functions and variables here...
+    // Put LOCALITYAWARE-specific functions and variables here...
 };
 
 } // end namespace Cabana
 
-#endif // end CABANA_COMMUNICATIONPLAN_MPIADVANCE_HPP
+#endif // end CABANA_COMMUNICATIONPLAN_LOCALITYAWARE_HPP

@@ -23,7 +23,7 @@
 
 #cmakedefine Cabana_ENABLE_MPI
 
-#cmakedefine Cabana_ENABLE_MPIADVANCE
+#cmakedefine Cabana_ENABLE_LOCALITY_AWARE
 
 #cmakedefine Cabana_ENABLE_ARBORX
 

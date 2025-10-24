@@ -424,7 +424,7 @@ class Gather<HaloType, AoSoAType,
         applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
                      void>
         applyImpl( ExecutionSpace, CommSpaceType );
 
@@ -537,7 +537,7 @@ class Gather<HaloType, SliceType,
         applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
                      void>
         applyImpl( ExecutionSpace, CommSpaceType );
 
@@ -654,7 +654,7 @@ class Scatter
         applyImpl( ExecutionSpace, CommSpaceType );
 
     template <class ExecutionSpace, class CommSpaceType>
-    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::MpiAdvance>::value,
+    std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
                      void>
         applyImpl( ExecutionSpace, CommSpaceType );
 
@@ -704,9 +704,9 @@ class Scatter
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Halo_Mpi.hpp>
 
-#ifdef Cabana_ENABLE_MPIADVANCE
-#include <impl/Cabana_Halo_MpiAdvance.hpp>
-#endif // MPIADVANCE
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+#include <impl/Cabana_Halo_LocalityAware.hpp>
+#endif // LOCALITYAWARE
 #endif // Enable MPI
 
 namespace Cabana
