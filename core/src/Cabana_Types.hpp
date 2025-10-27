@@ -22,43 +22,6 @@
 
 namespace Cabana
 {
-namespace CommSpace
-{
-//---------------------------------------------------------------------------//
-// Communication plan types.
-//---------------------------------------------------------------------------//
-/*!
-    \brief MPI comm tag - default.
-*/
-struct Mpi
-{
-};
-
-/*!
-    \brief MPI Advance comm tag.
-*/
-struct LocalityAware
-{
-};
-} // end namespace CommSpace
-
-//---------------------------------------------------------------------------//
-// Communication driver construction type tags.
-//---------------------------------------------------------------------------//
-/*!
-    \brief Export-based tag - default.
-*/
-struct Export
-{
-};
-
-/*!
-    \brief Import-based tag.
-*/
-struct Import
-{
-};
-
 //---------------------------------------------------------------------------//
 // Memory access tags.
 //---------------------------------------------------------------------------//
