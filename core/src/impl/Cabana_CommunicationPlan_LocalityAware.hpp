@@ -1153,7 +1153,96 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::LocalityAware>
     }
 
   public:
-    // Put LOCALITYAWARE-specific functions and variables here...
+    /* Setup persistent communication for the communicaiton plan associated
+     * with this CommunicationData. This can only be called after the
+     * send buffer and receive buffer have been reallocated and reserved,
+     * and they cannot be reallocated after that or the neighbor collective
+     * will point to the wrong place! XXX We should add code to check for
+     * this appropriately XXX
+     */
+    template <class HaloType>
+    void setupPersistent( const HaloType& _halo, std::size_t elem_size)
+    {
+        auto send_buffer = this->getSendBuffer();
+        auto recv_buffer = this->getReceiveBuffer();
+        int num_n = _halo.numNeighbor();
+
+        this->setup_persistent =true;
+
+        std::vector<int> send_counts( num_n ), recv_counts( num_n );
+        std::vector<int> send_displs( num_n ), recv_displs( num_n );
+        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
+
+        std::size_t send_offset = 0, recv_offset = 0;
+		int new_n_r = 0;
+		int new_n_s = 0;
+
+        for ( int n = 0; n < num_n; ++n )
+        {
+			if (  _halo.numImport( n ) != 0 ){
+            	recv_counts[new_n_r] = _halo.numImport( n ) * elem_size;
+            	recv_displs[new_n_r] = recv_offset;
+            	recv_offset += recv_counts[new_n_r];
+				recv_neighbors[new_n_r]=_halo.neighborRank(n);
+				new_n_r++;
+			}
+			if (  _halo.numExport( n ) != 0 ){
+ 				send_counts[new_n_s] = _halo.numExport( n ) * elem_size ;
+            	send_displs[new_n_s] = send_offset;
+            	send_offset += send_counts[new_n_s];
+     			send_neighbors[new_n_s]=_halo.neighborRank(n);
+				new_n_s++;
+			}
+        }
+
+        // Allocate and initialize the persistent request
+        auto xinfo_deleter = [](MPIX_Info** info) {
+            if (info) {
+                MPIX_Info_free(info);
+                delete info;
+            }
+        };
+        MPIX_Info **raw_xinfo = new MPIX_Info *;
+        *raw_xinfo = nullptr;
+        xinfo = std::shared_ptr<MPIX_Info *>(raw_xinfo, xinfo_deleter);
+        MPIX_Info_init(xinfo.get());
+
+        auto neighbor_request_deleter = [](MPIX_Request** req) {
+            if (req) {
+                MPIX_Request_free(req);
+                delete req;
+            }
+        };
+
+        MPIX_Request **raw_xreq = new MPIX_Request *;
+        *raw_xreq = nullptr;
+        neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
+        MPI_Datatype datatype = MPI_BYTE;
+
+        assert(send_buffer.extent(0) * elem_size >= send_offset);
+        assert(recv_buffer.extent(0) * elem_size >= recv_offset);
+
+  		MPIX_Topo* xtopo0;
+  		MPIX_Topo_init(
+        //   new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
+            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED,
+           new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
+			*xinfo, &xtopo0 );
+        _xtopo_ptra = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+
+        MPIX_Neighbor_alltoallv_init_topo(
+            send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
+            recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
+            _xtopo_ptra.get(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+  	std::shared_ptr<MPIX_Topo> _xtopo_ptra;
+
+    bool setup_persistent=false;
+    std::shared_ptr<MPIX_Request *> neighbor_request = nullptr;
+    std::shared_ptr<MPIX_Info *> xinfo = nullptr;
+    std::shared_ptr<int> counter = nullptr;
 };
 
 } // end namespace Cabana
