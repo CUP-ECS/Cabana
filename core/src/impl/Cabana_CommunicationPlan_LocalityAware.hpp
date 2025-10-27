@@ -81,7 +81,7 @@ make_raw_ptr_shared( RawPointerType* raw_ptr, FreeFunction free_function )
   is being exported will appear first in the steering vector.
 */
 template <class MemorySpace>
-class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
+class CommunicationPlan<MemorySpace, LocalityAware>
     : public CommunicationPlanBase<MemorySpace>
 {
   public:
@@ -163,7 +163,7 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
         int num_n = this->_neighbors.size();
 
-        // Create MPI Advance objects 
+        // Create MPI Advance objects
         MPIL_Comm* xcomm0;
         MPIL_Info* xinfo0;
         MPIL_Topo* xtopo0;
@@ -171,12 +171,12 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         // Initialize MPI Advance objects.
         MPIL_Comm_init( &xcomm0, this->comm() );
         MPIL_Info_init( &xinfo0 );
-        MPIL_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+        MPIL_Topo_init( num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+                        this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0,
+                        &xtopo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
-        
+
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
@@ -204,9 +204,9 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
 
-        // Use MPIL_Neighbor_alltoallv_init_topo to send number of exports to each
-        // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
-        // not currently have a Neighbor_alltoall.
+        // Use MPIL_Neighbor_alltoallv_init_topo to send number of exports to
+        // each neighbor. This is an alltoall, not an alltoallv, but MPI Advance
+        // does not currently have a Neighbor_alltoall.
 
         // Each send/recv is one int
         std::vector<int> sendcounts( num_n, 1 );
@@ -338,13 +338,14 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         int rank = -1;
         MPI_Comm_rank( this->comm(), &rank );
 
-        // Create MPI Advance objects 
+        // Create MPI Advance objects
         MPIL_Comm* xcomm0;
         MPIL_Info* xinfo0;
         MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
-        // Topo object must be initialized later after more information is gained
+        // Topo object must be initialized later after more information is
+        // gained
         MPIL_Comm_init( &xcomm0, this->comm() );
         MPIL_Info_init( &xinfo0 );
 
@@ -441,11 +442,12 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
         auto num_n = this->_neighbors.size();
-        MPIL_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
-        // Use MPIL_Topo_init here with topology object and then store the topology object as a shared pointer.
-        // We still need to keep the xcomm too.
+        MPIL_Topo_init( num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+                        this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0,
+                        &xtopo0 );
+        // Use MPIL_Topo_init here with topology object and then store the
+        // topology object as a shared pointer. We still need to keep the xcomm
+        // too.
         MPIL_Info_free( &xinfo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
@@ -643,25 +645,26 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         for ( int n = 0; n < num_n; ++n )
             this->_num_import[n] = neighbor_counts_host( this->_neighbors[n] );
 
-        // Create MPI Advance objects 
+        // Create MPI Advance objects
         MPIL_Comm* xcomm0;
         MPIL_Info* xinfo0;
         MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
-        // Topo object must be initialized later after more information is gained
+        // Topo object must be initialized later after more information is
+        // gained
         MPIL_Comm_init( &xcomm0, this->comm() );
         MPIL_Info_init( &xinfo0 );
-        MPIL_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
+        MPIL_Topo_init( num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+                        this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0,
+                        &xtopo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
 
-        // Use MPIL_Neighbor_alltoallv_init_topo to send number of imports to each
-        // neighbor. This is an alltoall, not an alltoallv, but MPI Advance does
-        // not currently have a Neighbor_alltoall. We need to send this so the
-        // receive buffers for the indices can be sized correctly.
+        // Use MPIL_Neighbor_alltoallv_init_topo to send number of imports to
+        // each neighbor. This is an alltoall, not an alltoallv, but MPI Advance
+        // does not currently have a Neighbor_alltoall. We need to send this so
+        // the receive buffers for the indices can be sized correctly.
 
         // Each send/recv is one int
         std::vector<int> sendcounts( num_n, 1 );
@@ -759,7 +762,7 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
-            
+
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
 
@@ -945,13 +948,14 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         // Assign all exports to zero
         this->_num_export.assign( this->_num_import.size(), 0 );
 
-        // Create MPI Advance objects 
+        // Create MPI Advance objects
         MPIL_Comm* xcomm0;
         MPIL_Info* xinfo0;
         MPIL_Topo* xtopo0;
 
         // Initialize MPI Advance objects.
-        // Topo object must be initialized later after more information is gained
+        // Topo object must be initialized later after more information is
+        // gained
         MPIL_Comm_init( &xcomm0, this->comm() );
         MPIL_Info_init( &xinfo0 );
 
@@ -1050,15 +1054,16 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
         // Now that we know our neighbors, create a neighbor communicator
         // to optimize calls to Cabana::migrate.
         auto num_n = this->_neighbors.size();
-        MPIL_Topo_init(
-            num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
-            this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0, &xtopo0 );
-        // Use MPIL_Topo_init here with topology object and then store the topology object as a shared pointer.
-        // We still need to keep the xcomm too.
-        MPIL_Info_free(&xinfo0);
+        MPIL_Topo_init( num_n, this->_neighbors.data(), MPI_UNWEIGHTED, num_n,
+                        this->_neighbors.data(), MPI_UNWEIGHTED, xinfo0,
+                        &xtopo0 );
+        // Use MPIL_Topo_init here with topology object and then store the
+        // topology object as a shared pointer. We still need to keep the xcomm
+        // too.
+        MPIL_Info_free( &xinfo0 );
         _xcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
         _xtopo_ptr = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
-    
+
         // Barrier before continuing to ensure synchronization.
         MPI_Barrier( this->comm() );
 
@@ -1112,7 +1117,7 @@ class CommunicationPlan<MemorySpace, CommSpace::LocalityAware>
 };
 
 template <class CommPlanType, class CommDataType>
-class CommunicationData<CommPlanType, CommDataType, CommSpace::LocalityAware>
+class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     : public CommunicationDataBase<CommPlanType, CommDataType>
 {
   protected:
@@ -1161,87 +1166,94 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::LocalityAware>
      * this appropriately XXX
      */
     template <class HaloType>
-    void setupPersistent( const HaloType& _halo, std::size_t elem_size)
+    void setupPersistent( const HaloType& _halo, std::size_t elem_size )
     {
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
         int num_n = _halo.numNeighbor();
 
-        this->setup_persistent =true;
+        this->setup_persistent = true;
 
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
         std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
 
         std::size_t send_offset = 0, recv_offset = 0;
-		int new_n_r = 0;
-		int new_n_s = 0;
+        int new_n_r = 0;
+        int new_n_s = 0;
 
         for ( int n = 0; n < num_n; ++n )
         {
-			if (  _halo.numImport( n ) != 0 ){
-            	recv_counts[new_n_r] = _halo.numImport( n ) * elem_size;
-            	recv_displs[new_n_r] = recv_offset;
-            	recv_offset += recv_counts[new_n_r];
-				recv_neighbors[new_n_r]=_halo.neighborRank(n);
-				new_n_r++;
-			}
-			if (  _halo.numExport( n ) != 0 ){
- 				send_counts[new_n_s] = _halo.numExport( n ) * elem_size ;
-            	send_displs[new_n_s] = send_offset;
-            	send_offset += send_counts[new_n_s];
-     			send_neighbors[new_n_s]=_halo.neighborRank(n);
-				new_n_s++;
-			}
+            if ( _halo.numImport( n ) != 0 )
+            {
+                recv_counts[new_n_r] = _halo.numImport( n ) * elem_size;
+                recv_displs[new_n_r] = recv_offset;
+                recv_offset += recv_counts[new_n_r];
+                recv_neighbors[new_n_r] = _halo.neighborRank( n );
+                new_n_r++;
+            }
+            if ( _halo.numExport( n ) != 0 )
+            {
+                send_counts[new_n_s] = _halo.numExport( n ) * elem_size;
+                send_displs[new_n_s] = send_offset;
+                send_offset += send_counts[new_n_s];
+                send_neighbors[new_n_s] = _halo.neighborRank( n );
+                new_n_s++;
+            }
         }
 
         // Allocate and initialize the persistent request
-        auto xinfo_deleter = [](MPIX_Info** info) {
-            if (info) {
-                MPIX_Info_free(info);
+        auto xinfo_deleter = []( MPIL_Info** info )
+        {
+            if ( info )
+            {
+                MPIL_Info_free( info );
                 delete info;
             }
         };
-        MPIX_Info **raw_xinfo = new MPIX_Info *;
+        MPIL_Info** raw_xinfo = new MPIL_Info*;
         *raw_xinfo = nullptr;
-        xinfo = std::shared_ptr<MPIX_Info *>(raw_xinfo, xinfo_deleter);
-        MPIX_Info_init(xinfo.get());
+        xinfo = std::shared_ptr<MPIL_Info*>( raw_xinfo, xinfo_deleter );
+        MPIL_Info_init( xinfo.get() );
 
-        auto neighbor_request_deleter = [](MPIX_Request** req) {
-            if (req) {
-                MPIX_Request_free(req);
+        auto neighbor_request_deleter = []( MPIL_Request** req )
+        {
+            if ( req )
+            {
+                MPIL_Request_free( req );
                 delete req;
             }
         };
 
-        MPIX_Request **raw_xreq = new MPIX_Request *;
+        MPIL_Request** raw_xreq = new MPIL_Request*;
         *raw_xreq = nullptr;
-        neighbor_request = std::shared_ptr<MPIX_Request *>(raw_xreq, neighbor_request_deleter);
+        neighbor_request = std::shared_ptr<MPIL_Request*>(
+            raw_xreq, neighbor_request_deleter );
         MPI_Datatype datatype = MPI_BYTE;
 
-        assert(send_buffer.extent(0) * elem_size >= send_offset);
-        assert(recv_buffer.extent(0) * elem_size >= recv_offset);
+        assert( send_buffer.extent( 0 ) * elem_size >= send_offset );
+        assert( recv_buffer.extent( 0 ) * elem_size >= recv_offset );
 
-  		MPIX_Topo* xtopo0;
-  		MPIX_Topo_init(
-        //   new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
-            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED,
-           new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
-			*xinfo, &xtopo0 );
-        _xtopo_ptra = make_raw_ptr_shared( xtopo0, MPIX_Topo_free );
+        MPIL_Topo* xtopo0;
+        MPIL_Topo_init(
+            //   new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
+            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
+            send_neighbors.data(), MPI_UNWEIGHTED, *xinfo, &xtopo0 );
+        _xtopo_ptra = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
 
-        MPIX_Neighbor_alltoallv_init_topo(
-            send_buffer.data(), send_counts.data(), send_displs.data(), datatype,
-            recv_buffer.data(), recv_counts.data(), recv_displs.data(), datatype,
-            _xtopo_ptra.get(), _halo.xcomm(),  *xinfo, neighbor_request.get());
+        MPIL_Neighbor_alltoallv_init_topo(
+            send_buffer.data(), send_counts.data(), send_displs.data(),
+            datatype, recv_buffer.data(), recv_counts.data(),
+            recv_displs.data(), datatype, _xtopo_ptra.get(), _halo.xcomm(),
+            *xinfo, neighbor_request.get() );
 
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier( MPI_COMM_WORLD );
     }
-  	std::shared_ptr<MPIX_Topo> _xtopo_ptra;
+    std::shared_ptr<MPIL_Topo> _xtopo_ptra;
 
-    bool setup_persistent=false;
-    std::shared_ptr<MPIX_Request *> neighbor_request = nullptr;
-    std::shared_ptr<MPIX_Info *> xinfo = nullptr;
+    bool setup_persistent = false;
+    std::shared_ptr<MPIL_Request*> neighbor_request = nullptr;
+    std::shared_ptr<MPIL_Info*> xinfo = nullptr;
     std::shared_ptr<int> counter = nullptr;
 };
 

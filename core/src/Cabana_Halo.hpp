@@ -585,8 +585,12 @@ class Gather<HaloType, SliceType,
     template <class ExecutionSpace, class CommSpaceType>
     std::enable_if_t<std::is_same<CommSpaceType, Mpi>::value, void>
         applyImpl( ExecutionSpace, CommSpaceType );
-
-    // Future: Add applyImpl that is enabled for other CommSpaceType types.
+    /*!
+      \brief Locality aware implementation of the gather operation.
+    */
+    template <class ExecutionSpace, class CommSpaceType>
+    std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and slice data.
@@ -757,8 +761,12 @@ class Scatter
     template <class ExecutionSpace, class CommSpaceType>
     std::enable_if_t<std::is_same<CommSpaceType, Mpi>::value, void>
         applyImpl( ExecutionSpace, CommSpaceType );
-
-    // Future: Add applyImpl that is enabled for other CommSpaceType types.
+    /*!
+      \brief Locality aware implementation of the scatter operation.
+    */
+    template <class ExecutionSpace, class CommSpaceType>
+    std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
+        applyImpl( ExecutionSpace, CommSpaceType );
 
     /*!
       \brief Reserve new buffers as needed and update the halo and slice data.

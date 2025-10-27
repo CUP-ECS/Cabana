@@ -36,7 +36,7 @@ namespace Cabana
 */
 template <class HaloType, class AoSoAType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value,
                  void>
 Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
@@ -126,7 +126,7 @@ Gather<HaloType, AoSoAType,
 */
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value,
                  void>
 Gather<HaloType, SliceType,
        typename std::enable_if<is_slice<SliceType>::value>::type>::
@@ -236,7 +236,7 @@ Gather<HaloType, SliceType,
 
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, CommSpace::LocalityAware>::value,
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value,
                  void>
 Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 {
