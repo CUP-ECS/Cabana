@@ -172,6 +172,9 @@ struct is_distributor
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Migrate_Mpi.hpp>
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+#include <impl/Cabana_Migrate_LocalityAware.hpp>
+#endif // Enable LocalityAware
 #endif // Enable MPI
 
 namespace Cabana

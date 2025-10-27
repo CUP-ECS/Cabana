@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Halo_LocalityAware.hpp
+  \file Cabana_comm_plan_LocalityAware.hpp
   \brief Multi-node particle scatter/gather, LocalityAware implementations
 */
 #ifndef CABANA_HALO_LOCALITYAWARE_HPP
@@ -36,8 +36,7 @@ namespace Cabana
 */
 template <class HaloType, class AoSoAType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value,
-                 void>
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
 Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
@@ -50,7 +49,7 @@ Gather<HaloType, AoSoAType,
     auto aosoa = this->getData();
 
     // Get the steering vector for the sends.
-    auto steering = _halo.getExportSteering();
+    auto steering = _comm_plan.getExportSteering();
     // Gather from the local data into a tuple-contiguous send buffer.
     auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
     {
@@ -65,18 +64,18 @@ Gather<HaloType, AoSoAType,
     const int mpi_tag = 2345;
 
     // Post non-blocking receives.
-    int num_n = _halo.numNeighbor();
+    int num_n = _comm_plan.numNeighbor();
     std::vector<MPI_Request> requests( num_n );
     std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_range.second = recv_range.first + _halo.numImport( n );
+        recv_range.second = recv_range.first + _comm_plan.numImport( n );
 
         auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
 
         MPI_Irecv( recv_subview.data(),
                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                   _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
                    &( requests[n] ) );
 
         recv_range.first = recv_range.second;
@@ -86,13 +85,13 @@ Gather<HaloType, AoSoAType,
     std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
     {
-        send_range.second = send_range.first + _halo.numExport( n );
+        send_range.second = send_range.first + _comm_plan.numExport( n );
 
         auto send_subview = Kokkos::subview( send_buffer, send_range );
 
         MPI_Send( send_subview.data(),
                   send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+                  _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm() );
 
         send_range.first = send_range.second;
     }
@@ -106,7 +105,7 @@ Gather<HaloType, AoSoAType,
             "Cabana::Gather::apply: Failed MPI Communication" );
 
     // Extract the receive buffer into the ghosted elements.
-    std::size_t num_local = _halo.numLocal();
+    std::size_t num_local = _comm_plan.numLocal();
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
     {
         std::size_t ghost_idx = i + num_local;
@@ -118,7 +117,7 @@ Gather<HaloType, AoSoAType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _halo.comm() );
+    MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
@@ -126,8 +125,7 @@ Gather<HaloType, AoSoAType,
 */
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value,
-                 void>
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
 Gather<HaloType, SliceType,
        typename std::enable_if<is_slice<SliceType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
@@ -146,7 +144,7 @@ Gather<HaloType, SliceType,
     auto slice_data = slice.data();
 
     // Get the steering vector for the sends.
-    auto steering = _halo.getExportSteering();
+    auto steering = _comm_plan.getExportSteering();
 
     // Gather from the local data into a tuple-contiguous send buffer.
     auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
@@ -167,19 +165,19 @@ Gather<HaloType, SliceType,
     const int mpi_tag = 2345;
 
     // Post non-blocking receives.
-    int num_n = _halo.numNeighbor();
+    int num_n = _comm_plan.numNeighbor();
     std::vector<MPI_Request> requests( num_n );
     std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_range.second = recv_range.first + _halo.numImport( n );
+        recv_range.second = recv_range.first + _comm_plan.numImport( n );
 
         auto recv_subview =
             Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
         MPI_Irecv( recv_subview.data(),
                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                   _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
                    &( requests[n] ) );
 
         recv_range.first = recv_range.second;
@@ -189,14 +187,14 @@ Gather<HaloType, SliceType,
     std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
     {
-        send_range.second = send_range.first + _halo.numExport( n );
+        send_range.second = send_range.first + _comm_plan.numExport( n );
 
         auto send_subview =
             Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
         MPI_Send( send_subview.data(),
                   send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+                  _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm() );
 
         send_range.first = send_range.second;
     }
@@ -210,7 +208,7 @@ Gather<HaloType, SliceType,
             "Cabana::gather::apply (SliceType): Failed MPI Communication" );
 
     // Extract the receive buffer into the ghosted elements.
-    std::size_t num_local = _halo.numLocal();
+    std::size_t num_local = _comm_plan.numLocal();
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
     {
         std::size_t ghost_idx = i + num_local;
@@ -227,7 +225,7 @@ Gather<HaloType, SliceType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _halo.comm() );
+    MPI_Barrier( _comm_plan.comm() );
 }
 
 /**********
@@ -236,8 +234,7 @@ Gather<HaloType, SliceType,
 
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value,
-                 void>
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
 Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::scatter" );
@@ -257,7 +254,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
         slice_data( slice.data(), slice.numSoA() * slice.stride( 0 ) );
 
     // Extract the send buffer from the ghosted elements.
-    std::size_t num_local = _halo.numLocal();
+    std::size_t num_local = _comm_plan.numLocal();
     auto extract_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
     {
         std::size_t ghost_idx = i + num_local;
@@ -277,19 +274,19 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     const int mpi_tag = 2345;
 
     // Post non-blocking receives.
-    int num_n = _halo.numNeighbor();
+    int num_n = _comm_plan.numNeighbor();
     std::vector<MPI_Request> requests( num_n );
     std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_range.second = recv_range.first + _halo.numExport( n );
+        recv_range.second = recv_range.first + _comm_plan.numExport( n );
 
         auto recv_subview =
             Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
         MPI_Irecv( recv_subview.data(),
                    recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _halo.neighborRank( n ), mpi_tag, _halo.comm(),
+                   _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
                    &( requests[n] ) );
 
         recv_range.first = recv_range.second;
@@ -299,14 +296,14 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
     for ( int n = 0; n < num_n; ++n )
     {
-        send_range.second = send_range.first + _halo.numImport( n );
+        send_range.second = send_range.first + _comm_plan.numImport( n );
 
         auto send_subview =
             Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
         MPI_Send( send_subview.data(),
                   send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _halo.neighborRank( n ), mpi_tag, _halo.comm() );
+                  _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm() );
 
         send_range.first = send_range.second;
     }
@@ -320,7 +317,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                                 "Failed MPI Communication" );
 
     // Get the steering vector for the sends.
-    auto steering = _halo.getExportSteering();
+    auto steering = _comm_plan.getExportSteering();
 
     // Scatter the ghosts in the receive buffer into the local values.
     auto scatter_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
@@ -339,7 +336,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _halo.comm() );
+    MPI_Barrier( _comm_plan.comm() );
 }
 
 } // end namespace Cabana
