@@ -17,7 +17,7 @@
 #define CABANA_GRID_INTERPOLATION_HPP
 
 #include <Cabana_Grid_Array.hpp>
-#include <Cabana_Grid_Halo.hpp>
+#include <Cabana_Grid_HaloBase.hpp>
 #include <Cabana_Grid_LocalMesh.hpp>
 #include <Cabana_Grid_Splines.hpp>
 #include <Cabana_Grid_Types.hpp>
@@ -859,7 +859,8 @@ void g2p(
 
     // Loop over points and interpolate from the grid.
     Kokkos::parallel_for(
-        "g2p", Kokkos::RangePolicy<ExecutionSpace>( 0, num_point ),
+        "Cabana::Grid::g2p",
+        Kokkos::RangePolicy<ExecutionSpace>( 0, num_point ),
         KOKKOS_LAMBDA( const int p ) {
             // Get the point coordinates.
             MeshScalar px[NumSpaceDim];
@@ -1240,7 +1241,8 @@ void p2g( ExecutionSpace, const PointEvalFunctor& functor,
 
     // Loop over points and interpolate to the grid.
     Kokkos::parallel_for(
-        "p2g", Kokkos::RangePolicy<ExecutionSpace>( 0, num_point ),
+        "Cabana::Grid::p2g",
+        Kokkos::RangePolicy<ExecutionSpace>( 0, num_point ),
         KOKKOS_LAMBDA( const int p ) {
             // Get the point coordinates.
             MeshScalar px[NumSpaceDim];

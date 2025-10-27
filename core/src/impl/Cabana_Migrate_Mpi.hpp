@@ -39,13 +39,13 @@ namespace Impl
 // the forward communication plan.
 template <class ExecutionSpace, class Distributor_t, class AoSoA_t>
 void migrateData(
-    CommSpace::Mpi, ExecutionSpace, const Distributor_t& distributor,
-    const AoSoA_t& src, AoSoA_t& dst,
+    Mpi, ExecutionSpace, const Distributor_t& distributor, const AoSoA_t& src,
+    AoSoA_t& dst,
     typename std::enable_if<( ( is_distributor<Distributor_t>::value ) &&
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::migrateData (Mpi)" );
+    Kokkos::Profiling::ScopedRegion region( "Cabana::migrate" );
 
     static_assert( is_accessible_from<typename Distributor_t::memory_space,
                                       ExecutionSpace>{},
@@ -157,7 +157,8 @@ void migrateData(
     const int ec =
         MPI_Waitall( requests.size(), requests.data(), status.data() );
     if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Failed MPI Communication" );
+        throw std::logic_error(
+            "Cabana::Distributor: Failed MPI Communication" );
 
     // Extract the receive buffer into the destination AoSoA.
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
@@ -198,17 +199,12 @@ void migrateData(
 */
 template <class ExecutionSpace, class Distributor_t, class Slice_t>
 void migrateSlice(
-    CommSpace::Mpi, ExecutionSpace, const Distributor_t& distributor,
-    const Slice_t& src, Slice_t& dst,
+    Mpi, ExecutionSpace, const Distributor_t& distributor, const Slice_t& src,
+    Slice_t& dst,
     typename std::enable_if<( ( is_distributor<Distributor_t>::value ) &&
                               is_slice<Slice_t>::value ),
                             int>::type* = 0 )
 {
-    // Check that dst is the right size.
-    if ( dst.size() != distributor.totalNumImport() )
-        throw std::runtime_error(
-            "migrateSlice: Destination is the wrong size for migration!" );
-
     // Get the number of components in the slices.
     size_t num_comp = 1;
     for ( size_t d = 2; d < src.viewRank(); ++d )
@@ -333,7 +329,7 @@ void migrateSlice(
     const int ec =
         MPI_Waitall( requests.size(), requests.data(), status.data() );
     if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Failed MPI Communication" );
+        throw std::logic_error( "Cabana::migrate: Failed MPI Communication" );
 
     // Extract the data from the receive buffer into the destination Slice.
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )

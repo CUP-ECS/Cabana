@@ -509,15 +509,10 @@ class Slice
     using slice_type =
         Slice<DataType, MemorySpace, MemoryAccessType, VectorLength, Stride>;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert( Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
 
@@ -678,9 +673,21 @@ class Slice
     KOKKOS_INLINE_FUNCTION
     size_type arraySize( const size_type s ) const
     {
-        return ( static_cast<size_type>( s ) < _view.extent( 0 ) - 1 )
-                   ? vector_length
-                   : ( _size % vector_length );
+        // Check if this is not the last struct index.
+        // If it isn't, the data array is guaranteed to be full.
+        if ( static_cast<size_type>( s ) < _view.extent( 0 ) - 1 )
+        {
+            return vector_length;
+        }
+        else
+        {
+            // This is the last struct index, which may be partially full.
+            // We calculate the remainder to see how many elements it holds.
+            const size_type rem = _size % vector_length;
+            // If rem is 0 and size is positive, the last chunk is full.
+            // Otherwise, the remainder is the correct size (e.g., for _size=0).
+            return ( rem == 0 && _size > 0 ) ? vector_length : rem;
+        }
     }
 
     // ------------
@@ -888,7 +895,7 @@ void copySliceToView(
         3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::FieldRank1",
+        "Cabana::copySliceToView::Rank1",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -905,7 +912,7 @@ void copySliceToView(
         4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::writeFieldRank2",
+        "Cabana::copySliceToView::Rank2",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -950,7 +957,7 @@ void copyViewToSlice(
         3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::FieldRank1",
+        "Cabana::copyViewToSlice::Rank1",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -967,7 +974,7 @@ void copyViewToSlice(
         4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::writeFieldRank2",
+        "Cabana::copyViewToSlice::Rank2",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )

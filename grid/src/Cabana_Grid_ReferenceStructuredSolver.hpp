@@ -18,7 +18,7 @@
 
 #include <Cabana_Grid_Array.hpp>
 #include <Cabana_Grid_GlobalGrid.hpp>
-#include <Cabana_Grid_Halo.hpp>
+#include <Cabana_Grid_HaloBase.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Grid_LocalGrid.hpp>
 #include <Cabana_Grid_MpiTraits.hpp>
@@ -53,12 +53,9 @@ class ReferenceStructuredSolver
     using entity_type = EntityType;
     //! Scalar value type.
     using value_type = Scalar;
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
     //! Array type.
@@ -156,8 +153,6 @@ class ReferenceConjugateGradient
         ReferenceStructuredSolver<Scalar, EntityType, MeshType, MemorySpace>;
     //! Memory space.
     using memory_space = typename base_type::memory_space;
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! Default execution space.
     using execution_space = typename base_type::execution_space;
 

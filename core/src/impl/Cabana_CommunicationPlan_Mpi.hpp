@@ -21,8 +21,6 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
-#include <Kokkos_Sort.hpp>
-#include <Kokkos_UnorderedMap.hpp>
 
 #include <mpi.h>
 
@@ -43,7 +41,7 @@ namespace Cabana
 */
 
 template <class MemorySpace>
-class CommunicationPlan<MemorySpace, CommSpace::Mpi>
+class CommunicationPlan<MemorySpace, Mpi>
     : public CommunicationPlanBase<MemorySpace>
 {
   public:
@@ -106,7 +104,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
     */
     template <class ExecutionSpace, class RankViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromTopology( ExecutionSpace exec_space, Export,
+    createWithTopology( ExecutionSpace exec_space, Export,
                         const RankViewType& element_export_ranks,
                         const std::vector<int>& neighbor_ranks )
     {
@@ -117,23 +115,23 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
 
         // Store the unique neighbors (this rank first).
         this->_neighbors = getUniqueTopology( this->comm(), neighbor_ranks );
-        int num_neighbors = this->_neighbors.size();
+        int num_n = this->_neighbors.size();
 
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int rank = -1;
-        MPI_Comm_rank( this->comm(), &rank );
+        int my_rank = -1;
+        MPI_Comm_rank( this->comm(), &my_rank );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
         const int mpi_tag = 1221;
 
         // Initialize import/export sizes.
-        this->_num_export.assign( num_neighbors, 0 );
-        this->_num_import.assign( num_neighbors, 0 );
+        this->_num_export.assign( num_n, 0 );
+        this->_num_import.assign( num_n, 0 );
 
         // Count the number of sends this rank will do to other ranks. Keep
         // track of which slot we get in our neighbor's send buffer.
@@ -147,14 +145,14 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             Kokkos::HostSpace(), counts_and_ids.first );
 
         // Get the export counts.
-        for ( int n = 0; n < num_neighbors; ++n )
+        for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
 
         // Post receives for the number of imports we will get.
         std::vector<MPI_Request> requests;
-        requests.reserve( num_neighbors );
-        for ( int n = 0; n < num_neighbors; ++n )
-            if ( rank != this->_neighbors[n] )
+        requests.reserve( num_n );
+        for ( int n = 0; n < num_n; ++n )
+            if ( my_rank != this->_neighbors[n] )
             {
                 requests.push_back( MPI_Request() );
                 MPI_Irecv( &this->_num_import[n], 1, MPI_UNSIGNED_LONG,
@@ -165,8 +163,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                 this->_num_import[n] = this->_num_export[n];
 
         // Send the number of exports to each of our neighbors.
-        for ( int n = 0; n < num_neighbors; ++n )
-            if ( rank != this->_neighbors[n] )
+        for ( int n = 0; n < num_n; ++n )
+            if ( my_rank != this->_neighbors[n] )
                 MPI_Send( &this->_num_export[n], 1, MPI_UNSIGNED_LONG,
                           this->_neighbors[n], mpi_tag, this->comm() );
 
@@ -175,13 +173,17 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         const int ec =
             MPI_Waitall( requests.size(), requests.data(), status.data() );
         if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+            throw std::logic_error(
+                "Cabana::CommunicationPlan::createFromExportsAndTopology: "
+                "Failed MPI Communication" );
 
         // Get the total number of imports/exports.
-        this->_total_num_export = std::accumulate( this->_num_export.begin(),
-                                                   this->_num_export.end(), 0 );
-        this->_total_num_import = std::accumulate( this->_num_import.begin(),
-                                                   this->_num_import.end(), 0 );
+        this->_total_num_export =
+            std::accumulate( this->_num_export.begin(), this->_num_export.end(),
+                             std::size_t{ 0u } );
+        this->_total_num_import =
+            std::accumulate( this->_num_import.begin(), this->_num_import.end(),
+                             std::size_t{ 0u } );
 
         // No barrier is needed because all ranks know who they are receiving
         // and sending to.
@@ -227,11 +229,11 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
     */
     template <class RankViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromTopology( Export, const RankViewType& element_export_ranks,
+    createWithTopology( Export, const RankViewType& element_export_ranks,
                         const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
-        return createFromTopology( execution_space{}, Export(),
+        return createWithTopology( execution_space{}, Export(),
                                    element_export_ranks, neighbor_ranks );
     }
 
@@ -267,8 +269,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
     */
     template <class ExecutionSpace, class RankViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromNoTopology( ExecutionSpace exec_space, Export,
-                          const RankViewType& element_export_ranks )
+    createWithoutTopology( ExecutionSpace exec_space, Export,
+                           const RankViewType& element_export_ranks )
     {
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
@@ -280,8 +282,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int rank = -1;
-        MPI_Comm_rank( this->comm(), &rank );
+        int my_rank = -1;
+        MPI_Comm_rank( this->comm(), &my_rank );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
@@ -321,7 +323,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // list and assign the number of imports to be the number of exports.
         bool self_send = false;
         for ( int n = 0; n < num_export_rank; ++n )
-            if ( this->_neighbors[n] == rank )
+            if ( this->_neighbors[n] == my_rank )
             {
                 std::swap( this->_neighbors[n], this->_neighbors[0] );
                 std::swap( this->_num_export[n], this->_num_export[0] );
@@ -358,7 +360,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         const int ec =
             MPI_Waitall( requests.size(), requests.data(), status.data() );
         if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
+            throw std::logic_error(
+                "Cabana::CommunicationPlan::createFromExportsOnly: Failed MPI "
+                "Communication" );
 
         // Compute the total number of imports.
         this->_total_num_import =
@@ -435,11 +439,11 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
     */
     template <class RankViewType>
     Kokkos::View<size_type*, memory_space>
-    createFromNoTopology( Export, const RankViewType& element_export_ranks )
+    createWithoutTopology( Export, const RankViewType& element_export_ranks )
     {
         // Use the default execution space.
-        return createFromNoTopology( execution_space{}, Export(),
-                                     element_export_ranks );
+        return createWithoutTopology( execution_space{}, Export(),
+                                      element_export_ranks );
     }
 
     /*!
@@ -482,7 +486,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class ExecutionSpace, class RankViewType, class IdViewType>
-    auto createFromTopology( ExecutionSpace exec_space, Import,
+    auto createWithTopology( ExecutionSpace exec_space, Import,
                              const RankViewType& element_import_ranks,
                              const IdViewType& element_import_ids,
                              const std::vector<int>& neighbor_ranks )
@@ -505,8 +509,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         MPI_Comm_size( this->comm(), &comm_size );
 
         // Get the MPI rank we are currently on.
-        int rank = -1;
-        MPI_Comm_rank( this->comm(), &rank );
+        int my_rank = -1;
+        MPI_Comm_rank( this->comm(), &my_rank );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
@@ -537,7 +541,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         std::vector<MPI_Request> requests;
         requests.reserve( num_n * 2 );
         for ( std::size_t n = 0; n < num_n; ++n )
-            if ( rank != this->_neighbors[n] )
+            if ( my_rank != this->_neighbors[n] )
             {
                 requests.push_back( MPI_Request() );
                 MPI_Irecv( &this->_num_export[n], 1, MPI_UNSIGNED_LONG,
@@ -551,7 +555,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
 
         // Send the number of imports to each of our neighbors.
         for ( std::size_t n = 0; n < num_n; ++n )
-            if ( rank != this->_neighbors[n] )
+            if ( my_rank != this->_neighbors[n] )
             {
                 requests.push_back( MPI_Request() );
                 MPI_Isend( &this->_num_import[n], 1, MPI_UNSIGNED_LONG,
@@ -573,108 +577,41 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                                                    this->_num_import.end(), 0 );
         this->_num_export_element = this->_total_num_export;
 
-        // Count the number of neighbors we are importing from. This is the
-        // number of non-zero elements in _num_export.
-        // std::set<int> tmp;
-        // for (int x : _num_import) {
-        //     if (x != 0) {
-        //         tmp.insert(x);
-        //     }
-        // }
-        // int num_ranks_importing = tmp.size();
-        // Step 1: Initialize indices
-        Kokkos::View<int*, memory_space> indices( "indices",
-                                                  this->_total_num_import );
-        Kokkos::parallel_for(
-            "InitIndices",
-            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
-            KOKKOS_LAMBDA( int i ) { indices( i ) = i; } );
-
-        // Step 2: Set up bin sort
-        using BinOp = Kokkos::BinOp1D<Kokkos::View<int*, memory_space>>;
-        BinOp bin_op( comm_size, 0, comm_size - 1 );
-        Kokkos::BinSort<Kokkos::View<int*, memory_space>, BinOp> bin_sort(
-            element_import_ranks, bin_op, true );
-
-        // Step 3: Sort indices
-        bin_sort.create_permute_vector();
-        bin_sort.sort( indices );
-
-        // Step 4: Permute both arrays
-        Kokkos::View<int*, memory_space> ranks_sorted(
-            "ranks_sorted", this->_total_num_import );
-        Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
-                                                     this->_total_num_import );
-        Kokkos::parallel_for(
-            "PermuteExports",
-            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
-            KOKKOS_LAMBDA( int i ) {
-                int sorted_i = indices( i );
-                ranks_sorted( i ) = element_import_ranks( sorted_i );
-                ids_sorted( i ) = element_import_ids( sorted_i );
-            } );
-
-        // Store offsets into ranks_sorted to send
-        std::vector<int> sdispls;
-        sdispls.push_back( 0 );
-        for ( int neighbor_rank : this->_neighbors )
-            sdispls.push_back( sdispls.back() +
-                               neighbor_counts_host( neighbor_rank ) );
-
-        // Store send counts to each rank
-        std::vector<int> sendcounts;
-        for ( int neighbor_rank : this->_neighbors )
-            sendcounts.push_back( neighbor_counts_host( neighbor_rank ) );
-
         // Post receives to get the indices other processes are requesting
         // i.e. our export indices
         Kokkos::View<int*, memory_space> export_indices(
             "export_indices", this->_total_num_export );
         std::size_t idx = 0;
-        int num_messages = num_n + neighbor_counts_host.extent( 0 );
+        int num_messages =
+            this->_total_num_export + element_import_ranks.extent( 0 );
+        std::vector<MPI_Request> mpi_requests( num_messages );
+        std::vector<MPI_Status> mpi_statuses( num_messages );
 
-        // Reset request and status vectors.
-        requests.clear();
-        requests.reserve( num_messages );
-        status.clear();
-        std::size_t num_recvs = 0;
+        // Increment the mpi_tag for this round of messages to ensure messages
+        // are processed in the correct order from the previous round of Isends
+        // and Irecvs.
         for ( std::size_t i = 0; i < num_n; i++ )
         {
-            auto count = this->_num_export[i];
-            if ( count )
+            for ( std::size_t j = 0; j < this->_num_export[i]; j++ )
             {
-                auto count = this->_num_export[i];
-                requests.push_back( MPI_Request() );
-                MPI_Irecv( export_indices.data() + idx, count, MPI_INT,
+                MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
                            this->_neighbors[i], mpi_tag + 1, this->comm(),
-                           &( requests.back() ) );
-                idx += count;
-                num_recvs++;
+                           &mpi_requests[idx] );
+                idx++;
             }
         }
 
-        std::size_t counter = 0;
-        idx = 0;
-        for ( std::size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
+        // Send the indices we need
+        for ( std::size_t i = 0; i < element_import_ranks.extent( 0 ); i++ )
         {
-            if ( neighbor_counts_host( i ) != 0 )
-            {
-                // The first rank to send to begins at offset = sdispls(0) = 0.
-                // The nth rank to send to begins at offset = sdispls(n).
-                int to_rank = ranks_sorted( sdispls[counter] );
-                int count = sendcounts[counter];
-                requests.push_back( MPI_Request() );
-                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT, to_rank,
-                           mpi_tag + 1, this->comm(), &( requests.back() ) );
-                counter++;
-                idx += count;
-            }
+            MPI_Isend( element_import_ids.data() + i, 1, MPI_INT,
+                       *( element_import_ranks.data() + i ), mpi_tag + 1,
+                       this->comm(), &mpi_requests[idx++] );
         }
 
         // Wait for all count exchanges to complete
-        status.resize( requests.size() );
-        const int ec1 =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
+        const int ec1 = MPI_Waitall( num_messages, mpi_requests.data(),
+                                     mpi_statuses.data() );
         if ( MPI_SUCCESS != ec1 )
             throw std::logic_error( "Failed MPI Communication" );
 
@@ -683,14 +620,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // Export ID in export_indices(i)
         Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
             "element_export_ranks_h", this->_total_num_export );
-        counter = 0;
-        for ( std::size_t i = 0; i < num_recvs; i++ )
+        for ( std::size_t i = 0; i < this->_total_num_export; i++ )
         {
-            int export_rank = status[i].MPI_SOURCE;
-            for ( int j = 0; j < this->_num_export[i]; j++ )
-            {
-                element_export_ranks_h( counter++ ) = export_rank;
-            }
+            element_export_ranks_h[i] = mpi_statuses[i].MPI_SOURCE;
         }
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
             memory_space(), element_export_ranks_h );
@@ -701,7 +633,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                 ExecutionSpace>::type() );
 
         // No barrier is needed because all ranks know who they are receiving
-        // and sending to.
+        // from and sending to.
 
         // Return the neighbor ids, export ranks, and export indices
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
@@ -746,12 +678,12 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class RankViewType, class IdViewType>
-    auto createFromTopology( Import, const RankViewType& element_import_ranks,
+    auto createWithTopology( Import, const RankViewType& element_import_ranks,
                              const IdViewType& element_import_ids,
                              const std::vector<int>& neighbor_ranks )
     {
         // Use the default execution space.
-        return createFromTopology( execution_space{}, Import(),
+        return createWithTopology( execution_space{}, Import(),
                                    element_import_ranks, element_import_ids,
                                    neighbor_ranks );
     }
@@ -789,9 +721,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class ExecutionSpace, class RankViewType, class IdViewType>
-    auto createFromNoTopology( ExecutionSpace exec_space, Import,
-                               const RankViewType& element_import_ranks,
-                               const IdViewType& element_import_ids )
+    auto createWithoutTopology( ExecutionSpace exec_space, Import,
+                                const RankViewType& element_import_ranks,
+                                const IdViewType& element_import_ids )
         -> std::tuple<Kokkos::View<typename RankViewType::size_type*,
                                    typename RankViewType::memory_space>,
                       Kokkos::View<int*, typename RankViewType::memory_space>,
@@ -809,40 +741,6 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // Get the MPI rank we are currently on.
         int rank = -1;
         MPI_Comm_rank( this->comm(), &rank );
-
-        this->_total_num_import = element_import_ranks.extent( 0 );
-
-        // Step 1: Initialize indices
-        Kokkos::View<int*, memory_space> indices( "indices",
-                                                  this->_total_num_import );
-        Kokkos::parallel_for(
-            "InitIndices",
-            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
-            KOKKOS_LAMBDA( int i ) { indices( i ) = i; } );
-
-        // Step 2: Set up bin sort
-        using BinOp = Kokkos::BinOp1D<Kokkos::View<int*, memory_space>>;
-        BinOp bin_op( comm_size, 0, comm_size - 1 );
-        Kokkos::BinSort<Kokkos::View<int*, memory_space>, BinOp> bin_sort(
-            element_import_ranks, bin_op, true );
-
-        // Step 3: Sort indices
-        bin_sort.create_permute_vector();
-        bin_sort.sort( indices );
-
-        // Step 4: Permute both arrays
-        Kokkos::View<int*, memory_space> ranks_sorted(
-            "ranks_sorted", this->_total_num_import );
-        Kokkos::View<int*, memory_space> ids_sorted( "ids_sorted",
-                                                     this->_total_num_import );
-        Kokkos::parallel_for(
-            "PermuteExports",
-            Kokkos::RangePolicy<ExecutionSpace>( 0, this->_total_num_import ),
-            KOKKOS_LAMBDA( int i ) {
-                int sorted_i = indices( i );
-                ranks_sorted( i ) = element_import_ranks( sorted_i );
-                ids_sorted( i ) = element_import_ids( sorted_i );
-            } );
 
         // Pick an mpi tag for communication. This object has it's own
         // communication space so any mpi tag will do.
@@ -903,13 +801,10 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         this->_num_export.clear();
         this->_num_import.clear();
 
-        int num_neighbors = 0;
         for ( std::size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
         {
             if ( neighbor_counts_host( i ) != 0 )
             {
-                num_neighbors++;
-
                 // Send counts of needed indices
                 MPI_Send( &neighbor_counts_host( i ), 1, MPI_INT, i, mpi_tag,
                           this->comm() );
@@ -919,19 +814,6 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                 this->_num_import.push_back( neighbor_counts_host( i ) );
             }
         }
-
-        // Store offsets into ranks_sorted to send
-        std::vector<int> sdispls;
-        sdispls.push_back( 0 );
-        for ( int neighbor_rank : this->_neighbors )
-            sdispls.push_back( sdispls.back() +
-                               neighbor_counts_host( neighbor_rank ) );
-
-        // Store send counts to each rank
-        std::vector<int> sendcounts;
-        for ( int neighbor_rank : this->_neighbors )
-            sendcounts.push_back( neighbor_counts_host( neighbor_rank ) );
-
         // Assign all exports to zero
         this->_num_export.assign( this->_num_import.size(), 0 );
 
@@ -940,12 +822,6 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             MPI_Waitall( num_recvs, mpi_requests.data(), mpi_statuses.data() );
         if ( MPI_SUCCESS != ec0 )
             throw std::logic_error( "Failed MPI Communication" );
-
-        // This barrier is needed to ensure all the above Isends and Irecvs
-        // complete before the next exchange starts. If there is no barrier
-        // sometimes the send_to data will be populated incorrectly and cause
-        // the code to hang.
-        // MPI_Barrier( this->comm() );
 
         // Save ranks we got messages from and track total messages to size
         // buffers
@@ -1020,41 +896,31 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         std::size_t idx = 0;
         mpi_requests.clear();
         mpi_statuses.clear();
-        int num_messages = num_neighbors + num_recvs;
+        int num_messages =
+            this->_total_num_export + element_import_ranks.extent( 0 );
         mpi_requests.resize( num_messages );
         mpi_statuses.resize( num_messages );
-        std::size_t counter = 0;
+
+        // Increment the mpi_tag for this round of messages to ensure messages
+        // are processed in the correct order from the previous round of Isends
+        // and Irecvs.
         for ( int i = 0; i < num_recvs; i++ )
         {
-            int count = send_counts( i );
-            MPI_Irecv( export_indices.data() + idx, count, MPI_INT,
-                       send_to( i ), mpi_tag + 1, this->comm(),
-                       &mpi_requests[counter] );
-            idx += count;
-            counter++;
+            for ( int j = 0; j < send_counts( i ); j++ )
+            {
+                MPI_Irecv( export_indices.data() + idx, 1, MPI_INT,
+                           send_to( i ), mpi_tag + 1, this->comm(),
+                           &mpi_requests[idx] );
+                idx++;
+            }
         }
 
-        // The number of valid neighbors in neighbor_counts_host is equal to the
-        // number of unique ranks in ranks_sorted. We use this information to
-        // retrieve the correct rank to send data to.
-
-        // Send the indices in one message per neighbor
-        idx = 0;
-        counter = 0;
-        for ( std::size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
+        // Send the indices we need
+        for ( std::size_t i = 0; i < element_import_ranks.extent( 0 ); i++ )
         {
-            if ( neighbor_counts_host( i ) != 0 )
-            {
-                // The first rank to send to begins at offset = sdispls(0) = 0.
-                // The nth rank to send to begins at offset = sdispls(n).
-                int to_rank = ranks_sorted( sdispls[counter] );
-                int count = sendcounts[counter];
-                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT, to_rank,
-                           mpi_tag + 1, this->comm(),
-                           &mpi_requests[num_recvs + counter] );
-                counter++;
-                idx += count;
-            }
+            MPI_Isend( element_import_ids.data() + i, 1, MPI_INT,
+                       *( element_import_ranks.data() + i ), mpi_tag + 1,
+                       this->comm(), &mpi_requests[idx++] );
         }
 
         // Wait for all count exchanges to complete
@@ -1068,16 +934,10 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // Export ID in export_indices(i)
         Kokkos::View<int*, Kokkos::HostSpace> element_export_ranks_h(
             "element_export_ranks_h", this->_total_num_export );
-        counter = 0;
-        for ( int i = 0; i < num_recvs; i++ )
+        for ( std::size_t i = 0; i < this->_total_num_export; i++ )
         {
-            int export_rank = mpi_statuses[i].MPI_SOURCE;
-            for ( int j = 0; j < send_counts( i ); j++ )
-            {
-                element_export_ranks_h( counter++ ) = export_rank;
-            }
+            element_export_ranks_h[i] = mpi_statuses[i].MPI_SOURCE;
         }
-
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
             memory_space(), element_export_ranks_h );
 
@@ -1125,51 +985,27 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
       \note Unlike creating from exports, an import rank of -1 is not supported.
     */
     template <class RankViewType, class IdViewType>
-    auto createFromNoTopology( Import, const RankViewType& element_import_ranks,
-                               const IdViewType& element_import_ids )
+    auto createWithoutTopology( Import,
+                                const RankViewType& element_import_ranks,
+                                const IdViewType& element_import_ids )
     {
         // Use the default execution space.
-        return createFromNoTopology( execution_space{}, Import(),
-                                     element_import_ranks, element_import_ids );
+        return createWithoutTopology( execution_space{}, Import(),
+                                      element_import_ranks,
+                                      element_import_ids );
     }
 };
 
-// template <class MemorySpace>
-// class CommunicationPlan<MemorySpace, CommSpace::Mpi>
-//     : public CommunicationPlanBase<MemorySpace>
-// {
-//   public:
-//     using typename CommunicationPlanBase<MemorySpace>::memory_space;
-//     using typename CommunicationPlanBase<MemorySpace>::execution_space;
-//     using typename CommunicationPlanBase<MemorySpace>::size_type;
-
+/*!
+  \brief Store AoSoA send/receive buffers. Mpi variant.
+*/
 template <class CommPlanType, class CommDataType>
-class CommunicationData<CommPlanType, CommDataType, CommSpace::Mpi>
+class CommunicationData<CommPlanType, CommDataType, Mpi>
     : public CommunicationDataBase<CommPlanType, CommDataType>
 {
   protected:
-    //! Communication plan type (Halo, Distributor)
-    /// using typename CommunicationDataBase<CommPlanType,
-    /// CommDataType>::plan_type;
-    // //! Kokkos execution space.
-    // using typename CommunicationDataBase<CommPlanType,
-    // CommDataType>::execution_space;
-    // //! Kokkos execution policy.
-    // using typename CommunicationDataBase<CommPlanType,
-    // CommDataType>::policy_type;
-    // //! Communication data type.
-    // using typename CommunicationDataBase<CommPlanType,
-    // CommDataType>::comm_data_type;
-    // //! Particle data type.
     using typename CommunicationDataBase<CommPlanType,
                                          CommDataType>::particle_data_type;
-    // //! Kokkos memory space.
-    // using memory_space = typename comm_data_type::memory_space;
-    // //! Communication data type.
-    // using data_type = typename comm_data_type::data_type;
-    // //! Communication buffer type.
-    // using buffer_type = typename comm_data_type::buffer_type;
-
     /*!
       \param comm_plan The communication plan.
       \param particles The particle data (either AoSoA or slice).
@@ -1183,9 +1019,6 @@ class CommunicationData<CommPlanType, CommDataType, CommSpace::Mpi>
               comm_plan, particles, overallocation )
     {
     }
-
-  public:
-    // Put MPI-specific functions and variables here...
 };
 
 } // end namespace Cabana

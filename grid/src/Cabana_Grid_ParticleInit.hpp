@@ -78,7 +78,7 @@ int createParticles(
     using memory_space = typename ParticleListType::memory_space;
 
     // Create a local mesh.
-    auto local_mesh = createLocalMesh<ExecutionSpace>( local_grid );
+    auto local_mesh = createLocalMesh<memory_space>( local_grid );
 
     // Get the global grid.
     const auto& global_grid = local_grid.globalGrid();
@@ -87,11 +87,15 @@ int createParticles(
     auto owned_cells = local_grid.indexSpace( Own(), Cell(), Local() );
 
     // Create a random number generator.
-    const auto local_seed =
-        global_grid.blockId() + ( seed % ( global_grid.blockId() + 1 ) );
+    const auto local_seed = seed + global_grid.blockId();
     using rnd_type = Kokkos::Random_XorShift64_Pool<ExecutionSpace>;
+    // FIXME: remove when 4.7 required
+#if ( KOKKOS_VERSION < 40700 )
     rnd_type pool;
     pool.init( local_seed, owned_cells.size() );
+#else
+    rnd_type pool( local_seed, owned_cells.size() );
+#endif
 
     // Get the aosoa.
     auto& aosoa = particle_list.aosoa();
@@ -231,8 +235,11 @@ void createParticles(
                               Kokkos::is_view<PositionType>::value ),
                             int>::type* = 0 )
 {
+    // Memory space.
+    using memory_space = typename PositionType::memory_space;
+
     // Create a local mesh.
-    auto local_mesh = createLocalMesh<ExecutionSpace>( local_grid );
+    auto local_mesh = createLocalMesh<memory_space>( local_grid );
 
     // Get the global grid.
     const auto& global_grid = local_grid.globalGrid();
@@ -241,11 +248,15 @@ void createParticles(
     auto owned_cells = local_grid.indexSpace( Own(), Cell(), Local() );
 
     // Create a random number generator.
-    const auto local_seed =
-        global_grid.blockId() + ( seed % ( global_grid.blockId() + 1 ) );
+    const auto local_seed = seed + global_grid.blockId();
     using rnd_type = Kokkos::Random_XorShift64_Pool<ExecutionSpace>;
+    // FIXME: remove when 4.7 required
+#if ( KOKKOS_VERSION < 40700 )
     rnd_type pool;
     pool.init( local_seed, owned_cells.size() );
+#else
+    rnd_type pool( local_seed, owned_cells.size() );
+#endif
 
     // Ensure correct space for the particles.
     assert( positions.size() == static_cast<std::size_t>( particles_per_cell *
@@ -359,7 +370,7 @@ int createParticles(
     using memory_space = typename ParticleListType::memory_space;
 
     // Create a local mesh.
-    auto local_mesh = createLocalMesh<ExecutionSpace>( local_grid );
+    auto local_mesh = createLocalMesh<memory_space>( local_grid );
 
     // Get the local set of owned cell indices.
     auto owned_cells = local_grid.indexSpace( Own(), Cell(), Local() );
@@ -514,8 +525,11 @@ void createParticles(
                               Kokkos::is_view<PositionType>::value ),
                             int>::type* = 0 )
 {
+    // Memory space.
+    using memory_space = typename PositionType::memory_space;
+
     // Create a local mesh.
-    auto local_mesh = createLocalMesh<ExecutionSpace>( local_grid );
+    auto local_mesh = createLocalMesh<memory_space>( local_grid );
 
     // Get the local set of owned cell indices.
     auto owned_cells = local_grid.indexSpace( Own(), Cell(), Local() );

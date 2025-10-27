@@ -58,10 +58,13 @@ namespace Cabana
   user must allocate their own destination data structure.
 
 */
-template <class MemorySpace, class CommSpace = CommSpace::Mpi>
-class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
+template <class MemorySpace, class CommSpaceType = Mpi>
+class Distributor : public CommunicationPlan<MemorySpace, CommSpaceType>
 {
   public:
+    //! Communication space
+    using commspace_type = CommSpaceType;
+
     /*!
       \brief Topology and export rank constructor. Use this when you already
       know which ranks neighbor each other (i.e. every rank already knows who
@@ -99,9 +102,9 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks,
                  const std::vector<int>& neighbor_ranks )
-        : CommunicationPlan<MemorySpace, CommSpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpaceType>( comm )
     {
-        auto neighbor_ids = this->createFromTopology(
+        auto neighbor_ids = this->createWithTopology(
             Export(), element_export_ranks, neighbor_ranks );
         this->createExportSteering( neighbor_ids, element_export_ranks );
     }
@@ -135,10 +138,10 @@ class Distributor : public CommunicationPlan<MemorySpace, CommSpace>
     */
     template <class ViewType>
     Distributor( MPI_Comm comm, const ViewType& element_export_ranks )
-        : CommunicationPlan<MemorySpace, CommSpace>( comm )
+        : CommunicationPlan<MemorySpace, CommSpaceType>( comm )
     {
         auto neighbor_ids =
-            this->createFromNoTopology( Export(), element_export_ranks );
+            this->createWithoutTopology( Export(), element_export_ranks );
         this->createExportSteering( neighbor_ids, element_export_ranks );
     }
 };
@@ -150,8 +153,8 @@ struct is_distributor_impl : public std::false_type
 {
 };
 
-template <typename MemorySpace, typename CommSpace>
-struct is_distributor_impl<Distributor<MemorySpace, CommSpace>>
+template <typename MemorySpace, typename CommSpaceType>
+struct is_distributor_impl<Distributor<MemorySpace, CommSpaceType>>
     : public std::true_type
 {
 };
@@ -169,10 +172,6 @@ struct is_distributor
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Migrate_Mpi.hpp>
-
-#ifdef Cabana_ENABLE_LOCALITY_AWARE
-#include <impl/Cabana_Migrate_LocalityAware.hpp>
-#endif // LOCALITYAWARE
 #endif // Enable MPI
 
 namespace Cabana
@@ -212,14 +211,17 @@ void migrate(
 {
     // Check that src and dst are the right size.
     if ( src.size() != distributor.exportSize() )
-        throw std::runtime_error( "Cabana::migrate (Distributor): Source is "
-                                  "the wrong size for migration!" );
+        throw std::runtime_error( "Cabana::migrate: Source is "
+                                  "the wrong size for migration! (Label: " +
+                                  src.label() + ")" );
     if ( dst.size() != distributor.totalNumImport() )
-        throw std::runtime_error( "Cabana::migrate (Distributor): Destination "
-                                  "is the wrong size for migration!" );
+        throw std::runtime_error( "Cabana::migrate: Destination "
+                                  "is the wrong size for migration! (Label: " +
+                                  dst.label() + ")" );
 
     // Move the data.
-    Impl::migrateData( CommSpace(), exec_space, distributor, src, dst );
+    Impl::migrateData( typename Distributor_t::commspace_type(), exec_space,
+                       distributor, src, dst );
 }
 
 /*!
@@ -282,7 +284,10 @@ void migrate(
 {
     // Check that the AoSoA is the right size.
     if ( aosoa.size() != distributor.exportSize() )
-        throw std::runtime_error( "AoSoA is the wrong size for migration!" );
+        throw std::runtime_error(
+            "Cabana::migrate (in-place): "
+            "AoSoA is the wrong size for migration! (Label: " +
+            aosoa.label() + ")" );
 
     // Determine if the source of destination decomposition has more data on
     // this rank.
@@ -295,7 +300,8 @@ void migrate(
         aosoa.resize( distributor.totalNumImport() );
 
     // Move the data.
-    Impl::migrateData( CommSpace(), exec_space, distributor, aosoa, aosoa );
+    Impl::migrateData( typename Distributor_t::commspace_type(), exec_space,
+                       distributor, aosoa, aosoa );
 
     // If the destination decomposition is smaller than the source
     // decomposition resize after we have moved the data.
@@ -361,15 +367,19 @@ void migrate(
           is_slice<Slice_t>::value ),
         int>::type* = 0 )
 {
+    // Check that src and dst are the right size.
     if ( src.size() != distributor.exportSize() )
-        throw std::runtime_error(
-            "Cabana::Migrate::migrate: Source slice is the "
-            "wrong size for migration!" );
+        throw std::runtime_error( "Cabana::migrate: Source Slice is the wrong "
+                                  "size for migration! (Label: " +
+                                  src.label() + ")" );
+    if ( dst.size() != distributor.totalNumImport() )
+        throw std::runtime_error( "Cabana::migrate: Destination Slice is the "
+                                  "wrong size for migration! (Label: " +
+                                  dst.label() + ")" );
 
-    Impl::migrateSlice(
-        CommSpace(),
-        typename Distributor<MemorySpace, CommSpace>::execution_space{},
-        distributor, src, dst );
+    Impl::migrateSlice( typename Distributor_t::commspace_type(),
+                        typename Distributor_t::execution_space{}, distributor,
+                        src, dst );
 }
 
 //---------------------------------------------------------------------------//

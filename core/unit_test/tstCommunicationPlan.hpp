@@ -27,13 +27,13 @@
 namespace Test
 {
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
+template <class TestCommSpace>
 class CommSpaceTester
-    : public Cabana::CommunicationPlan<TEST_MEMSPACE, TEST_COMMSPACE>
+    : public Cabana::CommunicationPlan<TEST_MEMSPACE, TestCommSpace>
 {
   public:
     using memory_space = TEST_MEMSPACE;
-    using plan_type = TEST_COMMSPACE;
+    using plan_type = TestCommSpace;
     using size_type = typename TEST_MEMSPACE::size_type;
 
     CommSpaceTester( MPI_Comm comm )
@@ -46,7 +46,7 @@ class CommSpaceTester
     createFromExportsAndNeighbors( const ViewType& element_export_ranks,
                                    const std::vector<int>& neighbor_ranks )
     {
-        return this->createFromTopology( Cabana::Export(), element_export_ranks,
+        return this->createWithTopology( Cabana::Export(), element_export_ranks,
                                          neighbor_ranks );
     }
 
@@ -54,8 +54,8 @@ class CommSpaceTester
     Kokkos::View<size_type*, memory_space>
     createFromExports( const ViewType& element_export_ranks )
     {
-        return this->createFromNoTopology( Cabana::Export(),
-                                           element_export_ranks );
+        return this->createWithoutTopology( Cabana::Export(),
+                                            element_export_ranks );
     }
 
     template <class ViewType>
@@ -67,7 +67,7 @@ class CommSpaceTester
                                    const ViewType& element_import_ids,
                                    const std::vector<int>& neighbor_ranks )
     {
-        return this->createFromTopology( Cabana::Import(), element_import_ranks,
+        return this->createWithTopology( Cabana::Import(), element_import_ranks,
                                          element_import_ids, neighbor_ranks );
     }
 
@@ -79,7 +79,7 @@ class CommSpaceTester
     createFromImports( const ViewType& element_import_ranks,
                        const ViewType& element_import_ids )
     {
-        return this->createFromNoTopology(
+        return this->createWithoutTopology(
             Cabana::Import(), element_import_ranks, element_import_ids );
     }
 
@@ -101,11 +101,11 @@ class CommSpaceTester
 };
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport1( const bool use_topology )
+template <class TestCommSpace>
+void test1( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_tmp( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_tmp( MPI_COMM_WORLD );
     auto comm_plan = comm_tmp;
 
     // Get my rank.
@@ -154,11 +154,11 @@ void testExport1( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport2( const bool use_topology )
+template <class TestCommSpace>
+void test2( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -217,11 +217,11 @@ void testExport2( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport3( const bool use_topology )
+template <class TestCommSpace>
+void test3( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -275,11 +275,11 @@ void testExport3( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport4( const bool use_topology )
+template <class TestCommSpace>
+void test4( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -394,11 +394,11 @@ void testExport4( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport5( const bool use_topology )
+template <class TestCommSpace>
+void test5( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -480,11 +480,11 @@ void testExport5( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport6( const bool use_topology )
+template <class TestCommSpace>
+void test6( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -551,11 +551,11 @@ void testExport6( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testExport7( const bool use_topology )
+template <class TestCommSpace>
+void test7( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -731,11 +731,11 @@ void testTopology()
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testImport1( const bool use_topology )
+template <class TestCommSpace>
+void test8( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -798,11 +798,11 @@ void testImport1( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testImport2( const bool use_topology )
+template <class TestCommSpace>
+void test9( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -876,11 +876,11 @@ void testImport2( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testImport3( const bool use_topology )
+template <class TestCommSpace>
+void test10( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -988,11 +988,11 @@ void testImport3( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
-void testImport4( const bool use_topology )
+template <class TestCommSpace>
+void test11( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -1090,144 +1090,97 @@ void testImport4( const bool use_topology )
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-template <typename TEST_COMMSPACE>
+template <typename TestCommSpace>
 class CommunicationPlanTypedTest : public ::testing::Test
 {
-  public:
-    using CommSpaceType = TEST_COMMSPACE;
 };
 
-using CommSpaceTypes = ::testing::Types<Cabana::CommSpace::Mpi
-#ifdef Cabana_ENABLE_LOCALITY_AWARE
-                                        ,
-                                        Cabana::CommSpace::LocalityAware
-#endif
-                                        >;
+// Add additional backends to test when implemented.
+using CommSpaceTypes = ::testing::Types<Cabana::Mpi>;
 
-TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes );
+// Need a trailing comma
+// to avoid an error when compiling with clang++
+TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes, );
 
 // Export tests
-TYPED_TEST( CommunicationPlanTypedTest, TestExport1 )
+TYPED_TEST( CommunicationPlanTypedTest, Test1 ) { test1<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test2 ) { test2<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test3 ) { test3<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test4 ) { test4<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test5 ) { test5<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test6 ) { test6<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test7 ) { test7<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test1NoTopo )
 {
-    testExport1<TypeParam>( true );
+    test1<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport2 )
+TYPED_TEST( CommunicationPlanTypedTest, Test2NoTopo )
 {
-    testExport2<TypeParam>( true );
+    test2<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport3 )
+TYPED_TEST( CommunicationPlanTypedTest, Test3NoTopo )
 {
-    testExport3<TypeParam>( true );
+    test3<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport4 )
+TYPED_TEST( CommunicationPlanTypedTest, Test4NoTopo )
 {
-    testExport4<TypeParam>( true );
+    test4<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport5 )
+TYPED_TEST( CommunicationPlanTypedTest, Test5NoTopo )
 {
-    testExport5<TypeParam>( true );
+    test5<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport6 )
+TYPED_TEST( CommunicationPlanTypedTest, Test6NoTopo )
 {
-    testExport6<TypeParam>( true );
+    test6<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestExport7 )
+TYPED_TEST( CommunicationPlanTypedTest, Test7NoTopo )
 {
-    testExport7<TypeParam>( true );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport8 )
-{
-    testExport8<TypeParam>( true );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport1NoTopo )
-{
-    testExport1<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport2NoTopo )
-{
-    testExport2<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport3NoTopo )
-{
-    testExport3<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport4NoTopo )
-{
-    testExport4<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport5NoTopo )
-{
-    testExport5<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport6NoTopo )
-{
-    testExport6<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport7NoTopo )
-{
-    testExport7<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestExport8NoTopo )
-{
-    testExport8<TypeParam>( false );
+    test7<TypeParam>( false );
 }
 
 TEST( CommSpace, TestTopology ) { testTopology(); }
 
 // Import tests
-TYPED_TEST( CommunicationPlanTypedTest, TestImport1 )
+TYPED_TEST( CommunicationPlanTypedTest, Test8 ) { test8<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test9 ) { test9<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test10 ) { test10<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test11 ) { test11<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test8NoTopo )
 {
-    testImport1<TypeParam>( true );
+    test8<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestImport2 )
+TYPED_TEST( CommunicationPlanTypedTest, Test9NoTopo )
 {
-    testImport2<TypeParam>( true );
+    test9<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestImport3 )
+TYPED_TEST( CommunicationPlanTypedTest, Test10NoTopo )
 {
-    testImport3<TypeParam>( true );
+    test10<TypeParam>( false );
 }
 
-TYPED_TEST( CommunicationPlanTypedTest, TestImport4 )
+TYPED_TEST( CommunicationPlanTypedTest, Test11NoTopo )
 {
-    testImport4<TypeParam>( true );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestImport1NoTopo )
-{
-    testImport1<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestImport2NoTopo )
-{
-    testImport2<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestImport3NoTopo )
-{
-    testImport3<TypeParam>( false );
-}
-
-TYPED_TEST( CommunicationPlanTypedTest, TestImport4NoTopo )
-{
-    testImport4<TypeParam>( false );
+    test11<TypeParam>( false );
 }
 
 //---------------------------------------------------------------------------//

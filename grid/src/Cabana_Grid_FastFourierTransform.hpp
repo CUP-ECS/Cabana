@@ -74,9 +74,9 @@ template <class ArrayEntity, class ArrayMesh, class ArrayMemorySpace,
 struct is_matching_array : public std::false_type
 {
     static_assert( std::is_same<ArrayEntity, Entity>::value,
-                   "Array entity type mush match FFT entity type." );
+                   "Array entity type must match FFT entity type." );
     static_assert( std::is_same<ArrayMesh, Mesh>::value,
-                   "Array mesh type mush match FFT mesh type." );
+                   "Array mesh type must match FFT mesh type." );
     static_assert( std::is_same<ArrayMemorySpace, MemorySpace>::value,
                    "Array memory space must match FFT memory space." );
 };
@@ -179,20 +179,12 @@ class FastFourierTransform
     //! Scalar value type.
     using value_type = Scalar;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
     //! Kokkos memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert(
-        Cabana::Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
     //! Kokkos execution space.
     using execution_space = typename memory_space::execution_space;
-    //! Kokkos execution space.
-    using exec_space [[deprecated]] = execution_space;
-    //! Default Kokkos device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
 
     //! Spatial dimension.
     static constexpr std::size_t num_space_dim = mesh_type::num_space_dim;
@@ -296,7 +288,8 @@ class FastFourierTransform
                  LViewType& l_view, const LGViewType lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_to_work", createExecutionPolicy( own_space, exec_space ),
+            "Cabana::Grid::FastFourierTransform::copyTo",
+            createExecutionPolicy( own_space, exec_space ),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -316,7 +309,8 @@ class FastFourierTransform
                  LViewType& l_view, const LGViewType lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_to_work", createExecutionPolicy( own_space, space ),
+            "Cabana::Grid::FastFourierTransform::copyTo",
+            createExecutionPolicy( own_space, space ),
             KOKKOS_LAMBDA( const int i, const int j ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -335,7 +329,8 @@ class FastFourierTransform
                    const LViewType l_view, LGViewType& lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_from_work", createExecutionPolicy( own_space, space ),
+            "Cabana::Grid::FastFourierTransform::copyFrom",
+            createExecutionPolicy( own_space, space ),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -355,7 +350,8 @@ class FastFourierTransform
                    const LViewType l_view, LGViewType& lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_from_work", createExecutionPolicy( own_space, space ),
+            "Cabana::Grid::FastFourierTransform::copyFrom",
+            createExecutionPolicy( own_space, space ),
             KOKKOS_LAMBDA( const int i, const int j ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -419,7 +415,7 @@ struct HeffteBackendTraits<Kokkos::Cuda, Impl::FFTBackendDefault>
 #ifdef Heffte_ENABLE_ROCM
 #ifdef KOKKOS_ENABLE_HIP
 template <>
-struct HeffteBackendTraits<Kokkos::Experimental::HIP, Impl::FFTBackendDefault>
+struct HeffteBackendTraits<Kokkos::HIP, Impl::FFTBackendDefault>
 {
     using backend_type = heffte::backend::rocfft;
 };
@@ -509,20 +505,12 @@ class HeffteFastFourierTransform
     //! Scalar value type.
     using value_type = Scalar;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
     //! Kokkos memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert(
-        Cabana::Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
     //! Kokkos execution space.
     using execution_space = ExecSpace;
-    //! Kokkos execution space.
-    using exec_space [[deprecated]] = execution_space;
-    //! Default Kokkos device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! FFT backend type.
     using backend_type = BackendType;
     //! Mesh type.

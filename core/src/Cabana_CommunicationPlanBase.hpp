@@ -16,6 +16,7 @@
 #ifndef CABANA_COMMUNICATIONPLANBASE_HPP
 #define CABANA_COMMUNICATIONPLANBASE_HPP
 
+#include <Cabana_Tags.hpp>
 #include <Cabana_Utils.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -32,6 +33,8 @@
 
 namespace Cabana
 {
+//---------------------------------------------------------------------------//
+
 namespace Impl
 {
 //! \cond Impl
@@ -59,7 +62,7 @@ struct CountSendsAndCreateSteeringAlgorithm<Kokkos::Cuda>
 #endif // end KOKKOS_ENABLE_CUDA
 #ifdef KOKKOS_ENABLE_HIP
 template <>
-struct CountSendsAndCreateSteeringAlgorithm<Kokkos::Experimental::HIP>
+struct CountSendsAndCreateSteeringAlgorithm<Kokkos::HIP>
 {
     using type = CountSendsAndCreateSteeringAtomic;
 };
@@ -426,15 +429,9 @@ template <class MemorySpace>
 class CommunicationPlanBase
 {
   public:
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert( Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
-
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
@@ -658,7 +655,7 @@ class CommunicationPlanBase
             _total_num_export );
         auto steer_vec = _export_steering;
         Kokkos::parallel_for(
-            "Cabana::createSteering",
+            "Cabana::CommunicationPlan::createSteering",
             Kokkos::RangePolicy<ExecutionSpace>( 0, _num_export_element ),
             KOKKOS_LAMBDA( const int i ) {
                 if ( element_export_ranks( i ) >= 0 )
@@ -681,13 +678,23 @@ class CommunicationPlanBase
     //! \endcond
 
   protected:
+    //! Shared pointer to Mpi communicator
     std::shared_ptr<MPI_Comm> _comm_ptr;
+    //! List of Mpi neighbors
     std::vector<int> _neighbors;
+    //! Number of elements exported
     std::size_t _total_num_export;
+    //! Number of elements imported
     std::size_t _total_num_import;
+    //! Number of elements exported to each neighbor
     std::vector<std::size_t> _num_export;
+    //! Number of elements imported from each neighbor
     std::vector<std::size_t> _num_import;
+    //! Number of elements exported. May be different from _total_num_export
+    //! if some of the export ranks used in the construction are -1 and
+    //! therefore will not particpate in an export operation.
     std::size_t _num_export_element;
+    //! Export steering vector
     Kokkos::View<std::size_t*, memory_space> _export_steering;
 };
 
@@ -830,6 +837,7 @@ class CommunicationDataBase
     //! Communication buffer type.
     using buffer_type = typename comm_data_type::buffer_type;
 
+  protected:
     /*!
       \param comm_plan The communication plan.
       \param particles The particle data (either AoSoA or slice).
@@ -955,12 +963,11 @@ class CommunicationDataBase
 };
 
 // Forward declaration of the primary CommunicationPlan template.
-template <class MemorySpace, class CommSpace = CommSpace::Mpi>
+template <class MemorySpace, class CommSpaceType = Mpi>
 class CommunicationPlan;
 
 // Forward declaration of the primary CommunicationData template.
-template <class CommPlanType, class CommDataType,
-          class CommSpace = CommSpace::Mpi>
+template <class CommPlanType, class CommDataType, class CommSpaceType = Mpi>
 class CommunicationData;
 
 } // namespace Cabana
@@ -968,10 +975,9 @@ class CommunicationData;
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_CommunicationPlan_Mpi.hpp>
-
 #ifdef Cabana_ENABLE_LOCALITY_AWARE
 #include <impl/Cabana_CommunicationPlan_LocalityAware.hpp>
-#endif // LOCALITYAWARE
+#endif // Enable Locality aware
 #endif // Enable MPI
 
 #endif // end CABANA_COMMUNICATIONPLANBASE_HPP

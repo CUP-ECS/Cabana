@@ -249,10 +249,10 @@ class Array
         std::conditional_t<2 == num_space_dim,
                            Kokkos::View<value_type***, Params...>, void>>;
 
-    //! Memory space.
+    //! Kokkos memory space.
     using memory_space = typename view_type::memory_space;
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
+    static_assert( Kokkos::is_memory_space<memory_space>() );
+
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
 
@@ -283,8 +283,10 @@ class Array
         for ( std::size_t d = 0; d < num_space_dim + 1; ++d )
             if ( (long)view.extent( d ) !=
                  layout->indexSpace( Ghost(), Local() ).extent( d ) )
-                throw std::runtime_error( "Cabana::Grid::Array: Layout and "
-                                          "view dimensions do not match" );
+                throw std::runtime_error(
+                    "Cabana::Grid::Array: Layout and "
+                    "view dimensions do not match (View label: " +
+                    view.label() + ")" );
     }
 
     //! Get the layout of the array.
@@ -375,8 +377,9 @@ createSubarray( const Array<Scalar, EntityType, MeshType, Params...>& array,
                 const int dof_min, const int dof_max )
 {
     if ( dof_min < 0 || dof_max > array.layout()->dofsPerEntity() )
-        throw std::logic_error(
-            "Cabana::Grid::createSubarray: Subarray dimensions out of bounds" );
+        throw std::logic_error( "Cabana::Grid::createSubarray: Subarray "
+                                "dimensions out of bounds (Label: " +
+                                array.label() + ")" );
 
     auto space = array.layout()->indexSpace( Ghost(), Local() );
     std::array<long, MeshType::num_space_dim + 1> min;
@@ -454,7 +457,7 @@ scale( Array_t& array, const typename Array_t::value_type alpha,
         "Cabana::Grid::ArrayOp::scale: Cabana::Grid::Array required" );
     auto view = array.view();
     Kokkos::parallel_for(
-        "ArrayOp::scale",
+        "Cabana::Grid::ArrayOp::scale",
         createExecutionPolicy( array.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int k, const int l ) {
@@ -478,7 +481,7 @@ scale( Array_t& array, const typename Array_t::value_type alpha,
         "Cabana::Grid::ArrayOp::scale: Cabana::Grid::Array required" );
     auto view = array.view();
     Kokkos::parallel_for(
-        "ArrayOp::scale",
+        "Cabana::Grid::ArrayOp::scale",
         createExecutionPolicy( array.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int l ) {
@@ -504,8 +507,9 @@ scale( Array_t& array, const std::vector<typename Array_t::value_type>& alpha,
         "Cabana::Grid::ArrayOp::scale: Cabana::Grid::Array required" );
     if ( alpha.size() !=
          static_cast<unsigned>( array.layout()->dofsPerEntity() ) )
-        throw std::runtime_error(
-            "Cabana::Grid::ArrayOp::scale: Incorrect vector size" );
+        throw std::runtime_error( "Cabana::Grid::ArrayOp::scale: Incorrect "
+                                  "vector size (Label: " +
+                                  array.label() + ")" );
 
     Kokkos::View<const typename Array_t::value_type*, Kokkos::HostSpace,
                  Kokkos::MemoryUnmanaged>
@@ -515,7 +519,7 @@ scale( Array_t& array, const std::vector<typename Array_t::value_type>& alpha,
 
     auto array_view = array.view();
     Kokkos::parallel_for(
-        "ArrayOp::scale",
+        "Cabana::Grid::ArrayOp::scale",
         createExecutionPolicy( array.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int k, const int l ) {
@@ -540,8 +544,9 @@ scale( Array_t& array, const std::vector<typename Array_t::value_type>& alpha,
         "Cabana::Grid::ArrayOp::scale: Cabana::Grid::Array required" );
     if ( alpha.size() !=
          static_cast<unsigned>( array.layout()->dofsPerEntity() ) )
-        throw std::runtime_error(
-            "Cabana::Grid::ArrayOp::scale: Incorrect vector size" );
+        throw std::runtime_error( "Cabana::Grid::ArrayOp::scale: Incorrect "
+                                  "vector size (Label: " +
+                                  array.label() + ")" );
 
     Kokkos::View<const typename Array_t::value_type*, Kokkos::HostSpace,
                  Kokkos::MemoryUnmanaged>
@@ -551,7 +556,7 @@ scale( Array_t& array, const std::vector<typename Array_t::value_type>& alpha,
 
     auto array_view = array.view();
     Kokkos::parallel_for(
-        "ArrayOp::scale",
+        "Cabana::Grid::ArrayOp::scale",
         createExecutionPolicy( array.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int l ) {
@@ -575,8 +580,9 @@ void copy( Array_t& a, const Array_t& b, DecompositionTag tag )
     auto a_space = a.layout()->indexSpace( tag, Local() );
     auto b_space = b.layout()->indexSpace( tag, Local() );
     if ( a_space != b_space )
-        throw std::logic_error(
-            "Cabana::Grid::ArrayOp::copy: Incompatible index spaces" );
+        throw std::logic_error( "Cabana::Grid::ArrayOp::copy: Incompatible "
+                                "index spaces (Labels: " +
+                                a.label() + ", " + b.label() + ")" );
     auto subview_a = createSubview( a.view(), a_space );
     auto subview_b = createSubview( b.view(), b_space );
     Kokkos::deep_copy( subview_a, subview_b );
@@ -615,7 +621,7 @@ update( Array_t& a, const typename Array_t::value_type alpha, const Array_t& b,
     auto a_view = a.view();
     auto b_view = b.view();
     Kokkos::parallel_for(
-        "ArrayOp::update",
+        "Cabana::Grid::ArrayOp::update",
         createExecutionPolicy( a.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int k, const int l ) {
@@ -642,7 +648,7 @@ update( Array_t& a, const typename Array_t::value_type alpha, const Array_t& b,
     auto a_view = a.view();
     auto b_view = b.view();
     Kokkos::parallel_for(
-        "ArrayOp::update",
+        "Cabana::Grid::ArrayOp::update",
         createExecutionPolicy( a.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const long i, const long j, const long l ) {
@@ -674,7 +680,7 @@ update( Array_t& a, const typename Array_t::value_type alpha, const Array_t& b,
     auto b_view = b.view();
     auto c_view = c.view();
     Kokkos::parallel_for(
-        "ArrayOp::update",
+        "Cabana::Grid::ArrayOp::update",
         createExecutionPolicy( a.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int k, const int l ) {
@@ -706,7 +712,7 @@ update( Array_t& a, const typename Array_t::value_type alpha, const Array_t& b,
     auto b_view = b.view();
     auto c_view = c.view();
     Kokkos::parallel_for(
-        "ArrayOp::update",
+        "Cabana::Grid::ArrayOp::update",
         createExecutionPolicy( a.layout()->indexSpace( tag, Local() ),
                                typename Array_t::execution_space() ),
         KOKKOS_LAMBDA( const int i, const int j, const int l ) {
@@ -768,14 +774,6 @@ struct DotFunctor
             dst[j] += src[j];
     }
 
-    //! Join operation.
-    KOKKOS_INLINE_FUNCTION
-    void join( volatile value_type dst, const volatile value_type src ) const
-    {
-        for ( size_type j = 0; j < value_count; ++j )
-            dst[j] += src[j];
-    }
-
     //! Zero initialization.
     KOKKOS_INLINE_FUNCTION void init( value_type sum ) const
     {
@@ -809,13 +807,13 @@ void dot( const Array_t& a, const Array_t& b,
         a.view(), b.view() );
     typename Array_t::execution_space exec_space;
     Kokkos::parallel_reduce(
-        "ArrayOp::dot",
+        "Cabana::Grid::ArrayOp::dot",
         createExecutionPolicy( a.layout()->indexSpace( Own(), Local() ),
                                exec_space ),
         functor,
         Kokkos::View<typename Array_t::value_type*, Kokkos::HostSpace>(
             products.data(), products.size() ) );
-    exec_space.fence( "ArrayOp::dot before MPI_Allreduce" );
+    exec_space.fence( "Cabana::Grid::ArrayOp::dot before MPI_Allreduce" );
 
     MPI_Allreduce( MPI_IN_PLACE, products.data(), products.size(),
                    MpiTraits<typename Array_t::value_type>::type(), MPI_SUM,
@@ -876,15 +874,6 @@ struct NormInfFunctor
                 dst[j] = src[j];
     }
 
-    //! Join operation.
-    KOKKOS_INLINE_FUNCTION
-    void join( volatile value_type dst, const volatile value_type src ) const
-    {
-        for ( size_type j = 0; j < value_count; ++j )
-            if ( src[j] > dst[j] )
-                dst[j] = src[j];
-    }
-
     //! Zero initialization.
     KOKKOS_INLINE_FUNCTION void init( value_type norm ) const
     {
@@ -916,7 +905,7 @@ void normInf( const Array_t& array,
         array.view() );
     typename Array_t::execution_space exec_space;
     Kokkos::parallel_reduce(
-        "ArrayOp::normInf",
+        "Cabana::Grid::ArrayOp::normInf",
         createExecutionPolicy( array.layout()->indexSpace( Own(), Local() ),
                                exec_space ),
         functor,
@@ -978,14 +967,6 @@ struct Norm1Functor
             dst[j] += src[j];
     }
 
-    //! Join operation.
-    KOKKOS_INLINE_FUNCTION
-    void join( volatile value_type dst, const volatile value_type src ) const
-    {
-        for ( size_type j = 0; j < value_count; ++j )
-            dst[j] += src[j];
-    }
-
     //! Zero initialization.
     KOKKOS_INLINE_FUNCTION void init( value_type norm ) const
     {
@@ -1017,13 +998,13 @@ void norm1( const Array_t& array,
         array.view() );
     typename Array_t::execution_space exec_space;
     Kokkos::parallel_reduce(
-        "ArrayOp::norm1",
+        "Cabana::Grid::ArrayOp::norm1",
         createExecutionPolicy( array.layout()->indexSpace( Own(), Local() ),
                                exec_space ),
         functor,
         Kokkos::View<typename Array_t::value_type*, Kokkos::HostSpace>(
             norms.data(), norms.size() ) );
-    exec_space.fence( "ArrayOp::norm1 before MPI_Allreduce" );
+    exec_space.fence( "Cabana::Grid::ArrayOp::norm1 before MPI_Allreduce" );
 
     MPI_Allreduce( MPI_IN_PLACE, norms.data(), norms.size(),
                    MpiTraits<typename Array_t::value_type>::type(), MPI_SUM,
@@ -1079,14 +1060,6 @@ struct Norm2Functor
             dst[j] += src[j];
     }
 
-    //! Join operation.
-    KOKKOS_INLINE_FUNCTION
-    void join( volatile value_type dst, const volatile value_type src ) const
-    {
-        for ( size_type j = 0; j < value_count; ++j )
-            dst[j] += src[j];
-    }
-
     //! Zero initialization.
     KOKKOS_INLINE_FUNCTION void init( value_type norm ) const
     {
@@ -1118,13 +1091,13 @@ void norm2( const Array_t& array,
         array.view() );
     typename Array_t::execution_space exec_space;
     Kokkos::parallel_reduce(
-        "ArrayOp::norm2",
+        "Cabana::Grid::ArrayOp::norm2",
         createExecutionPolicy( array.layout()->indexSpace( Own(), Local() ),
                                exec_space ),
         functor,
         Kokkos::View<typename Array_t::value_type*, Kokkos::HostSpace>(
             norms.data(), norms.size() ) );
-    exec_space.fence( "ArrayOp::norm2 before MPI_Allreduce" );
+    exec_space.fence( "Cabana::Grid::ArrayOp::norm2 before MPI_Allreduce" );
 
     MPI_Allreduce( MPI_IN_PLACE, norms.data(), norms.size(),
                    MpiTraits<typename Array_t::value_type>::type(), MPI_SUM,

@@ -28,11 +28,19 @@ set(HEADERS_PUBLIC
   Cabana_Slice.hpp
   Cabana_SoA.hpp
   Cabana_Sort.hpp
+  Cabana_Tags.hpp
   Cabana_Tuple.hpp
   Cabana_Types.hpp
   Cabana_Utils.hpp
   Cabana_VerletList.hpp
   Cabana_Version.hpp
+  )
+
+set(HEADERS_IMPL
+  impl/Cabana_CartesianGrid.hpp
+  impl/Cabana_Index.hpp
+  impl/Cabana_PerformanceTraits.hpp
+  impl/Cabana_TypeTraits.hpp
   )
 
 set(HEADERS_IMPL
