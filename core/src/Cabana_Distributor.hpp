@@ -198,16 +198,12 @@ namespace Cabana
   same size as the number of imports given by the distributor on this
   rank. Call totalNumImport() on the distributor to get this size value.
 */
-template <class ExecutionSpace, class MemorySpace, class CommSpace,
-          class AoSoA_t>
-void migrate(
-    ExecutionSpace exec_space,
-    const Distributor<MemorySpace, CommSpace>& distributor, const AoSoA_t& src,
-    AoSoA_t& dst,
-    typename std::enable_if<
-        ( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
-          is_aosoa<AoSoA_t>::value ),
-        int>::type* = 0 )
+template <class ExecutionSpace, class Distributor_t, class AoSoA_t>
+void migrate( ExecutionSpace exec_space, const Distributor_t& distributor,
+              const AoSoA_t& src, AoSoA_t& dst,
+              typename std::enable_if<( is_distributor<Distributor_t>::value &&
+                                        is_aosoa<AoSoA_t>::value ),
+                                      int>::type* = 0 )
 {
     // Check that src and dst are the right size.
     if ( src.size() != distributor.exportSize() )
@@ -275,12 +271,12 @@ void migrate( const Distributor_t& distributor, const AoSoA_t& src,
   function, consider reserving enough memory in the data structure so
   reallocating is not necessary.
 */
-template <class ExecutionSpace, class MemorySpace, class CommSpace,
-          class AoSoA_t>
-void migrate(
-    ExecutionSpace exec_space,
-    const Distributor<MemorySpace, CommSpace>& distributor, AoSoA_t& aosoa,
-    typename std::enable_if<( is_aosoa<AoSoA_t>::value ), int>::type* = 0 )
+template <class ExecutionSpace, class Distributor_t, class AoSoA_t>
+void migrate( ExecutionSpace exec_space, const Distributor_t& distributor,
+              AoSoA_t& aosoa,
+              typename std::enable_if<( is_distributor<Distributor_t>::value &&
+                                        is_aosoa<AoSoA_t>::value ),
+                                      int>::type* = 0 )
 {
     // Check that the AoSoA is the right size.
     if ( aosoa.size() != distributor.exportSize() )
@@ -358,14 +354,12 @@ void migrate( const Distributor_t& distributor, AoSoA_t& aosoa,
   same size as the number of imports given by the distributor on this
   rank. Call totalNumImport() on the distributor to get this size value.
 */
-template <class MemorySpace, class CommSpace, class Slice_t>
-void migrate(
-    const Distributor<MemorySpace, CommSpace>& distributor, const Slice_t& src,
-    Slice_t& dst,
-    typename std::enable_if<
-        ( is_distributor<Distributor<MemorySpace, CommSpace>>::value &&
-          is_slice<Slice_t>::value ),
-        int>::type* = 0 )
+template <class Distributor_t, class Slice_t>
+void migrate( const Distributor_t& distributor, const Slice_t& src,
+              Slice_t& dst,
+              typename std::enable_if<( is_distributor<Distributor_t>::value &&
+                                        is_slice<Slice_t>::value ),
+                                      int>::type* = 0 )
 {
     // Check that src and dst are the right size.
     if ( src.size() != distributor.exportSize() )

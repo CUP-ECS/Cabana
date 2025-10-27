@@ -407,13 +407,6 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   describes how to pack the local data to be exported into contiguous send
   buffers for each destination rank (in the forward communication plan).
 
-  A CommunicationPlan is created with a specific communication backend
-  designated by the CommSpace type tag. The base class holds functions and
-  variables common to all communication spaces. Functions, and variables
-  required by them, that implement the communication patterns are stored in
-  child classes in the directory impl/Cabana_CommuncationPlan_XXX, where XXX is
-  the name of the communication backend.
-
   Some nomenclature:
 
   Export - elements we are sending in the forward communication plan.
@@ -819,7 +812,7 @@ struct CommunicationDataSlice
 template <class CommPlanType, class CommDataType>
 class CommunicationDataBase
 {
-  protected:
+  public:
     //! Communication plan type (Halo, Distributor)
     using plan_type = CommPlanType;
     //! Kokkos execution space.
@@ -932,12 +925,14 @@ class CommunicationDataBase
         setData( particles );
 
         auto send_capacity = sendCapacity();
-        std::size_t new_send_size = total_send * _overallocation;
+        auto new_send_size = static_cast<std::size_t>(
+            static_cast<double>( total_send ) * _overallocation );
         if ( new_send_size > send_capacity )
             _comm_data.reallocateSend( new_send_size );
 
         auto recv_capacity = receiveCapacity();
-        std::size_t new_recv_size = total_recv * _overallocation;
+        auto new_recv_size = static_cast<std::size_t>(
+            static_cast<double>( total_recv ) * _overallocation );
         if ( new_recv_size > recv_capacity )
             _comm_data.reallocateReceive( new_recv_size );
 

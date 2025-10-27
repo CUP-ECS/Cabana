@@ -406,8 +406,7 @@ class Gather;
 template <class HaloType, class AoSoAType>
 class Gather<HaloType, AoSoAType,
              typename std::enable_if<is_aosoa<AoSoAType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>,
-                               typename HaloType::commspace_type>
+    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -416,8 +415,7 @@ class Gather<HaloType, AoSoAType,
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>,
-                          commspace_type>;
+        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -457,7 +455,7 @@ class Gather<HaloType, AoSoAType,
     auto totalReceive( const HaloType& halo ) { return halo.totalNumImport(); }
 
     /*!
-    \brief Perform the gather operation.
+      \brief Perform the gather operation.
     */
     void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
 
@@ -528,8 +526,7 @@ class Gather<HaloType, AoSoAType,
 template <class HaloType, class SliceType>
 class Gather<HaloType, SliceType,
              typename std::enable_if<is_slice<SliceType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
-                               typename HaloType::commspace_type>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -538,8 +535,7 @@ class Gather<HaloType, SliceType,
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
-                          commspace_type>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -579,7 +575,7 @@ class Gather<HaloType, SliceType,
     auto totalReceive( const HaloType& halo ) { return halo.totalNumImport(); }
 
     /*!
-    \brief Perform the gather operation.
+      \brief Perform the gather operation.
     */
     void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
 
@@ -638,6 +634,52 @@ class Gather<HaloType, SliceType,
     using base_type::_send_size;
 };
 
+//---------------------------------------------------------------------------//
+/*!
+  \brief Create the gather.
+
+  \param halo The halo to use for the gather.
+  \param data The data on which to perform the gather. The slice should have a
+  size equivalent to halo.numGhost() + halo.numLocal(). The locally owned
+  elements are expected to appear first (i.e. in the first halo.numLocal()
+  elements) and the ghosted elements are expected to appear second (i.e. in the
+  next halo.numGhost() elements()).
+  \param overallocation An optional factor to keep extra space in the buffers to
+  avoid frequent resizing.
+  \return Gather
+*/
+template <class HaloType, class ParticleDataType>
+auto createGather( const HaloType& halo, const ParticleDataType& data,
+                   const double overallocation = 1.0 )
+{
+    return Gather<HaloType, ParticleDataType>( halo, data, overallocation );
+}
+
+//---------------------------------------------------------------------------//
+/*!
+  \brief Synchronously gather data from the local decomposition to the
+  ghosts using the halo forward communication plan. Slice version. This is a
+  uniquely-owned to multiply-owned communication.
+
+  \note This routine allocates send and receive buffers internally. This is
+  often not performant due to frequent buffer reallocations - consider creating
+  and reusing Gather instead.
+
+  \param halo The halo to use for the gather.
+
+  \param data The data on which to perform the gather. The slice should
+  have a size equivalent to halo.numGhost() + halo.numLocal(). The locally
+  owned elements are expected to appear first (i.e. in the first
+  halo.numLocal() elements) and the ghosted elements are expected to appear
+  second (i.e. in the next halo.numGhost() elements()).
+*/
+template <class HaloType, class ParticleDataType>
+void gather( const HaloType& halo, ParticleDataType& data )
+{
+    auto gather = createGather( halo, data );
+    gather.apply();
+}
+
 /**********
  * SCATTER *
  **********/
@@ -656,8 +698,7 @@ class Gather<HaloType, SliceType,
 */
 template <class HaloType, class SliceType>
 class Scatter
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
-                               typename HaloType::commspace_type>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -666,8 +707,7 @@ class Scatter
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>,
-                          commspace_type>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>>;
     //! Communication plan type (Halo).
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -770,6 +810,9 @@ class Scatter
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Halo_Mpi.hpp>
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+#include <impl/Cabana_Halo_LocalityAware.hpp>
+#endif // Enable LocalityAware
 #endif // Enable MPI
 
 namespace Cabana

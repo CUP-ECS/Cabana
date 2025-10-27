@@ -105,9 +105,9 @@ set_package_properties(HYPRE PROPERTIES TYPE OPTIONAL PURPOSE "Used for structur
 # find heffte
 Cabana_add_dependency( PACKAGE Heffte VERSION 2.3.0 )
 set_package_properties(Heffte PROPERTIES TYPE OPTIONAL PURPOSE "Used for fft calculations")
-if(HEFFTE_FOUND)
+if(Heffte_FOUND)
   # ensure at least one host backend is enabled
-  if(NOT Heffte_ENABLE_FFTW AND NOT Heffte_ENABLE_MKL)
+  if(NOT Heffte_FFTW_FOUND AND NOT Heffte_MKL_FOUND)
     message(FATAL_ERROR "Cabana heFFTe support requires at least one host backend (FFTW or MKL).")
   endif()
 endif()
@@ -252,17 +252,13 @@ if(Cabana_ENABLE_TESTING)
   set(TEST_HARNESS_DIR ${CMAKE_SOURCE_DIR}/cmake/test_harness)
   include(cmake/test_harness/test_harness.cmake)
   enable_testing()
-
-  if(Cabana_INSTALL_TEST_EXECUTABLES)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/core/unit_test
-          DESTINATION ${CMAKE_INSTALL_DATADIR}/Cabana/tests
-          FILES_MATCHING PATTERN "*.cpp" PATTERN "*.hpp" PATTERN "CMakeLists.txt")
-  endif()
 endif()
 
 # enable doxygen
-find_package(Doxygen)
-if(Doxygen_FOUND)
+option(Cabana_ENABLE_DOXYGEN "Build documentation" OFF)
+add_feature_info(Documentation Cabana_ENABLE_DOXYGEN "Build documentation (requires Doxygen)")
+if(Cabana_ENABLE_DOXYGEN)
+  find_package(Doxygen REQUIRED)
   doxygen_add_docs(doxygen core/src grid/src)
 endif()
 
