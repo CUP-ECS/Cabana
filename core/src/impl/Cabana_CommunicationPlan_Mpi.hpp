@@ -397,8 +397,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             }
         }
 
-        // A barrier is needed because of the use of wildcard receives. This avoids
-        // successive calls interfering with each other.
+        // A barrier is needed because of the use of wildcard receives. This
+        // avoids successive calls interfering with each other.
         MPI_Barrier( this->comm() );
 
         // Return the neighbor ids.
@@ -619,7 +619,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         sdispls.push_back( 0 );
         for ( int neighbor_rank : this->_neighbors )
             sdispls.push_back( sdispls.back() +
-                            neighbor_counts_host( neighbor_rank ) );
+                               neighbor_counts_host( neighbor_rank ) );
 
         // Store send counts to each rank
         std::vector<int> sendcounts;
@@ -631,23 +631,23 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         Kokkos::View<int*, memory_space> export_indices(
             "export_indices", this->_total_num_export );
         std::size_t idx = 0;
-        int num_messages =
-            num_n + neighbor_counts_host.extent( 0 );
+        int num_messages = num_n + neighbor_counts_host.extent( 0 );
 
         // Reset request and status vectors.
-        requests.clear(); requests.reserve( num_messages );
+        requests.clear();
+        requests.reserve( num_messages );
         status.clear();
         std::size_t num_recvs = 0;
         for ( std::size_t i = 0; i < num_n; i++ )
         {
             auto count = this->_num_export[i];
-            if (count)
+            if ( count )
             {
                 auto count = this->_num_export[i];
                 requests.push_back( MPI_Request() );
                 MPI_Irecv( export_indices.data() + idx, count, MPI_INT,
-                            this->_neighbors[i], mpi_tag + 1, this->comm(),
-                            &( requests.back() ) );
+                           this->_neighbors[i], mpi_tag + 1, this->comm(),
+                           &( requests.back() ) );
                 idx += count;
                 num_recvs++;
             }
@@ -664,9 +664,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                 int to_rank = ranks_sorted( sdispls[counter] );
                 int count = sendcounts[counter];
                 requests.push_back( MPI_Request() );
-                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT,
-                        to_rank, mpi_tag + 1, this->comm(),
-                        &( requests.back() ) );
+                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT, to_rank,
+                           mpi_tag + 1, this->comm(), &( requests.back() ) );
                 counter++;
                 idx += count;
             }
@@ -674,8 +673,8 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
 
         // Wait for all count exchanges to complete
         status.resize( requests.size() );
-        const int ec1 = MPI_Waitall( requests.size(), requests.data(),
-                                     status.data() );
+        const int ec1 =
+            MPI_Waitall( requests.size(), requests.data(), status.data() );
         if ( MPI_SUCCESS != ec1 )
             throw std::logic_error( "Failed MPI Communication" );
 
@@ -688,9 +687,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         for ( std::size_t i = 0; i < num_recvs; i++ )
         {
             int export_rank = status[i].MPI_SOURCE;
-            for (int j = 0; j < this->_num_export[i]; j++)
+            for ( int j = 0; j < this->_num_export[i]; j++ )
             {
-                element_export_ranks_h(counter++) = export_rank;
+                element_export_ranks_h( counter++ ) = export_rank;
             }
         }
         auto element_export_ranks = Kokkos::create_mirror_view_and_copy(
@@ -700,7 +699,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
-        
+
         // No barrier is needed because all ranks know who they are receiving
         // and sending to.
 
@@ -926,7 +925,7 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         sdispls.push_back( 0 );
         for ( int neighbor_rank : this->_neighbors )
             sdispls.push_back( sdispls.back() +
-                            neighbor_counts_host( neighbor_rank ) );
+                               neighbor_counts_host( neighbor_rank ) );
 
         // Store send counts to each rank
         std::vector<int> sendcounts;
@@ -1021,17 +1020,16 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         std::size_t idx = 0;
         mpi_requests.clear();
         mpi_statuses.clear();
-        int num_messages =
-            num_neighbors + num_recvs;
+        int num_messages = num_neighbors + num_recvs;
         mpi_requests.resize( num_messages );
         mpi_statuses.resize( num_messages );
         std::size_t counter = 0;
         for ( int i = 0; i < num_recvs; i++ )
         {
-            int count = send_counts(i);
+            int count = send_counts( i );
             MPI_Irecv( export_indices.data() + idx, count, MPI_INT,
-               send_to( i ), mpi_tag + 1, this->comm(),
-               &mpi_requests[counter] );
+                       send_to( i ), mpi_tag + 1, this->comm(),
+                       &mpi_requests[counter] );
             idx += count;
             counter++;
         }
@@ -1039,9 +1037,10 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         // The number of valid neighbors in neighbor_counts_host is equal to the
         // number of unique ranks in ranks_sorted. We use this information to
         // retrieve the correct rank to send data to.
-        
+
         // Send the indices in one message per neighbor
-        idx = 0; counter = 0;
+        idx = 0;
+        counter = 0;
         for ( std::size_t i = 0; i < neighbor_counts_host.extent( 0 ); i++ )
         {
             if ( neighbor_counts_host( i ) != 0 )
@@ -1050,9 +1049,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
                 // The nth rank to send to begins at offset = sdispls(n).
                 int to_rank = ranks_sorted( sdispls[counter] );
                 int count = sendcounts[counter];
-                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT,
-                        to_rank, mpi_tag + 1, this->comm(),
-                        &mpi_requests[num_recvs + counter] );
+                MPI_Isend( ids_sorted.data() + idx, count, MPI_INT, to_rank,
+                           mpi_tag + 1, this->comm(),
+                           &mpi_requests[num_recvs + counter] );
                 counter++;
                 idx += count;
             }
@@ -1073,9 +1072,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
         for ( int i = 0; i < num_recvs; i++ )
         {
             int export_rank = mpi_statuses[i].MPI_SOURCE;
-            for (int j = 0; j < send_counts(i); j++)
+            for ( int j = 0; j < send_counts( i ); j++ )
             {
-                element_export_ranks_h(counter++) = export_rank;
+                element_export_ranks_h( counter++ ) = export_rank;
             }
         }
 
@@ -1086,9 +1085,9 @@ class CommunicationPlan<MemorySpace, CommSpace::Mpi>
             exec_space, element_export_ranks, comm_size,
             typename Impl::CountSendsAndCreateSteeringAlgorithm<
                 ExecutionSpace>::type() );
-        
-        // A barrier is needed because of the use of wildcard receives. This avoids
-        // successive calls interfering with each other.
+
+        // A barrier is needed because of the use of wildcard receives. This
+        // avoids successive calls interfering with each other.
         MPI_Barrier( this->comm() );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
