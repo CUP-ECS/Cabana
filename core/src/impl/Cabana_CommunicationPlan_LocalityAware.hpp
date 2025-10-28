@@ -1243,8 +1243,7 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 {
   protected:
     //! Communication plan type (Halo, Distributor)
-    /// using typename CommunicationDataBase<CommPlanType,
-    /// CommDataType>::plan_type;
+    using typename CommunicationDataBase<CommPlanType, CommDataType>::plan_type;
     // //! Kokkos execution space.
     // using typename CommunicationDataBase<CommPlanType,
     // CommDataType>::execution_space;
@@ -1270,12 +1269,12 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
       \param overallocation An optional factor to keep extra space in the
       buffers to avoid frequent resizing.
     */
-    CommunicationData( const CommPlanType& comm_plan,
+    CommunicationData( const plan_type& comm_plan,
                        const particle_data_type& particles,
                        const double overallocation = 1.0 )
         : CommunicationDataBase<CommPlanType, CommDataType>(
               comm_plan, particles, overallocation )
-        , setup_persistent(false)
+        , _persistent_set(false)
     {
     }
 
@@ -1287,12 +1286,11 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
      * will point to the wrong place! XXX We should add code to check for
      * this appropriately XXX
      */
-    template <class HaloType>
-    void setupPersistent( const HaloType& _halo, std::size_t elem_size )
+    void setupPersistent( const plan_type& comm_plan, const std::size_t element_size )
     {
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
-        int num_n = _halo.numNeighbor();
+        int num_n = comm_plan.numNeighbor();
 
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
@@ -1304,41 +1302,36 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         for ( int n = 0; n < num_n; ++n )
         {
-            if ( _halo.numImport( n ) != 0 )
+            if ( comm_plan.numImport( n ) != 0 )
             {
-                recv_counts[new_n_r] = _halo.numImport( n ) * elem_size;
+                recv_counts[new_n_r] = comm_plan.numImport( n ) * element_size;
                 recv_displs[new_n_r] = recv_offset;
                 recv_offset += recv_counts[new_n_r];
-                recv_neighbors[new_n_r] = _halo.neighborRank( n );
+                recv_neighbors[new_n_r] = comm_plan.neighborRank( n );
                 new_n_r++;
             }
-            if ( _halo.numExport( n ) != 0 )
+            if ( comm_plan.numExport( n ) != 0 )
             {
-                send_counts[new_n_s] = _halo.numExport( n ) * elem_size;
+                send_counts[new_n_s] = comm_plan.numExport( n ) * element_size;
                 send_displs[new_n_s] = send_offset;
                 send_offset += send_counts[new_n_s];
-                send_neighbors[new_n_s] = _halo.neighborRank( n );
+                send_neighbors[new_n_s] = comm_plan.neighborRank( n );
                 new_n_s++;
             }
         }
 
-        MPI_Datatype datatype = MPI_BYTE;
-
-        assert( send_buffer.extent( 0 ) * elem_size >= send_offset );
-        assert( recv_buffer.extent( 0 ) * elem_size >= recv_offset );
-
         MPIL_Request* neighor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(),
-            datatype, recv_buffer.data(), recv_counts.data(),
-            recv_displs.data(), datatype, _halo.ltopo(), _halo.lcomm(),
-            _halo.linfo(), &neighor_request );
+            MPI_BYTE, recv_buffer.data(), recv_counts.data(),
+            recv_displs.data(), MPI_BYTE, comm_plan.ltopo(), comm_plan.lcomm(),
+            comm_plan.linfo(), &neighor_request );
         
         // Save request object for start/wait
         _lrequest_ptr = make_raw_ptr_shared( neighor_request, MPIL_Request_free );
-        this->setup_persistent = true;
+        _persistent_set = true;
 
-        MPI_Barrier( this->comm() );
+        MPI_Barrier( comm_plan.comm() );
     }
 
     /*!
@@ -1346,9 +1339,14 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     */
     MPIL_Request* lrequest() const { return _lrequest_ptr.get(); }
 
+    /*!
+      \brief Getter for _persistent_set
+    */
+    bool persistent_set() {return _persistent_set; }
+
   private:
     // Flag for whether persistent communication has been initialized
-    bool setup_persistent;
+    bool _persistent_set;
 
     // Request object associated with this persistent communication
     std::shared_ptr<MPIL_Request> _lrequest_ptr;

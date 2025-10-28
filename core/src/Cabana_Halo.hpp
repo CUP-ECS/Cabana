@@ -406,7 +406,7 @@ class Gather;
 template <class HaloType, class AoSoAType>
 class Gather<HaloType, AoSoAType,
              typename std::enable_if<is_aosoa<AoSoAType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>>
+    : public CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>, typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -415,7 +415,7 @@ class Gather<HaloType, AoSoAType,
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>>;
+        CommunicationData<HaloType, CommunicationDataAoSoA<AoSoAType>, commspace_type>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -531,7 +531,7 @@ class Gather<HaloType, AoSoAType,
 template <class HaloType, class SliceType>
 class Gather<HaloType, SliceType,
              typename std::enable_if<is_slice<SliceType>::value>::type>
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>, typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -540,7 +540,7 @@ class Gather<HaloType, SliceType,
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>, commspace_type>;
     //! Communication plan type (Halo)
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
@@ -708,7 +708,7 @@ void gather( const HaloType& halo, ParticleDataType& data )
 */
 template <class HaloType, class SliceType>
 class Scatter
-    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>>
+    : public CommunicationData<HaloType, CommunicationDataSlice<SliceType>, typename HaloType::commspace_type>
 {
   public:
     static_assert( is_halo<HaloType>::value, "" );
@@ -717,7 +717,7 @@ class Scatter
     using commspace_type = typename HaloType::commspace_type;
     //! Base type.
     using base_type =
-        CommunicationData<HaloType, CommunicationDataSlice<SliceType>>;
+        CommunicationData<HaloType, CommunicationDataSlice<SliceType>, commspace_type>;
     //! Communication plan type (Halo).
     using plan_type = typename base_type::plan_type;
     //! Kokkos execution space.
