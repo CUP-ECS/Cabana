@@ -127,8 +127,8 @@ void migrateData(
         Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
     MPI_Datatype datatype = MPI_BYTE;
-    auto xcomm = distributor.xcomm();
-    auto xtopo = distributor.xtopo();
+    auto xcomm = distributor.lcomm();
+    auto xtopo = distributor.ltopo();
 
     MPIL_Request* neighbor_request;
     MPIL_Info* xinfo;
@@ -293,8 +293,8 @@ void migrateSlice(
         Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), recv_buffer );
 
     MPI_Datatype datatype = MPI_BYTE;
-    auto xcomm = distributor.xcomm();
-    auto xtopo = distributor.xtopo();
+    auto xcomm = distributor.lcomm();
+    auto xtopo = distributor.ltopo();
 
     MPIL_Request* neighbor_request;
     MPIL_Info* xinfo;

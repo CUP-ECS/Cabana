@@ -108,8 +108,9 @@ class CommunicationPlan<MemorySpace, LocalityAware>
     /*!
       \brief Get the MPI Advance communicator.
     */
-    MPIL_Comm* xcomm() const { return _lcomm_ptr.get(); }
-    MPIL_Topo* xtopo() const { return _ltopo_ptr.get(); }
+    MPIL_Comm* lcomm() const { return _lcomm_ptr.get(); }
+    MPIL_Topo* ltopo() const { return _ltopo_ptr.get(); }
+    MPIL_Info* linfo() const { return _linfo_ptr.get(); }
 
     /*!
       \brief Neighbor and export rank creator. Use this when you already know
@@ -1274,11 +1275,12 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
                        const double overallocation = 1.0 )
         : CommunicationDataBase<CommPlanType, CommDataType>(
               comm_plan, particles, overallocation )
+        , setup_persistent(false)
     {
     }
 
   public:
-    /* Setup persistent communication for the communicaiton plan associated
+    /* Setup persistent communication for the communication plan associated
      * with this CommunicationData. This can only be called after the
      * send buffer and receive buffer have been reallocated and reserved,
      * and they cannot be reallocated after that or the neighbor collective
@@ -1291,8 +1293,6 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
         int num_n = _halo.numNeighbor();
-
-        this->setup_persistent = true;
 
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
@@ -1322,60 +1322,36 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
             }
         }
 
-        // Allocate and initialize the persistent request
-        auto xinfo_deleter = []( MPIL_Info** info )
-        {
-            if ( info )
-            {
-                MPIL_Info_free( info );
-                delete info;
-            }
-        };
-        MPIL_Info** raw_xinfo = new MPIL_Info*;
-        *raw_xinfo = nullptr;
-        xinfo = std::shared_ptr<MPIL_Info*>( raw_xinfo, xinfo_deleter );
-        MPIL_Info_init( xinfo.get() );
-
-        auto neighbor_request_deleter = []( MPIL_Request** req )
-        {
-            if ( req )
-            {
-                MPIL_Request_free( req );
-                delete req;
-            }
-        };
-
-        MPIL_Request** raw_xreq = new MPIL_Request*;
-        *raw_xreq = nullptr;
-        neighbor_request = std::shared_ptr<MPIL_Request*>(
-            raw_xreq, neighbor_request_deleter );
         MPI_Datatype datatype = MPI_BYTE;
 
         assert( send_buffer.extent( 0 ) * elem_size >= send_offset );
         assert( recv_buffer.extent( 0 ) * elem_size >= recv_offset );
 
-        MPIL_Topo* xtopo0 = nullptr;
-        MPIL_Topo_init(
-            //   new_n_s, send_neighbors.data(), MPI_UNWEIGHTED,
-            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
-            send_neighbors.data(), MPI_UNWEIGHTED, *xinfo, &xtopo0 );
-        _ltopo_ptra = make_raw_ptr_shared( xtopo0, MPIL_Topo_free );
-
+        MPIL_Request* neighor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(),
             datatype, recv_buffer.data(), recv_counts.data(),
-            recv_displs.data(), datatype, _ltopo_ptra.get(), _halo.xcomm(),
-            *xinfo, neighbor_request.get() );
+            recv_displs.data(), datatype, _halo.ltopo(), _halo.lcomm(),
+            _halo.linfo(), &neighor_request );
+        
+        // Save request object for start/wait
+        _lrequest_ptr = make_raw_ptr_shared( neighor_request, MPIL_Request_free );
+        this->setup_persistent = true;
 
-        MPI_Barrier( MPI_COMM_WORLD );
+        MPI_Barrier( this->comm() );
     }
-    std::shared_ptr<MPIL_Topo> _ltopo_ptra;
+
+    /*!
+      \brief Get request pointer
+    */
+    MPIL_Request* lrequest() const { return _lrequest_ptr.get(); }
 
   private:
-    bool setup_persistent = false;
-    std::shared_ptr<MPIL_Request*> neighbor_request = nullptr;
-    std::shared_ptr<MPIL_Info*> xinfo = nullptr;
-    std::shared_ptr<int> counter = nullptr;
+    // Flag for whether persistent communication has been initialized
+    bool setup_persistent;
+
+    // Request object associated with this persistent communication
+    std::shared_ptr<MPIL_Request> _lrequest_ptr;
 };
 
 } // end namespace Cabana
