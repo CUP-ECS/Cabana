@@ -1329,7 +1329,7 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         
         // Save request object for start/wait
         _lrequest_ptr = make_raw_ptr_shared( neighor_request, MPIL_Request_free );
-        _persistent_set = true;
+        // _persistent_set = true;
 
         MPI_Barrier( comm_plan.comm() );
     }
