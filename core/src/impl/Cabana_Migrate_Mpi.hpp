@@ -45,7 +45,7 @@ void migrateData(
                               is_aosoa<AoSoA_t>::value ),
                             int>::type* = 0 )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::migrate" );
+    Kokkos::Profiling::ScopedRegion region( "Cabana::migrate (MPI)" );
 
     static_assert( is_accessible_from<typename Distributor_t::memory_space,
                                       ExecutionSpace>{},

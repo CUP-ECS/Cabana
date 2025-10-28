@@ -101,6 +101,11 @@ class CommunicationPlan<MemorySpace, LocalityAware>
     {
     }
 
+  private:
+    // Cleaned neighbor lists, which remove neighbors to which we send of receive zero elements.
+    std::vector<int> _send_neighbors;
+    std::vector<int> _recv_neighbors;
+
     // The functions in the public block below would normally be protected but
     // we make them public to allow using private class data in CUDA kernels
     // with lambda functions.
@@ -111,6 +116,12 @@ class CommunicationPlan<MemorySpace, LocalityAware>
     MPIL_Comm* lcomm() const { return _lcomm_ptr.get(); }
     MPIL_Topo* ltopo() const { return _ltopo_ptr.get(); }
     MPIL_Info* linfo() const { return _linfo_ptr.get(); }
+
+    /*!
+      \brief Get cleaned neighbor ranks
+    */
+    int nonZeroSendNeighbor(int n) const {return _send_neighbors[n];}
+    int nonZeroRecvNeighbor(int n) const {return _recv_neighbors[n];}
 
     /*!
       \brief Neighbor and export rank creator. Use this when you already know
@@ -238,12 +249,13 @@ class CommunicationPlan<MemorySpace, LocalityAware>
                                                    this->_num_import.end(), 0 );
         
         // Now that we know our neighbors, create a neighbor communicator
-        // to optimize calls to Cabana::migrate. Locality aware communication
+        // to optimize MPI communcation. Locality aware communication
         // currently does not support neighbors with 0-length sends or receives
         // so if we are not sending to or receiving from a neighbor in our
         // neighbor list we must remove it from the data going into
         // MPIL_Topo_init.
-        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
+        _send_neighbors.resize( num_n );
+        _recv_neighbors.resize( num_n );
         int new_n_r = 0;
         int new_n_s = 0;
 
@@ -251,12 +263,12 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         {
             if ( this->numImport( n ) != 0 )
             {
-                recv_neighbors[new_n_r] = this->neighborRank( n );
+                _recv_neighbors[new_n_r] = this->neighborRank( n );
                 new_n_r++;
             }
             if ( this->numExport( n ) != 0 )
             {
-                send_neighbors[new_n_s] = this->neighborRank( n );
+                _send_neighbors[new_n_s] = this->neighborRank( n );
                 new_n_s++;
             }
         }
@@ -266,8 +278,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         MPIL_Info* xinfo1;
         MPIL_Info_init( &xinfo1 );
         MPIL_Topo_init(
-            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
-            send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
+            new_n_r, _recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
+            _send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
         
         // Save MPIL objects
         _lcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
@@ -477,13 +489,14 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         MPIL_Info_free( &xinfo0 );
 
         // Now that we know our neighbors, create a neighbor communicator
-        // to optimize calls to Cabana::migrate. Locality aware communication
+        // to optimize MPI communcation. Locality aware communication
         // currently does not support neighbors with 0-length sends or receives
         // so if we are not sending to or receiving from a neighbor in our
         // neighbor list we must remove it from the data going into
         // MPIL_Topo_init.
         auto num_n = this->_neighbors.size();
-        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
+        _send_neighbors.resize( num_n );
+_recv_neighbors.resize( num_n );
         int new_n_r = 0;
         int new_n_s = 0;
 
@@ -491,12 +504,12 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         {
             if ( this->numImport( n ) != 0 )
             {
-                recv_neighbors[new_n_r] = this->neighborRank( n );
+                _recv_neighbors[new_n_r] = this->neighborRank( n );
                 new_n_r++;
             }
             if ( this->numExport( n ) != 0 )
             {
-                send_neighbors[new_n_s] = this->neighborRank( n );
+                _send_neighbors[new_n_s] = this->neighborRank( n );
                 new_n_s++;
             }
         }
@@ -504,8 +517,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         // Init topo with cleaned neighbor lists
         MPIL_Info* xinfo1 = nullptr;
         MPIL_Topo_init(
-            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
-            send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo0 );
+            new_n_r, _recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
+            _send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo0 );
         
         // Store MPIL objects so persistent communication and gather/scatter
         // functions can use them.
@@ -822,12 +835,13 @@ class CommunicationPlan<MemorySpace, LocalityAware>
                 ExecutionSpace>::type() );
         
         // Now that we know our neighbors, create a neighbor communicator
-        // to optimize calls to Cabana::migrate. Locality aware communication
+        // to optimize MPI communcation. Locality aware communication
         // currently does not support neighbors with 0-length sends or receives
         // so if we are not sending to or receiving from a neighbor in our
         // neighbor list we must remove it from the data going into
         // MPIL_Topo_init.
-        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
+        _send_neighbors.resize( num_n );
+_recv_neighbors.resize( num_n );
         int new_n_r = 0;
         int new_n_s = 0;
 
@@ -835,12 +849,12 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         {
             if ( this->numImport( n ) != 0 )
             {
-                recv_neighbors[new_n_r] = this->neighborRank( n );
+                _recv_neighbors[new_n_r] = this->neighborRank( n );
                 new_n_r++;
             }
             if ( this->numExport( n ) != 0 )
             {
-                send_neighbors[new_n_s] = this->neighborRank( n );
+                _send_neighbors[new_n_s] = this->neighborRank( n );
                 new_n_s++;
             }
         }
@@ -850,8 +864,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         MPIL_Info* xinfo1;
         MPIL_Info_init( &xinfo1 );
         MPIL_Topo_init(
-            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
-            send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
+            new_n_r, _recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
+            _send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
         
         // Save MPIL objects
         _lcomm_ptr = make_raw_ptr_shared( xcomm0, MPIL_Comm_free );
@@ -1147,13 +1161,14 @@ class CommunicationPlan<MemorySpace, LocalityAware>
                 ExecutionSpace>::type() );
 
         // Now that we know our neighbors, create a neighbor communicator
-        // to optimize calls to Cabana::migrate. Locality aware communication
+        // to optimize MPI communcation. Locality aware communication
         // currently does not support neighbors with 0-length sends or recieves
         // so if we are not sending to or recieveing from a neighbor in our
         // neighbor list we must remove it from the data going into
         // MPIL_Topo_init.
         auto num_n = this->_neighbors.size();
-        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
+        _send_neighbors.resize( num_n );
+_recv_neighbors.resize( num_n );
         int new_n_r = 0;
         int new_n_s = 0;
 
@@ -1161,12 +1176,12 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         {
             if ( this->numImport( n ) != 0 )
             {
-                recv_neighbors[new_n_r] = this->neighborRank( n );
+                _recv_neighbors[new_n_r] = this->neighborRank( n );
                 new_n_r++;
             }
             if ( this->numExport( n ) != 0 )
             {
-                send_neighbors[new_n_s] = this->neighborRank( n );
+                _send_neighbors[new_n_s] = this->neighborRank( n );
                 new_n_s++;
             }
         }
@@ -1175,8 +1190,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         MPIL_Topo* xtopo1 = nullptr;
         MPIL_Info* xinfo1 = nullptr;
         MPIL_Topo_init(
-            new_n_r, recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
-            send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
+            new_n_r, _recv_neighbors.data(), MPI_UNWEIGHTED, new_n_s,
+            _send_neighbors.data(), MPI_UNWEIGHTED, xinfo1, &xtopo1 );
         
         // Store MPIL objects so persistent communication and gather/scatter
         // functions can use them.
@@ -1294,7 +1309,6 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
         std::vector<int> send_displs( num_n ), recv_displs( num_n );
-        std::vector<int> send_neighbors( num_n ), recv_neighbors( num_n );
 
         std::size_t send_offset = 0, recv_offset = 0;
         int new_n_r = 0;
@@ -1307,7 +1321,6 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
                 recv_counts[new_n_r] = comm_plan.numImport( n ) * element_size;
                 recv_displs[new_n_r] = recv_offset;
                 recv_offset += recv_counts[new_n_r];
-                recv_neighbors[new_n_r] = comm_plan.neighborRank( n );
                 new_n_r++;
             }
             if ( comm_plan.numExport( n ) != 0 )
@@ -1315,20 +1328,19 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
                 send_counts[new_n_s] = comm_plan.numExport( n ) * element_size;
                 send_displs[new_n_s] = send_offset;
                 send_offset += send_counts[new_n_s];
-                send_neighbors[new_n_s] = comm_plan.neighborRank( n );
                 new_n_s++;
             }
         }
 
-        MPIL_Request* neighor_request = nullptr;
+        MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
             send_buffer.data(), send_counts.data(), send_displs.data(),
             MPI_BYTE, recv_buffer.data(), recv_counts.data(),
             recv_displs.data(), MPI_BYTE, comm_plan.ltopo(), comm_plan.lcomm(),
-            comm_plan.linfo(), &neighor_request );
+            comm_plan.linfo(), &neighbor_request );
         
         // Save request object for start/wait
-        _lrequest_ptr = make_raw_ptr_shared( neighor_request, MPIL_Request_free );
+        _lrequest_ptr = make_raw_ptr_shared( neighbor_request, MPIL_Request_free );
         // _persistent_set = true;
 
         MPI_Barrier( comm_plan.comm() );
