@@ -122,6 +122,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
     */
     int nonZeroSendNeighbor(int n) const {return _send_neighbors[n];}
     int nonZeroRecvNeighbor(int n) const {return _recv_neighbors[n];}
+    auto numNonZeroSendNeighbors() const {return _send_neighbors.size();}
+    auto numNonZeroRecvNeighbors() const {return _recv_neighbors.size();}
 
     /*!
       \brief Neighbor and export rank creator. Use this when you already know
