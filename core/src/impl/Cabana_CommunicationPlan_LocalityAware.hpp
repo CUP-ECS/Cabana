@@ -1403,8 +1403,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
-            send_subview.data(), send_counts.data(), send_displs.data(),
-            MPI_BYTE, recv_subview.data(), recv_counts.data(),
+            send_buffer.data(), send_counts.data(), send_displs.data(),
+            MPI_BYTE, recv_buffer.data(), recv_counts.data(),
             recv_displs.data(), MPI_BYTE, comm_plan.ltopo(), comm_plan.lcomm(),
             comm_plan.linfo(), &neighbor_request );
         

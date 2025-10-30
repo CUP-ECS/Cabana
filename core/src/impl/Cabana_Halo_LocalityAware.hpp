@@ -236,24 +236,64 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    for (std::size_t i = 0; i < send_buffer.size(); ++i)
+    // int rank;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    // for (std::size_t i = 0; i < send_buffer.extent(0); ++i)
+    // {
+    //     for ( std::size_t n = 0; n < num_comp; ++n )
+    //         printf("R%d: send_buffer(%d, %d): %.1lf, dt size: %d\n", rank, i, n, (double)send_buffer(i, n), sizeof( data_type ));
+    // }
+
+    auto num_n = this->_comm_plan.numNeighbor();
+    std::vector<int> send_counts( num_n ), recv_counts( num_n );
+    std::vector<int> send_displs( num_n ), recv_displs( num_n );
+
+    // printf("R%d: send/recv buffer bytes: %d, %d, num_comp: %d\n", rank,
+    //     send_buffer.size()*sizeof( data_type ),
+    //     recv_buffer.size()*sizeof( data_type ),
+    //     num_comp);
+
+    std::size_t send_offset = 0, recv_offset = 0;
+    int new_n_r = 0;
+    int new_n_s = 0;
+    for ( int n = 0; n < num_n; ++n )
     {
-        for ( std::size_t n = 0; n < num_comp; ++n )
-            printf("R%d: send_buffer(%d, %d): %d\n", rank, i, n, send_buffer(i, n));
+        if ( this->_comm_plan.numImport( n ) != 0 )
+        {
+            recv_counts[new_n_r] = this->_comm_plan.numImport( n ) * sizeof( data_type ) * num_comp;
+            recv_displs[new_n_r] = recv_offset;
+            recv_offset += recv_counts[new_n_r];
+            // printf("R%d: num_import: %d, recv counts/displs: %d, %d\n", rank, this->_comm_plan.numImport( n ), recv_counts[new_n_r], recv_displs[new_n_r]);
+            new_n_r++;
+        }
+        if ( this->_comm_plan.numExport( n ) != 0 )
+        {
+            send_counts[new_n_s] = this->_comm_plan.numExport( n ) * sizeof( data_type ) * num_comp;
+            send_displs[new_n_s] = send_offset;
+            send_offset += send_counts[new_n_s];
+            // printf("R%d: num_export: %d, send counts/displs: %d, %d\n", rank, this->_comm_plan.numExport( n ), send_counts[new_n_s], send_displs[new_n_s]);
+            new_n_s++;
+        }
     }
+
+    MPIL_Request* neighbor_request = nullptr;
+    MPIL_Neighbor_alltoallv_init_topo(
+        send_buffer.data(), send_counts.data(), send_displs.data(),
+        MPI_BYTE, recv_buffer.data(), recv_counts.data(),
+        recv_displs.data(), MPI_BYTE, this->_comm_plan.ltopo(), this->_comm_plan.lcomm(),
+        this->_comm_plan.linfo(), &neighbor_request );
 
     // Communicate data
     MPI_Status status;
-    MPIL_Start(this->lrequest());
-    MPIL_Wait(this->lrequest(), &status);
+    MPIL_Start(neighbor_request);
+    MPIL_Wait(neighbor_request, &status);
+    MPIL_Request_free(&neighbor_request);
     
-    for (std::size_t i = 0; i < recv_buffer.size(); ++i)
-    {
-        for ( std::size_t n = 0; n < num_comp; ++n )
-            printf("R%d: recv_buffer(%d, %d): %d\n", rank, i, n, recv_buffer(i, n));
-    }
+    // for (std::size_t i = 0; i < recv_buffer.extent(0); ++i)
+    // {
+    //     for ( std::size_t n = 0; n < num_comp; ++n )
+    //         printf("R%d: recv_buffer(%d, %d): %.1lf\n", rank, i, n, (double)recv_buffer(i, n));
+    // }
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
