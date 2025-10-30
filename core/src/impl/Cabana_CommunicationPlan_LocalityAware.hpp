@@ -1362,6 +1362,17 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
             }
         }
 
+        initializeNeighborAlltoallvTopo();
+
+        MPI_Barrier( this->_comm_plan.comm() );
+    }
+
+    void initializeNeighborAlltoallvTopo()
+    {
+        // Clear request pointer if set
+        _lrequest_ptr = nullptr;
+
+        // Create new topo init
         MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
             _send_buffer_ptr, _send_counts.data(), _send_displs.data(),
@@ -1371,12 +1382,7 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         
         // Save request object for start/wait
         _lrequest_ptr = make_raw_ptr_shared( neighbor_request, MPIL_Request_free );
-
-        MPI_Barrier( this->_comm_plan.comm() );
     }
-
-    void initializeNeighborAlltoallvTopo()
-    {}
 
     /*!
       \brief Get request pointer
