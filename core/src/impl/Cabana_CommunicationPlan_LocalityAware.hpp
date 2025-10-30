@@ -1323,8 +1323,7 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
     void computeSendRecvData( )
     {
-        updateBuffers();
-
+        
         std::size_t num_comp = this->getSliceComponents();
 
         // Initialize vectors
@@ -1369,6 +1368,9 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
     void initializeNeighborAlltoallvTopo()
     {
+        // Update pointers to buffers if changed
+        updateBuffers();
+
         // Clear request pointer if set
         _lrequest_ptr = nullptr;
 
