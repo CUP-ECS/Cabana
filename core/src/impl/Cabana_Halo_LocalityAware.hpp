@@ -45,7 +45,7 @@ Gather<HaloType, AoSoAType,
 
     // Setup persistent communication if not already done
     if (!this->persistent_set()) {
-        this->setupPersistent(_comm_plan, sizeof(data_type), 1);
+        this->computeSendRecvData();
     }
 
     // Get the buffers and particle data (local copies for lambdas below).
@@ -100,7 +100,7 @@ Gather<HaloType, SliceType,
 
     // Setup persistent communication if not already done
     if (!this->persistent_set()) {
-        this->setupPersistent(_comm_plan, sizeof(data_type), this->getSliceComponents());
+        this->computeSendRecvData();
     }
 
     // Get the buffers (local copies for lambdas below).
@@ -171,7 +171,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 
     // Setup persistent communication if not already done
     if (!this->persistent_set()) {
-        this->setupPersistent(_comm_plan, sizeof(data_type), this->getSliceComponents());
+        this->computeSendRecvData();
     }
 
     // Get the buffers (local copies for lambdas below).

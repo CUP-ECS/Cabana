@@ -1321,22 +1321,24 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
      * this appropriately XXX
      */
 
-    void setupPersistent( const plan_type& comm_plan, const std::size_t element_size1, const std::size_t num_comp1 )
+    void computeSendRecvData( )
     {
         updateBuffers();
 
         std::size_t num_comp = this->getSliceComponents();
+
+        // Initialize vectors
+        int num_n = this->_comm_plan.numNeighbor();
+        _send_counts.resize( num_n );
+        _recv_counts.resize( num_n );
+        _send_displs.resize( num_n );
+        _recv_displs.resize( num_n );
 
         // num_comp for AoSoAs is zero, so set to 1 to avoid zero receive counts
         if (num_comp == 0)
             num_comp = 1;
             
         std::size_t datatype_size = sizeof(data_type);
-
-        int num_n = comm_plan.numNeighbor();
-
-        std::vector<int> send_counts( num_n ), recv_counts( num_n );
-        std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
         std::size_t send_offset = 0, recv_offset = 0;
         int new_n_r = 0;
@@ -1346,33 +1348,35 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         {
             if ( this->_comm_plan.numImport( n ) != 0 )
             {
-                recv_counts[new_n_r] = this->_comm_plan.numImport( n ) * datatype_size * num_comp;
-                recv_displs[new_n_r] = recv_offset;
-                recv_offset += recv_counts[new_n_r];
+                _recv_counts[new_n_r] = this->_comm_plan.numImport( n ) * datatype_size * num_comp;
+                _recv_displs[new_n_r] = recv_offset;
+                recv_offset += _recv_counts[new_n_r];
                 new_n_r++;
             }
             if ( this->_comm_plan.numExport( n ) != 0 )
             {
-                send_counts[new_n_s] = this->_comm_plan.numExport( n ) * datatype_size * num_comp;
-                send_displs[new_n_s] = send_offset;
-                send_offset += send_counts[new_n_s];
+                _send_counts[new_n_s] = this->_comm_plan.numExport( n ) * datatype_size * num_comp;
+                _send_displs[new_n_s] = send_offset;
+                send_offset += _send_counts[new_n_s];
                 new_n_s++;
             }
         }
 
         MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
-            _send_buffer_ptr, send_counts.data(), send_displs.data(),
-            MPI_BYTE, _recv_buffer_ptr, recv_counts.data(),
-            recv_displs.data(), MPI_BYTE, this->_comm_plan.ltopo(), this->_comm_plan.lcomm(),
+            _send_buffer_ptr, _send_counts.data(), _send_displs.data(),
+            MPI_BYTE, _recv_buffer_ptr, _recv_counts.data(),
+            _recv_displs.data(), MPI_BYTE, this->_comm_plan.ltopo(), this->_comm_plan.lcomm(),
             this->_comm_plan.linfo(), &neighbor_request );
         
         // Save request object for start/wait
         _lrequest_ptr = make_raw_ptr_shared( neighbor_request, MPIL_Request_free );
-        _persistent_set = true;
 
         MPI_Barrier( this->_comm_plan.comm() );
     }
+
+    void initializeNeighborAlltoallvTopo()
+    {}
 
     /*!
       \brief Get request pointer
