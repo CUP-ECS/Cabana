@@ -1275,8 +1275,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
                                          CommDataType>::particle_data_type;
     // //! Kokkos memory space.
     // using memory_space = typename comm_data_type::memory_space;
-    // //! Communication data type.
-    // using data_type = typename comm_data_type::data_type;
+    //! Communication data type.
+    using data_type = typename comm_data_type::data_type;
     // //! Communication buffer type.
     // using buffer_type = typename comm_data_type::buffer_type;
 
@@ -1291,11 +1291,28 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
                        const double overallocation = 1.0 )
         : CommunicationDataBase<CommPlanType, CommDataType>(
               comm_plan, particles, overallocation )
+        , _send_buffer_ptr(nullptr)
+        , _recv_buffer_ptr(nullptr)
         , _persistent_set(false)
     {
+        updateBuffers();
     }
 
   public:
+    void updateBuffers()
+    {
+        data_type* send_ptr = this->getSendBuffer().data();
+        data_type* recv_ptr = this->getReceiveBuffer().data();
+
+        if (_recv_buffer_ptr != recv_ptr)
+        {
+            _recv_buffer_ptr = recv_ptr;
+        }
+        if (_send_buffer_ptr != send_ptr)
+        {
+            _send_buffer_ptr = send_ptr;
+        }
+    }
     /* Setup persistent communication for the communication plan associated
      * with this CommunicationData. This can only be called after the
      * send buffer and receive buffer have been reallocated and reserved,
@@ -1304,10 +1321,18 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
      * this appropriately XXX
      */
 
-    void setupPersistent( const plan_type& comm_plan, const std::size_t element_size, const std::size_t num_comp )
+    void setupPersistent( const plan_type& comm_plan, const std::size_t element_size1, const std::size_t num_comp1 )
     {
-        auto send_buffer = this->getSendBuffer();
-        auto recv_buffer = this->getReceiveBuffer();
+        updateBuffers();
+
+        std::size_t num_comp = this->getSliceComponents();
+
+        // num_comp for AoSoAs is zero, so set to 1 to avoid zero receive counts
+        if (num_comp == 0)
+            num_comp = 1;
+            
+        std::size_t datatype_size = sizeof(data_type);
+
         int num_n = comm_plan.numNeighbor();
 
         std::vector<int> send_counts( num_n ), recv_counts( num_n );
@@ -1319,16 +1344,16 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         for ( int n = 0; n < num_n; ++n )
         {
-            if ( comm_plan.numImport( n ) != 0 )
+            if ( this->_comm_plan.numImport( n ) != 0 )
             {
-                recv_counts[new_n_r] = comm_plan.numImport( n ) * element_size * num_comp;
+                recv_counts[new_n_r] = this->_comm_plan.numImport( n ) * datatype_size * num_comp;
                 recv_displs[new_n_r] = recv_offset;
                 recv_offset += recv_counts[new_n_r];
                 new_n_r++;
             }
-            if ( comm_plan.numExport( n ) != 0 )
+            if ( this->_comm_plan.numExport( n ) != 0 )
             {
-                send_counts[new_n_s] = comm_plan.numExport( n ) * element_size * num_comp;
+                send_counts[new_n_s] = this->_comm_plan.numExport( n ) * datatype_size * num_comp;
                 send_displs[new_n_s] = send_offset;
                 send_offset += send_counts[new_n_s];
                 new_n_s++;
@@ -1337,16 +1362,16 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
-            send_buffer.data(), send_counts.data(), send_displs.data(),
-            MPI_BYTE, recv_buffer.data(), recv_counts.data(),
-            recv_displs.data(), MPI_BYTE, comm_plan.ltopo(), comm_plan.lcomm(),
-            comm_plan.linfo(), &neighbor_request );
+            _send_buffer_ptr, send_counts.data(), send_displs.data(),
+            MPI_BYTE, _recv_buffer_ptr, recv_counts.data(),
+            recv_displs.data(), MPI_BYTE, this->_comm_plan.ltopo(), this->_comm_plan.lcomm(),
+            this->_comm_plan.linfo(), &neighbor_request );
         
         // Save request object for start/wait
         _lrequest_ptr = make_raw_ptr_shared( neighbor_request, MPIL_Request_free );
         _persistent_set = true;
 
-        MPI_Barrier( comm_plan.comm() );
+        MPI_Barrier( this->_comm_plan.comm() );
     }
 
     /*!
@@ -1360,6 +1385,14 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     bool persistent_set() {return _persistent_set; }
 
   private:
+    // Raw pointers associated with the persistent communication buffers.
+    data_type* _send_buffer_ptr;
+    data_type* _recv_buffer_ptr;
+
+    // Send and receive counts and displacements
+    std::vector<int> _send_counts, _recv_counts;
+    std::vector<int> _send_displs, _recv_displs;
+
     // Flag for whether persistent communication has been initialized
     bool _persistent_set;
 
