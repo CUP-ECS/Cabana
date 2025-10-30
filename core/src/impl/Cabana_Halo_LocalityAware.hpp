@@ -45,7 +45,7 @@ Gather<HaloType, AoSoAType,
 
     // Setup persistent communication if not already done
     if (!this->persistent_set()) {
-        this->setupPersistent(AoSoATag(), _comm_plan, sizeof(data_type));
+        this->setupPersistent(_comm_plan, sizeof(data_type), 1);
     }
 
     // Get the buffers and particle data (local copies for lambdas below).
@@ -205,6 +205,11 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::scatter" );
 
+    // Setup persistent communication if not already done
+    if (!this->persistent_set()) {
+        this->setupPersistent(_comm_plan, sizeof(data_type), this->getSliceComponents());
+    }
+
     // Get the buffers (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
     auto recv_buffer = this->getReceiveBuffer();
@@ -253,41 +258,10 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     //     recv_buffer.size()*sizeof( data_type ),
     //     num_comp);
 
-    std::size_t send_offset = 0, recv_offset = 0;
-    int new_n_r = 0;
-    int new_n_s = 0;
-    for ( int n = 0; n < num_n; ++n )
-    {
-        if ( this->_comm_plan.numImport( n ) != 0 )
-        {
-            recv_counts[new_n_r] = this->_comm_plan.numImport( n ) * sizeof( data_type ) * num_comp;
-            recv_displs[new_n_r] = recv_offset;
-            recv_offset += recv_counts[new_n_r];
-            // printf("R%d: num_import: %d, recv counts/displs: %d, %d\n", rank, this->_comm_plan.numImport( n ), recv_counts[new_n_r], recv_displs[new_n_r]);
-            new_n_r++;
-        }
-        if ( this->_comm_plan.numExport( n ) != 0 )
-        {
-            send_counts[new_n_s] = this->_comm_plan.numExport( n ) * sizeof( data_type ) * num_comp;
-            send_displs[new_n_s] = send_offset;
-            send_offset += send_counts[new_n_s];
-            // printf("R%d: num_export: %d, send counts/displs: %d, %d\n", rank, this->_comm_plan.numExport( n ), send_counts[new_n_s], send_displs[new_n_s]);
-            new_n_s++;
-        }
-    }
-
-    MPIL_Request* neighbor_request = nullptr;
-    MPIL_Neighbor_alltoallv_init_topo(
-        send_buffer.data(), send_counts.data(), send_displs.data(),
-        MPI_BYTE, recv_buffer.data(), recv_counts.data(),
-        recv_displs.data(), MPI_BYTE, this->_comm_plan.ltopo(), this->_comm_plan.lcomm(),
-        this->_comm_plan.linfo(), &neighbor_request );
-
     // Communicate data
     MPI_Status status;
-    MPIL_Start(neighbor_request);
-    MPIL_Wait(neighbor_request, &status);
-    MPIL_Request_free(&neighbor_request);
+    MPIL_Start(this->lrequest());
+    MPIL_Wait(this->lrequest(), &status);
     
     // for (std::size_t i = 0; i < recv_buffer.extent(0); ++i)
     // {

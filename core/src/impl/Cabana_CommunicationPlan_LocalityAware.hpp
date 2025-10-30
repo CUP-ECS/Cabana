@@ -1254,12 +1254,6 @@ _recv_neighbors.resize( num_n );
     std::shared_ptr<MPIL_Info> _linfo_ptr;
 };
 
-/********************************************************
- * Tag to differentiate between Slices and AoSoAs
- *******************************************************/
-struct AoSoATag {};
-struct SliceTag {};
-
 template <class CommPlanType, class CommDataType>
 class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     : public CommunicationDataBase<CommPlanType, CommDataType>
@@ -1309,11 +1303,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
      * will point to the wrong place! XXX We should add code to check for
      * this appropriately XXX
      */
-    /**
-     * AoSoA buffers are 1-dimensional. Slice buffers are 2-dimensional. We need
-     * different setupPersistent functions to handle this.
-     */
-    void setupPersistent( AoSoATag, const plan_type& comm_plan, const std::size_t element_size )
+
+    void setupPersistent( const plan_type& comm_plan, const std::size_t element_size, const std::size_t num_comp )
     {
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
@@ -1330,71 +1321,14 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         {
             if ( comm_plan.numImport( n ) != 0 )
             {
-                recv_counts[new_n_r] = comm_plan.numImport( n ) * element_size;
+                recv_counts[new_n_r] = comm_plan.numImport( n ) * element_size * num_comp;
                 recv_displs[new_n_r] = recv_offset;
                 recv_offset += recv_counts[new_n_r];
                 new_n_r++;
             }
             if ( comm_plan.numExport( n ) != 0 )
             {
-                send_counts[new_n_s] = comm_plan.numExport( n ) * element_size;
-                send_displs[new_n_s] = send_offset;
-                send_offset += send_counts[new_n_s];
-                new_n_s++;
-            }
-        }
-
-        MPIL_Request* neighbor_request = nullptr;
-        MPIL_Neighbor_alltoallv_init_topo(
-            send_buffer.data(), send_counts.data(), send_displs.data(),
-            MPI_BYTE, recv_buffer.data(), recv_counts.data(),
-            recv_displs.data(), MPI_BYTE, comm_plan.ltopo(), comm_plan.lcomm(),
-            comm_plan.linfo(), &neighbor_request );
-        
-        // Save request object for start/wait
-        _lrequest_ptr = make_raw_ptr_shared( neighbor_request, MPIL_Request_free );
-        _persistent_set = true;
-
-        MPI_Barrier( comm_plan.comm() );
-    }
-
-    void setupPersistent( SliceTag, const plan_type& comm_plan, const std::size_t element_size )
-    {
-        auto send_buffer = this->getSendBuffer();
-        auto recv_buffer = this->getReceiveBuffer();
-
-        // Flatten to 1D views
-        // using data_type = typename decltype(send_buffer)::value_type;
-        // using memory_space = typename decltype(send_buffer)::memory_space;
-
-        Kokkos::pair<std::size_t, std::size_t> recv_range = { 0, recv_buffer.extent(0) };
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
-        Kokkos::pair<std::size_t, std::size_t> send_range = { 0, send_buffer.extent(0) };
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
-
-        int num_n = comm_plan.numNeighbor();
-
-        std::vector<int> send_counts( num_n ), recv_counts( num_n );
-        std::vector<int> send_displs( num_n ), recv_displs( num_n );
-
-        std::size_t send_offset = 0, recv_offset = 0;
-        int new_n_r = 0;
-        int new_n_s = 0;
-
-        for ( int n = 0; n < num_n; ++n )
-        {
-            if ( comm_plan.numImport( n ) != 0 )
-            {
-                recv_counts[new_n_r] = comm_plan.numImport( n ) * element_size;
-                recv_displs[new_n_r] = recv_offset;
-                recv_offset += recv_counts[new_n_r];
-                new_n_r++;
-            }
-            if ( comm_plan.numExport( n ) != 0 )
-            {
-                send_counts[new_n_s] = comm_plan.numExport( n ) * element_size;
+                send_counts[new_n_s] = comm_plan.numExport( n ) * element_size * num_comp;
                 send_displs[new_n_s] = send_offset;
                 send_offset += send_counts[new_n_s];
                 new_n_s++;
