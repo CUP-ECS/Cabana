@@ -1295,7 +1295,6 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         , _recv_buffer_ptr(nullptr)
         , _persistent_set(false)
     {
-        updateBuffers();
     }
 
   public:
@@ -1305,13 +1304,9 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         data_type* recv_ptr = this->getReceiveBuffer().data();
 
         if (_recv_buffer_ptr != recv_ptr)
-        {
             _recv_buffer_ptr = recv_ptr;
-        }
         if (_send_buffer_ptr != send_ptr)
-        {
             _send_buffer_ptr = send_ptr;
-        }
     }
     /* Setup persistent communication for the communication plan associated
      * with this CommunicationData. This can only be called after the
@@ -1323,7 +1318,6 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
     void computeSendRecvData( )
     {
-        
         std::size_t num_comp = this->getSliceComponents();
 
         // Initialize vectors
@@ -1362,6 +1356,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         }
 
         initializeNeighborAlltoallvTopo();
+
+        _persistent_set = true;
 
         MPI_Barrier( this->_comm_plan.comm() );
     }
