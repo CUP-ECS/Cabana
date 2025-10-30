@@ -281,6 +281,14 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    for (std::size_t i = 0; i < send_buffer.size(); ++i)
+    {
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            printf("R%d: mpi send_buffer(%d, %d): %d\n", rank, i, n, send_buffer(i, n));
+    }
+
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
 
@@ -326,6 +334,12 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     if ( MPI_SUCCESS != ec )
         throw std::logic_error( "Cabana::scatter::apply (SliceType): "
                                 "Failed MPI Communication" );
+    
+    for (std::size_t i = 0; i < recv_buffer.size(); ++i)
+    {
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            printf("R%d: mpi recv_buffer(%d, %d): %d\n", rank, i, n, recv_buffer(i, n));
+    }
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();

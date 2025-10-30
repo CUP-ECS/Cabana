@@ -1363,16 +1363,16 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         auto send_buffer = this->getSendBuffer();
         auto recv_buffer = this->getReceiveBuffer();
 
-        // Flatten to 1D unmanaged views (reinterpret contiguous memory)
-        using data_type = typename decltype(send_buffer)::value_type;
-        using memory_space = typename decltype(send_buffer)::memory_space;
-        Kokkos::View<data_type*, memory_space,
-                    Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-            send_buffer_1d( send_buffer.data(), send_buffer.size() );
+        // Flatten to 1D views
+        // using data_type = typename decltype(send_buffer)::value_type;
+        // using memory_space = typename decltype(send_buffer)::memory_space;
 
-        Kokkos::View<data_type*, memory_space,
-                    Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-            recv_buffer_1d( recv_buffer.data(), recv_buffer.size() );
+        Kokkos::pair<std::size_t, std::size_t> recv_range = { 0, recv_buffer.extent(0) };
+        auto recv_subview =
+            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
+        Kokkos::pair<std::size_t, std::size_t> send_range = { 0, send_buffer.extent(0) };
+        auto send_subview =
+            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
         int num_n = comm_plan.numNeighbor();
 
@@ -1403,8 +1403,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
-            send_buffer_1d.data(), send_counts.data(), send_displs.data(),
-            MPI_BYTE, recv_buffer_1d.data(), recv_counts.data(),
+            send_subview.data(), send_counts.data(), send_displs.data(),
+            MPI_BYTE, recv_subview.data(), recv_counts.data(),
             recv_displs.data(), MPI_BYTE, comm_plan.ltopo(), comm_plan.lcomm(),
             comm_plan.linfo(), &neighbor_request );
         
