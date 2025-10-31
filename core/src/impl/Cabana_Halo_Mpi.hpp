@@ -326,7 +326,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     if ( MPI_SUCCESS != ec )
         throw std::logic_error( "Cabana::scatter::apply (SliceType): "
                                 "Failed MPI Communication" );
-    
+
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
 
