@@ -44,9 +44,7 @@ Gather<HaloType, AoSoAType,
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
     // Setup persistent communication if not already done
-    if (!this->persistent_set()) {
-        this->computeSendRecvData();
-    }
+    this->updateBuffers();
 
     // Get the buffers and particle data (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
@@ -67,8 +65,8 @@ Gather<HaloType, AoSoAType,
 
     // Communicate data
     MPI_Status status;
-    MPIL_Start(this->lrequest());
-    MPIL_Wait(this->lrequest(), &status);
+    MPIL_Start( this->lrequest() );
+    MPIL_Wait( this->lrequest(), &status );
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -99,9 +97,7 @@ Gather<HaloType, SliceType,
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
     // Setup persistent communication if not already done
-    if (!this->persistent_set()) {
-        this->computeSendRecvData();
-    }
+    this->updateBuffers();
 
     // Get the buffers (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
@@ -134,8 +130,8 @@ Gather<HaloType, SliceType,
 
     // Communicate data
     MPI_Status status;
-    MPIL_Start(this->lrequest());
-    MPIL_Wait(this->lrequest(), &status);
+    MPIL_Start( this->lrequest() );
+    MPIL_Wait( this->lrequest(), &status );
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -170,9 +166,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::Profiling::ScopedRegion region( "Cabana::scatter" );
 
     // Setup persistent communication if not already done
-    if (!this->persistent_set()) {
-        this->computeSendRecvData();
-    }
+    this->updateBuffers();
 
     // Get the buffers (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
@@ -205,33 +199,14 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
-    // int rank;
-    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    // for (std::size_t i = 0; i < send_buffer.extent(0); ++i)
-    // {
-    //     for ( std::size_t n = 0; n < num_comp; ++n )
-    //         printf("R%d: send_buffer(%d, %d): %.1lf, dt size: %d\n", rank, i, n, (double)send_buffer(i, n), sizeof( data_type ));
-    // }
-
     auto num_n = this->_comm_plan.numNeighbor();
     std::vector<int> send_counts( num_n ), recv_counts( num_n );
     std::vector<int> send_displs( num_n ), recv_displs( num_n );
 
-    // printf("R%d: send/recv buffer bytes: %d, %d, num_comp: %d\n", rank,
-    //     send_buffer.size()*sizeof( data_type ),
-    //     recv_buffer.size()*sizeof( data_type ),
-    //     num_comp);
-
     // Communicate data
     MPI_Status status;
-    MPIL_Start(this->lrequest());
-    MPIL_Wait(this->lrequest(), &status);
-    
-    // for (std::size_t i = 0; i < recv_buffer.extent(0); ++i)
-    // {
-    //     for ( std::size_t n = 0; n < num_comp; ++n )
-    //         printf("R%d: recv_buffer(%d, %d): %.1lf\n", rank, i, n, (double)recv_buffer(i, n));
-    // }
+    MPIL_Start( this->lrequest() );
+    MPIL_Wait( this->lrequest(), &status );
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
