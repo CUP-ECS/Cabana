@@ -536,7 +536,7 @@ class CommunicationPlan<MemorySpace, Mpi>
             this->_num_import[n] = neighbor_counts_host( this->_neighbors[n] );
 
         // Post receives to get the number of indices I will send to each rank.
-        // Post that many wildcard recieves to get the number of indices I will
+        // Post that many wildcard receives to get the number of indices I will
         // send to each rank
         std::vector<MPI_Request> requests;
         requests.reserve( num_n * 2 );
