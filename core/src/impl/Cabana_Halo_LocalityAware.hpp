@@ -198,11 +198,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::parallel_for( "Cabana::scatter::extract_send_buffer", send_policy,
                           extract_send_buffer_func );
     Kokkos::fence();
-
-    auto num_n = this->_comm_plan.numNeighbor();
-    std::vector<int> send_counts( num_n ), recv_counts( num_n );
-    std::vector<int> send_displs( num_n ), recv_displs( num_n );
-
+    
     // Communicate data
     MPI_Status status;
     MPIL_Start( this->lrequest() );
