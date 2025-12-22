@@ -73,7 +73,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( const char* env_db =
                  std::getenv( "MPI_ADVANCE_DOUBLE_BUFFERING" ) )
         {
-            //std::cout << "Double Buffering Found: " << env_db << std::endl;
+            // std::cout << "Double Buffering Found: " << env_db << std::endl;
             _double_buffer = atoi( env_db );
         }
         // if no env variable is found, set to zero
@@ -86,7 +86,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( const char* env_fg =
                  std::getenv( "MPI_ADVANCE_FINEGRAIN_MEMORY" ) )
         {
-            //std::cout << "Fine grain memory Found: " << env_fg << std::endl;
+            // std::cout << "Fine grain memory Found: " << env_fg << std::endl;
             _fine_grain = atoi( env_fg );
         }
         // if no env variable is found, set to zero
@@ -199,16 +199,17 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( _fine_grain )
         {
             char* b = nullptr;
-            MPIS_Alloc_mem( bytes, _mem_info, (void **)&b );
+            MPIS_Alloc_mem( bytes, _mem_info, (void**)&b );
             _raw_buffers.push_back( b );
-            Kokkos::View<char*, memory_space, 
-	        Kokkos::MemoryTraits<Kokkos::Unmanaged>> v( b, bytes );
-	    return v;
+            Kokkos::View<char*, memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                v( b, bytes );
+            return v;
         }
         else
         {
             Kokkos::View<char*, memory_space> v( "halo buffer", bytes );
-	    return v;
+            return v;
         }
     }
 
@@ -266,12 +267,12 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         MPIS_Queue_type backend;
         // Note, change for other systems
         const char* env_db = std::getenv( "MPI_ADVANCE_STREAM_BACKEND" );
-        if (!env_db || strcmp(env_db, "CXI") == 0)
+        if ( !env_db || strcmp( env_db, "CXI" ) == 0 )
         {
             backend = CXI;
-        } 
-        else if ((strcmp(env_db, "HIP") == 0)
-                   || (strcmp(env_db, "CUDA") == 0))
+        }
+        else if ( ( strcmp( env_db, "HIP" ) == 0 ) ||
+                  ( strcmp( env_db, "CUDA" ) == 0 ) )
         {
             backend = GPU_MEM_OPS;
         }

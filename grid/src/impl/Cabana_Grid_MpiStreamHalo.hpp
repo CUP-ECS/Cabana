@@ -16,10 +16,10 @@
 #ifndef CABANA_GRID_MPISTREAMHALO_HPP
 #define CABANA_GRID_MPISTREAMHALO_HPP
 
-#include <Cabana_Types.hpp>
 #include <Cabana_Grid_Array.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_ParameterPack.hpp>
+#include <Cabana_Types.hpp>
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Profiling_ScopedRegion.hpp>
@@ -29,9 +29,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iostream>
 #include <type_traits>
 #include <vector>
-#include <iostream>
 namespace Cabana
 {
 namespace Grid
