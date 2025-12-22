@@ -73,7 +73,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( const char* env_db =
                  std::getenv( "MPI_ADVANCE_DOUBLE_BUFFERING" ) )
         {
-            std::cout << "Double Buffering Found: " << env_db << std::endl;
+            //std::cout << "Double Buffering Found: " << env_db << std::endl;
             _double_buffer = atoi( env_db );
         }
         // if no env variable is found, set to zero
@@ -86,7 +86,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         if ( const char* env_fg =
                  std::getenv( "MPI_ADVANCE_FINEGRAIN_MEMORY" ) )
         {
-            std::cout << "Fine grain memory Found: " << env_fg << std::endl;
+            //std::cout << "Fine grain memory Found: " << env_fg << std::endl;
             _fine_grain = atoi( env_fg );
         }
         // if no env variable is found, set to zero
