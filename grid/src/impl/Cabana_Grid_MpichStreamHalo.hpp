@@ -56,9 +56,9 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
 
       \param exec_space The execution space to use for pack/unpack.
 
-      \param arrays The arrays to gather. NOTE: These arrays must be 
-      given in the same order as in the constructor. These could technically 
-      be different arrays, they just need to have the same layouts and data 
+      \param arrays The arrays to gather. NOTE: These arrays must be
+      given in the same order as in the constructor. These could technically
+      be different arrays, they just need to have the same layouts and data
       types as the input arrays.
     */
     template <class... ArrayTypes>
@@ -141,10 +141,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
                 continue;
             }
             MPIX_Irecv_enqueue( halo_type::_owned_buffers[n].data(),
-                               halo_type::_owned_buffers[n].size(), MPI_BYTE,
-                               halo_type::_neighbor_ranks[n],
-                               1234 + halo_type::_receive_tags[n], _comm,
-                               &_requests[n] );
+                                halo_type::_owned_buffers[n].size(), MPI_BYTE,
+                                halo_type::_neighbor_ranks[n],
+                                1234 + halo_type::_receive_tags[n], _comm,
+                                &_requests[n] );
         }
 
         // Pack and send the data.
@@ -157,12 +157,13 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
             if ( halo_type::_ghosted_buffers[n].size() > 0 )
             {
                 MPIX_Send_enqueue( halo_type::_ghosted_buffers[n].data(),
-                                  halo_type::_ghosted_buffers[n].size(),
-                                  MPI_BYTE, halo_type::_neighbor_ranks[n],
-                                  1234 + halo_type::_send_tags[n], _comm );
+                                   halo_type::_ghosted_buffers[n].size(),
+                                   MPI_BYTE, halo_type::_neighbor_ranks[n],
+                                   1234 + halo_type::_send_tags[n], _comm );
             }
         }
-        MPIX_Waitall_enqueue( _requests.size(), _requests.data(), MPI_STATUSES_IGNORE );
+        MPIX_Waitall_enqueue( _requests.size(), _requests.data(),
+                              MPI_STATUSES_IGNORE );
 
         this->enqueueUnpackBuffers( reduce_op, halo_type::_owned_buffers,
                                     halo_type::_owned_steering,
@@ -173,13 +174,13 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
     // underlying device stream
     template <typename ExecSpace>
     void createMPIXStream( const ExecSpace& exec_space )
-      requires( std::same_as<ExecSpace, Kokkos::Serial> 
+        requires( std::same_as<ExecSpace, Kokkos::Serial>
 #ifdef KOKKOS_ENABLE_OPENMP
                   || std::same_as<ExecSpace, Kokkos::OpenMP>
 #endif
 #ifdef KOKKOS_ENABLE_OPENMPTARGET
                   || std::same_as<ExecSpace, Kokkos::OpenMPTarget>
-#endif 
+#endif
                   ) // end requires
     {
         MPIX_Stream_create( MPI_INFO_NULL, &_stream );
@@ -231,8 +232,8 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::Mpich>
     std::vector<MPI_Request> _requests;
 };
 
-} // Experimental
-} // Grid
-} // Cabana
+} // namespace Experimental
+} // namespace Grid
+} // namespace Cabana
 
 #endif // CABANA_GRID_MPICHSTREAMHALO_HPP
