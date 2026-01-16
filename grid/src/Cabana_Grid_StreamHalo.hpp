@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Grid_Halo.hpp
+  \file Cabana_Grid_StreamHalo.hpp
   \brief Multi-node grid stream-based scatter/gather
 */
 #ifndef CABANA_GRID_STREAMHALO_HPP
@@ -174,11 +174,11 @@ class StreamHalo;
 #include <impl/Cabana_Grid_MpichStreamHalo.hpp>
 #endif // MPICH
 
-#ifdef Cabana_ENABLE_CRAY_MPI
+#ifdef Cabana_ENABLE_CRAYMPI
 #include <impl/Cabana_Grid_CrayMpiStreamHalo.hpp>
 #endif // CRAY_MPI
 
-#ifdef Cabana_ENABLE_MPI_ADVANCE
+#ifdef Cabana_ENABLE_STREAM_TRIGGERING
 #include <impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp>
 #endif // MPIADVANCE
 

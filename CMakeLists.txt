@@ -126,12 +126,18 @@ if(Cabana_ENABLE_HDF5)
   endif()
 endif()
 
-# Find and enable stream triggering
-option(Cabana_ENABLE_MPI_ADVANCE "Support MPI Advance backends." OFF)
-option(Cabana_ENABLE_STREAMCOMM "Support Stream-Triggered Communication." OFF)
-# find MPI ADVANCE Stream Triggering
-Cabana_add_dependency( PACKAGE stream-triggering )
-set_package_properties(stream-triggering PROPERTIES TYPE OPTIONAL PURPOSE "Stream Triggered Backend")
+# Option for enabling ANY stream-triggered communication 
+option(Cabana_BUILD_STREAM_HALO "Enable support for stream-triggered communication" OFF)
+if(Cabana_BUILD_STREAM_HALO)
+  # Try to look for the MPI Advance stream-triggering backend (mode 1)
+  Cabana_add_dependency( PACKAGE stream-triggering )
+  # C/C++ can't use a "-" in the define, make a specific varaible to use with "cmakedefine"
+  set(Cabana_ENABLE_STREAM_TRIGGERING ${Cabana_ENABLE_STREAM-TRIGGERING})
+  # Enable the MPICH stream-triggering backend (mode 2)
+  option(Cabana_ENABLE_MPICH "MPICH optimizations for Cabana" OFF )
+  # Enable the cray-mpich stream-triggering backend (mode 3)
+  option(Cabana_ENABLE_CRAYMPI "Cray MPI optimizations for Cabana" OFF )
+endif()
 
 #------------------------------------------------------------------------------#
 # Architecture

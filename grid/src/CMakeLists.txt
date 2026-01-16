@@ -49,13 +49,7 @@ set(HEADERS_IMPL
 
 install(FILES ${HEADERS_IMPL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/impl/)
 
-option(Cabana_ENABLE_STREAM_COMM "Support from Stream-triggered Grid Halos" ON )
-
-option(Cabana_ENABLE_MPICH "MPICH optimizations for Cabana" OFF )
-option(Cabana_ENABLE_CRAYMPI "Cray MPI optimizations for Cabana" OFF )
-option(Cabana_ENABLE_MPI_ADVANCE "MPI Advance optimizations for Cabana" OFF )
-
-if(Cabana_ENABLE_STREAM_COMM)
+if(Cabana_BUILD_STREAM_HALO)
   list(APPEND HEADERS_PUBLIC
     Cabana_Grid_StreamHalo.hpp
     )
@@ -69,7 +63,7 @@ if(Cabana_ENABLE_STREAM_COMM)
       impl/Cabana_Grid_MpichStreamHalo.hpp
       )
   endif()
-  if(Cabana_ENABLE_MPI_ADVANCE)
+  if(Cabana_ENABLE_STREAM-TRIGGERING)
     list(APPEND HEADERS_IMPL
       impl/Cabana_Grid_MpiAdvanceStreamHalo.hpp
     )
@@ -120,7 +114,7 @@ target_link_libraries(Grid INTERFACE
   MPI::MPI_CXX
   )
 
-if(stream-triggering_FOUND)
+if(Cabana_ENABLE_STREAM-TRIGGERING)
   target_link_libraries(Grid INTERFACE stream-triggering)
 endif()
   
