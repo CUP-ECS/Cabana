@@ -112,6 +112,10 @@ if(Heffte_FOUND)
   endif()
 endif()
 
+# find localityaware
+Cabana_add_dependency( PACKAGE locality_aware )
+set_package_properties(locality_aware PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
+
 # find Silo
 Cabana_add_dependency( PACKAGE SILO )
 set_package_properties(SILO PROPERTIES TYPE OPTIONAL PURPOSE "Used for I/O")

@@ -60,6 +60,13 @@ if(Cabana_ENABLE_MPI)
     impl/Cabana_Halo_Mpi.hpp
     impl/Cabana_Migrate_Mpi.hpp
     )
+  if(Cabana_ENABLE_LOCALITY_AWARE)
+    list(APPEND HEADERS_IMPL
+      impl/Cabana_CommunicationPlan_LocalityAware.hpp
+      impl/Cabana_Halo_LocalityAware.hpp
+      impl/Cabana_Migrate_LocalityAware.hpp
+      )
+  endif()
 endif()
 
 if(Cabana_ENABLE_SILO)
@@ -84,6 +91,10 @@ endif()
 
 if(Cabana_ENABLE_SILO)
   target_link_libraries(Core INTERFACE SILO::silo)
+endif()
+
+if(Cabana_ENABLE_LOCALITY_AWARE)
+  target_link_libraries(Core INTERFACE MPIAdvance::locality_aware)
 endif()
 
 if(Cabana_ENABLE_HDF5)
