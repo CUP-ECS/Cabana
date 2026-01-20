@@ -198,7 +198,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::parallel_for( "Cabana::scatter::extract_send_buffer", send_policy,
                           extract_send_buffer_func );
     Kokkos::fence();
-    
+
     // Communicate data
     MPI_Status status;
     MPIL_Start( this->lrequest() );
