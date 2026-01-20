@@ -43,13 +43,6 @@ set(HEADERS_IMPL
   impl/Cabana_TypeTraits.hpp
   )
 
-set(HEADERS_IMPL
-  impl/Cabana_CartesianGrid.hpp
-  impl/Cabana_Index.hpp
-  impl/Cabana_PerformanceTraits.hpp
-  impl/Cabana_TypeTraits.hpp
-  )
-
 if(Cabana_ENABLE_ARBORX)
   list(APPEND HEADERS_PUBLIC
     Cabana_Experimental_NeighborList.hpp
