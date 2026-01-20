@@ -798,7 +798,7 @@ class DistributorTypedTest : public ::testing::Test
 };
 
 // Add additional backends to test when implemented.
-using CommSpaceTypes = ::testing::Types<Cabana::Mpi>;
+using CommSpaceTypes = ::testing::Types<Cabana::Mpi, Cabana::LocalityAware>;
 
 // Need a trailing comma
 // to avoid an error when compiling with clang++
