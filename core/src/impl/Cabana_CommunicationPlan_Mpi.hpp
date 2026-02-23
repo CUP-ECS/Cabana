@@ -729,6 +729,8 @@ class CommunicationPlan<MemorySpace, Mpi>
                       Kokkos::View<int*, typename RankViewType::memory_space>,
                       Kokkos::View<int*, typename IdViewType::memory_space>>
     {
+	    Kokkos::Profiling::ScopedRegion region( "createWithoutTopology (MPI)" );
+
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
         if ( element_import_ids.size() != element_import_ranks.size() )
