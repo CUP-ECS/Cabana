@@ -1203,7 +1203,7 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         _linfo_ptr = make_raw_ptr_shared( xinfo1, MPIL_Info_free );
 
         // Barrier before continuing to ensure synchronization.
-        MPI_Barrier( this->comm() );
+        //MPI_Barrier( this->comm() );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };

@@ -173,7 +173,7 @@ void migrateData(
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( distributor.comm() );
+   // MPI_Barrier( distributor.comm() );
 }
 
 //---------------------------------------------------------------------------//
@@ -349,7 +349,7 @@ void migrateSlice(
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( distributor.comm() );
+   // MPI_Barrier( distributor.comm() );
 }
 
 //---------------------------------------------------------------------------//

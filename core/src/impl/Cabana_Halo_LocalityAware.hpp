@@ -87,7 +87,7 @@ Gather<HaloType, AoSoAType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+   // MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
@@ -162,7 +162,7 @@ Gather<HaloType, SliceType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+   // MPI_Barrier( _comm_plan.comm() );
 }
 
 /**********
@@ -240,7 +240,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+  //  MPI_Barrier( _comm_plan.comm() );
 }
 
 } // end namespace Cabana
