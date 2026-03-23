@@ -67,46 +67,56 @@ Gather<HaloType, AoSoAType,
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
 
-    // Post non-blocking receives.
-    int num_n = _comm_plan.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _comm_plan.numImport( n );
+int num_n = _comm_plan.numNeighbor();
 
-        auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
+// Requests for both recv + send
+std::vector<MPI_Request> requests(2 * num_n);
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
-                   &( requests[n] ) );
+std::pair<std::size_t, std::size_t> recv_range = {0, 0};
 
-        recv_range.first = recv_range.second;
-    }
+// Post all Irecv
+for (int n = 0; n < num_n; ++n)
+{
+    recv_range.second = recv_range.first + _comm_plan.numImport(n);
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _comm_plan.numExport( n );
+    auto recv_subview = Kokkos::subview(recv_buffer, recv_range);
 
-        auto send_subview = Kokkos::subview( send_buffer, send_range );
+    MPI_Irecv(recv_subview.data(),
+              recv_subview.size() * sizeof(data_type), MPI_BYTE,
+              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+              &requests[n]);
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm() );
+    recv_range.first = recv_range.second;
+}
 
-        send_range.first = send_range.second;
-    }
+// Post all Isend
+std::pair<std::size_t, std::size_t> send_range = {0, 0};
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::Gather::apply: Failed MPI Communication" );
+for (int n = 0; n < num_n; ++n)
+{
+    send_range.second = send_range.first + _comm_plan.numExport(n);
+
+    auto send_subview = Kokkos::subview(send_buffer, send_range);
+
+    MPI_Isend(send_subview.data(),
+              send_subview.size() * sizeof(data_type), MPI_BYTE,
+              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+              &requests[num_n + n]);
+
+    send_range.first = send_range.second;
+}
+
+// Wait on all non-blocking operations
+std::vector<MPI_Status> status(2 * num_n);
+
+int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
+if (MPI_SUCCESS != ec)
+{
+    throw std::logic_error(
+        "Cabana::Gather::apply: Failed MPI Communication");
+}
+
+
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -170,48 +180,58 @@ Gather<HaloType, SliceType,
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
 
-    // Post non-blocking receives.
-    int num_n = _comm_plan.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _comm_plan.numImport( n );
+int num_n = _comm_plan.numNeighbor();
 
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
+// Requests for both recv + send
+std::vector<MPI_Request> requests(2 * num_n);
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
-                   &( requests[n] ) );
+std::pair<std::size_t, std::size_t> recv_range = {0, 0};
 
-        recv_range.first = recv_range.second;
-    }
+// Post all Irecv
+for (int n = 0; n < num_n; ++n)
+{
+    recv_range.second = recv_range.first + _comm_plan.numImport(n);
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _comm_plan.numExport( n );
+    auto recv_subview =
+        Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
 
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
+    MPI_Irecv(recv_subview.data(),
+              recv_subview.size() * sizeof(data_type), MPI_BYTE,
+              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+              &requests[n]);
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm() );
+    recv_range.first = recv_range.second;
+}
 
-        send_range.first = send_range.second;
-    }
+// Post all Isend
+std::pair<std::size_t, std::size_t> send_range = {0, 0};
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::gather::apply (SliceType): Failed MPI Communication" );
+for (int n = 0; n < num_n; ++n)
+{
+    send_range.second = send_range.first + _comm_plan.numExport(n);
+
+    auto send_subview =
+        Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
+
+    MPI_Isend(send_subview.data(),
+              send_subview.size() * sizeof(data_type), MPI_BYTE,
+              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+              &requests[num_n + n]);
+
+    send_range.first = send_range.second;
+}
+
+// Wait on all non-blocking ops
+std::vector<MPI_Status> status(2 * num_n);
+
+int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
+if (MPI_SUCCESS != ec)
+{
+    throw std::logic_error(
+        "Cabana::gather::apply (SliceType): Failed MPI Communication");
+}
+
+
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -284,48 +304,56 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
 
-    // Post non-blocking receives.
-    int num_n = _comm_plan.numNeighbor();
-    std::vector<MPI_Request> requests( num_n );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _comm_plan.numExport( n );
+int num_n = _comm_plan.numNeighbor();
 
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
+// One request per recv + one per send
+std::vector<MPI_Request> requests(2 * num_n);
 
-        MPI_Irecv( recv_subview.data(),
-                   recv_subview.size() * sizeof( data_type ), MPI_BYTE,
-                   _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
-                   &( requests[n] ) );
+std::pair<std::size_t, std::size_t> recv_range = {0, 0};
 
-        recv_range.first = recv_range.second;
-    }
+// Post all Irecv
+for (int n = 0; n < num_n; ++n)
+{
+    recv_range.second = recv_range.first + _comm_plan.numExport(n);
 
-    // Do blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _comm_plan.numImport( n );
+    auto recv_subview =
+        Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
 
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
+    MPI_Irecv(recv_subview.data(),
+              recv_subview.size() * sizeof(data_type), MPI_BYTE,
+              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+              &requests[n]);
 
-        MPI_Send( send_subview.data(),
-                  send_subview.size() * sizeof( data_type ), MPI_BYTE,
-                  _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm() );
+    recv_range.first = recv_range.second;
+}
 
-        send_range.first = send_range.second;
-    }
+// Post all Isend
+std::pair<std::size_t, std::size_t> send_range = {0, 0};
 
-    // Wait on non-blocking receives.
-    std::vector<MPI_Status> status( num_n );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Cabana::scatter::apply (SliceType): "
-                                "Failed MPI Communication" );
+for (int n = 0; n < num_n; ++n)
+{
+    send_range.second = send_range.first + _comm_plan.numImport(n);
+
+    auto send_subview =
+        Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
+
+    MPI_Isend(send_subview.data(),
+              send_subview.size() * sizeof(data_type), MPI_BYTE,
+              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+              &requests[num_n + n]);
+
+    send_range.first = send_range.second;
+}
+
+// Wait for all communication to complete
+std::vector<MPI_Status> status(2 * num_n);
+
+int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
+if (MPI_SUCCESS != ec)
+{
+    throw std::logic_error("Cabana::scatter::apply (SliceType): "
+                           "Failed MPI Communication");
+}
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();

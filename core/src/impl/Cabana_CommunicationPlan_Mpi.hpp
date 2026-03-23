@@ -148,34 +148,49 @@ class CommunicationPlan<MemorySpace, Mpi>
         for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
 
-        // Post receives for the number of imports we will get.
-        std::vector<MPI_Request> requests;
-        requests.reserve( num_n );
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
-            {
-                requests.push_back( MPI_Request() );
-                MPI_Irecv( &this->_num_import[n], 1, MPI_UNSIGNED_LONG,
-                           this->_neighbors[n], mpi_tag, this->comm(),
-                           &( requests.back() ) );
-            }
-            else
-                this->_num_import[n] = this->_num_export[n];
+      std::vector<MPI_Request> requests;
+requests.reserve(2 * num_n);
 
-        // Send the number of exports to each of our neighbors.
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != this->_neighbors[n] )
-                MPI_Send( &this->_num_export[n], 1, MPI_UNSIGNED_LONG,
-                          this->_neighbors[n], mpi_tag, this->comm() );
+// Post non-blocking receives
+for (int n = 0; n < num_n; ++n)
+{
+    if (my_rank != this->_neighbors[n])
+    {
+        requests.emplace_back();
 
-        // Wait on receives.
-        std::vector<MPI_Status> status( requests.size() );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error(
-                "Cabana::CommunicationPlan::createFromExportsAndTopology: "
-                "Failed MPI Communication" );
+        MPI_Irecv(&this->_num_import[n], 1, MPI_UNSIGNED_LONG,
+                  this->_neighbors[n], mpi_tag, this->comm(),
+                  &requests.back());
+    }
+    else
+    {
+        this->_num_import[n] = this->_num_export[n];
+    }
+}
+
+// Post non-blocking sends
+for (int n = 0; n < num_n; ++n)
+{
+    if (my_rank != this->_neighbors[n])
+    {
+        requests.emplace_back();
+
+        MPI_Isend(&this->_num_export[n], 1, MPI_UNSIGNED_LONG,
+                  this->_neighbors[n], mpi_tag, this->comm(),
+                  &requests.back());
+    }
+}
+
+// Wait on all communication (recv + send)
+std::vector<MPI_Status> status(requests.size());
+
+int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
+if (MPI_SUCCESS != ec)
+{
+    throw std::logic_error(
+        "Cabana::CommunicationPlan::createFromExportsAndTopology: "
+        "Failed MPI Communication");
+}
 
         // Get the total number of imports/exports.
         this->_total_num_export =
