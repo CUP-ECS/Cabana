@@ -66,6 +66,7 @@ Gather<HaloType, AoSoAType,
 
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
+Kokkos::Profiling::pushRegion("Cabana::gather::Isends and Iresvs");
 
 int num_n = _comm_plan.numNeighbor();
 
@@ -80,7 +81,9 @@ for (int n = 0; n < num_n; ++n)
     recv_range.second = recv_range.first + _comm_plan.numImport(n);
 
     auto recv_subview = Kokkos::subview(recv_buffer, recv_range);
-
+	if( recv_subview.size() ==0){
+	printf("here 0 resv data size\n");
+	}
     MPI_Irecv(recv_subview.data(),
               recv_subview.size() * sizeof(data_type), MPI_BYTE,
               _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
@@ -97,7 +100,9 @@ for (int n = 0; n < num_n; ++n)
     send_range.second = send_range.first + _comm_plan.numExport(n);
 
     auto send_subview = Kokkos::subview(send_buffer, send_range);
-
+	if( send_subview.size() ==0){
+	printf("here 0 send data size\n");
+	}
     MPI_Isend(send_subview.data(),
               send_subview.size() * sizeof(data_type), MPI_BYTE,
               _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
@@ -115,7 +120,8 @@ if (MPI_SUCCESS != ec)
     throw std::logic_error(
         "Cabana::Gather::apply: Failed MPI Communication");
 }
-
+// code you want to profile
+Kokkos::Profiling::popRegion();
 
 
     // Extract the receive buffer into the ghosted elements.
@@ -194,7 +200,9 @@ for (int n = 0; n < num_n; ++n)
 
     auto recv_subview =
         Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
-
+if( recv_subview.size() ==0){
+	printf("here 0 recv data size\n");
+	}
     MPI_Irecv(recv_subview.data(),
               recv_subview.size() * sizeof(data_type), MPI_BYTE,
               _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
@@ -212,7 +220,9 @@ for (int n = 0; n < num_n; ++n)
 
     auto send_subview =
         Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
-
+	if( send_subview.size() ==0){
+	printf("here 0 send data size\n");
+	}
     MPI_Isend(send_subview.data(),
               send_subview.size() * sizeof(data_type), MPI_BYTE,
               _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),

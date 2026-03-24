@@ -147,6 +147,8 @@ class CommunicationPlan<MemorySpace, Mpi>
         // Get the export counts.
         for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
+Kokkos::Profiling::pushRegion("createWithTopology MPI sends");
+// code you want to profile
 
       std::vector<MPI_Request> requests;
 requests.reserve(2 * num_n);
@@ -180,7 +182,6 @@ for (int n = 0; n < num_n; ++n)
                   &requests.back());
     }
 }
-
 // Wait on all communication (recv + send)
 std::vector<MPI_Status> status(requests.size());
 
@@ -191,14 +192,17 @@ if (MPI_SUCCESS != ec)
         "Cabana::CommunicationPlan::createFromExportsAndTopology: "
         "Failed MPI Communication");
 }
-
-        // Get the total number of imports/exports.
-        this->_total_num_export =
+Kokkos::Profiling::popRegion();
+Kokkos::Profiling::pushRegion("createWithTopology  total_num_export and total_num_import");
+   this->_total_num_export =
             std::accumulate( this->_num_export.begin(), this->_num_export.end(),
                              std::size_t{ 0u } );
         this->_total_num_import =
             std::accumulate( this->_num_import.begin(), this->_num_import.end(),
                              std::size_t{ 0u } );
+Kokkos::Profiling::popRegion();
+        // Get the total number of imports/exports.
+
 
         // No barrier is needed because all ranks know who they are receiving
         // and sending to.
