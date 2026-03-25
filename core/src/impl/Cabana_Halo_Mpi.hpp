@@ -70,8 +70,8 @@ Kokkos::Profiling::pushRegion("Cabana::gather::Isends and Iresvs");
 
 int num_n = _comm_plan.numNeighbor();
 
-// Requests for both recv + send
-std::vector<MPI_Request> requests(2 * num_n);
+std::vector<MPI_Request> requests;
+requests.reserve(2 * num_n); // optional
 
 std::pair<std::size_t, std::size_t> recv_range = {0, 0};
 
@@ -81,13 +81,16 @@ for (int n = 0; n < num_n; ++n)
     recv_range.second = recv_range.first + _comm_plan.numImport(n);
 
     auto recv_subview = Kokkos::subview(recv_buffer, recv_range);
-	if( recv_subview.size() ==0){
-	printf("here 0 resv data size\n");
-	}
-    MPI_Irecv(recv_subview.data(),
-              recv_subview.size() * sizeof(data_type), MPI_BYTE,
-              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-              &requests[n]);
+
+    if (recv_subview.size() > 0)
+    {
+        MPI_Request req;
+        MPI_Irecv(recv_subview.data(),
+                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+                  &req);
+        requests.push_back(req);
+    }
 
     recv_range.first = recv_range.second;
 }
@@ -100,19 +103,23 @@ for (int n = 0; n < num_n; ++n)
     send_range.second = send_range.first + _comm_plan.numExport(n);
 
     auto send_subview = Kokkos::subview(send_buffer, send_range);
-	if( send_subview.size() ==0){
-	printf("here 0 send data size\n");
-	}
-    MPI_Isend(send_subview.data(),
-              send_subview.size() * sizeof(data_type), MPI_BYTE,
-              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-              &requests[num_n + n]);
+
+    if (send_subview.size() > 0)
+    {
+        MPI_Request req;
+        MPI_Isend(send_subview.data(),
+                  send_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+                  &req);
+        requests.push_back(req);
+    }
 
     send_range.first = send_range.second;
 }
 
-// Wait on all non-blocking operations
-std::vector<MPI_Status> status(2 * num_n);
+// Wait only on actual requests
+std::vector<MPI_Status> status(requests.size());
+Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
 int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
 if (MPI_SUCCESS != ec)
@@ -122,7 +129,8 @@ if (MPI_SUCCESS != ec)
 }
 // code you want to profile
 Kokkos::Profiling::popRegion();
-
+Kokkos::Profiling::popRegion();
+Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -135,9 +143,9 @@ Kokkos::Profiling::popRegion();
     Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
                           recv_policy, extract_recv_buffer_func );
     Kokkos::fence();
-
+Kokkos::Profiling::popRegion();
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+   // MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
@@ -200,13 +208,18 @@ for (int n = 0; n < num_n; ++n)
 
     auto recv_subview =
         Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
-if( recv_subview.size() ==0){
-	printf("here 0 recv data size\n");
-	}
-    MPI_Irecv(recv_subview.data(),
-              recv_subview.size() * sizeof(data_type), MPI_BYTE,
-              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-              &requests[n]);
+
+    if (recv_subview.size() == 0)
+    {
+        requests[n] = MPI_REQUEST_NULL;
+    }
+    else
+    {
+        MPI_Irecv(recv_subview.data(),
+                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+                  &requests[n]);
+    }
 
     recv_range.first = recv_range.second;
 }
@@ -220,13 +233,18 @@ for (int n = 0; n < num_n; ++n)
 
     auto send_subview =
         Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
-	if( send_subview.size() ==0){
-	printf("here 0 send data size\n");
-	}
-    MPI_Isend(send_subview.data(),
-              send_subview.size() * sizeof(data_type), MPI_BYTE,
-              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-              &requests[num_n + n]);
+
+    if (send_subview.size() == 0)
+    {
+        requests[num_n + n] = MPI_REQUEST_NULL;
+    }
+    else
+    {
+        MPI_Isend(send_subview.data(),
+                  send_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+                  &requests[num_n + n]);
+    }
 
     send_range.first = send_range.second;
 }
@@ -316,6 +334,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 
 int num_n = _comm_plan.numNeighbor();
 
+
 // One request per recv + one per send
 std::vector<MPI_Request> requests(2 * num_n);
 
@@ -329,10 +348,17 @@ for (int n = 0; n < num_n; ++n)
     auto recv_subview =
         Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
 
-    MPI_Irecv(recv_subview.data(),
-              recv_subview.size() * sizeof(data_type), MPI_BYTE,
-              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-              &requests[n]);
+    if (recv_subview.size() == 0)
+    {
+        requests[n] = MPI_REQUEST_NULL;
+    }
+    else
+    {
+        MPI_Irecv(recv_subview.data(),
+                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+                  &requests[n]);
+    }
 
     recv_range.first = recv_range.second;
 }
@@ -347,10 +373,17 @@ for (int n = 0; n < num_n; ++n)
     auto send_subview =
         Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
 
-    MPI_Isend(send_subview.data(),
-              send_subview.size() * sizeof(data_type), MPI_BYTE,
-              _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-              &requests[num_n + n]);
+    if (send_subview.size() == 0)
+    {
+        requests[num_n + n] = MPI_REQUEST_NULL;
+    }
+    else
+    {
+        MPI_Isend(send_subview.data(),
+                  send_subview.size() * sizeof(data_type), MPI_BYTE,
+                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
+                  &requests[num_n + n]);
+    }
 
     send_range.first = send_range.second;
 }

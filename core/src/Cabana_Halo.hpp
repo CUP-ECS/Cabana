@@ -459,7 +459,11 @@ class Gather<HaloType, AoSoAType,
     /*!
       \brief Perform the gather operation.
     */
-    void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
+    void apply() override {
+        Kokkos::Profiling::ScopedRegion region( "Cabana::halo::apply" );
+
+applyImpl( execution_space{}, commspace_type{} );
+}
 
     /*!
       \brief Vanilla Mpi implementation of the gather operation.
@@ -586,7 +590,10 @@ class Gather<HaloType, SliceType,
     /*!
       \brief Perform the gather operation.
     */
-    void apply() override { applyImpl( execution_space{}, commspace_type{} ); }
+    void apply() override {
+        Kokkos::Profiling::ScopedRegion region( "Cabana::halo::apply" );
+applyImpl( execution_space{}, commspace_type{} );
+ }
 
     /*!
       \brief Vanilla Mpi implementation of the gather operation.
