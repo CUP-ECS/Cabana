@@ -115,7 +115,7 @@ target_link_libraries(Grid INTERFACE
   )
 
 if(Cabana_ENABLE_STREAM-TRIGGERING)
-  target_link_libraries(Grid INTERFACE stream-triggering)
+  target_link_libraries(Grid INTERFACE MPIAdvance::stream-triggering)
 endif()
   
 if(Cabana_ENABLE_HYPRE)
