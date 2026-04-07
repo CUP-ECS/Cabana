@@ -53,8 +53,9 @@ Gather<HaloType, AoSoAType,
     auto aosoa = this->getData();
 std::vector<MPI_Request> requests_recvs;
 requests_recvs.reserve( num_n);
+    const int mpi_tag = 2345;
 
-
+std::pair<std::size_t, std::size_t> recv_range = {0, 0};
 for (int n = 0; n < num_n; ++n)
 {
     recv_range.second = recv_range.first + _comm_plan.numImport(n);
@@ -90,14 +91,12 @@ for (int n = 0; n < num_n; ++n)
     Kokkos::fence();
 
     // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
-Kokkos::Profiling::pushRegion("Cabana::gather::Isends and Iresvs");
 
 int num_n = _comm_plan.numNeighbor();
 std::vector<MPI_Request> requests_sends;
 requests_sends.reserve( num_n);
 
-std::pair<std::size_t, std::size_t> recv_range = {0, 0};
+
 
 // Post all Irecv
 
@@ -126,7 +125,6 @@ for (int n = 0; n < num_n; ++n)
 
 // Wait only on actual requests
 std::vector<MPI_Status> status_recvs(requests_recvs.size());
-Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
 int ecR = MPI_Waitall(requests_recvs.size(), requests_recvs.data(), status_recvs.data());
 if (MPI_SUCCESS != ecR)
@@ -136,7 +134,6 @@ if (MPI_SUCCESS != ecR)
 }
 
 std::vector<MPI_Status> status_sends(requests_sends.size());
-Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
 int ecS = MPI_Waitall(requests_sends.size(), requests_sends.data(), status_sends.data());
 if (MPI_SUCCESS != ecS)
@@ -148,8 +145,7 @@ if (MPI_SUCCESS != ecS)
 
 
 // code you want to profile
-Kokkos::Profiling::popRegion();
-Kokkos::Profiling::popRegion();
+
 Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
     // Extract the receive buffer into the ghosted elements.
