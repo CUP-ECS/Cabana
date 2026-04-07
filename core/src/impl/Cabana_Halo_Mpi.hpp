@@ -128,8 +128,8 @@ for (int n = 0; n < num_n; ++n)
 std::vector<MPI_Status> status_recvs(requests_recvs.size());
 Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
-int ec = MPI_Waitall(requests_recvs.size(), requests_recvs.data(), status_recvs.data());
-if (MPI_SUCCESS != ec)
+int ecR = MPI_Waitall(requests_recvs.size(), requests_recvs.data(), status_recvs.data());
+if (MPI_SUCCESS != ecR)
 {
     throw std::logic_error(
         "Cabana::Gather::apply: Failed MPI Communication");
@@ -138,8 +138,8 @@ if (MPI_SUCCESS != ec)
 std::vector<MPI_Status> status_sends(requests_sends.size());
 Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
 
-int ec = MPI_Waitall(requests_sends.size(), requests_sends.data(), status_sends.data());
-if (MPI_SUCCESS != ec)
+int ecS = MPI_Waitall(requests_sends.size(), requests_sends.data(), status_sends.data());
+if (MPI_SUCCESS != ecS)
 {
     throw std::logic_error(
         "Cabana::Gather::apply: Failed MPI Communication");
