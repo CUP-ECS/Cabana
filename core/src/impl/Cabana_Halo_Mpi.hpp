@@ -51,6 +51,8 @@ Gather<HaloType, AoSoAType,
     auto send_buffer = this->getSendBuffer();
     auto recv_buffer = this->getReceiveBuffer();
     auto aosoa = this->getData();
+	int num_n = _comm_plan.numNeighbor();
+
 std::vector<MPI_Request> requests_recvs;
 requests_recvs.reserve( num_n);
     const int mpi_tag = 2345;
@@ -92,7 +94,6 @@ for (int n = 0; n < num_n; ++n)
 
     // The halo has it's own communication space so choose any mpi tag.
 
-int num_n = _comm_plan.numNeighbor();
 std::vector<MPI_Request> requests_sends;
 requests_sends.reserve( num_n);
 
