@@ -85,7 +85,8 @@ for (int n = 0; n < num_n; ++n)
     // Gather from the local data into a tuple-contiguous send buffer.
     auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
     {
-        send_buffer( i ) = aosoa.getTuple( steering( i ) );
+  		const auto idx = steering(i);
+   		send_buffer(i) = aosoa.getTuple(idx);
     };
     Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
