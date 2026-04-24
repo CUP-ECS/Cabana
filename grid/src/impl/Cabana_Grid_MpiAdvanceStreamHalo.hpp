@@ -221,14 +221,10 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         , _comm( Halo<MemorySpace>::getComm( arrays... ) )
     {
         int num_n = halo_type::_neighbor_ranks.size();
-        _scatter_requests[0] = std::vector(
-            2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
-        _scatter_requests[1] = std::vector(
-            2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
-        _gather_requests[0] = std::vector(
-            2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
-        _gather_requests[1] = std::vector(
-            2 * halo_type::_neighbor_ranks.size(), MPIS_REQUEST_NULL );
+        _scatter_requests[0] = std::vector( 2 * num_n, MPIS_REQUEST_NULL );
+        _scatter_requests[1] = std::vector( 2 * num_n, MPIS_REQUEST_NULL );
+        _gather_requests[0] = std::vector( 2 * num_n, MPIS_REQUEST_NULL );
+        _gather_requests[1] = std::vector( 2 * num_n, MPIS_REQUEST_NULL );
 
         // set up double buffering and/or fine grain memory
         setupMemory();
@@ -341,7 +337,6 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
                 {
                     if ( _double_buffer == 1 )
                     {
-                        // MPIS_Rsend_init(_stream_owned_buffers[p][n].data(),
                         MPIS_Rsend_init(
                             _stream_owned_buffers[p][n].data(),
                             _stream_owned_buffers[p][n].size(), MPI_BYTE,
