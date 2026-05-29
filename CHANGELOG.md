@@ -1,5 +1,36 @@
 # Change Log
 
+## 0.8.0
+
+**New Features**
+ - 2d support for Core library: neighbor lists, binning, particle init, and HDF5 output
+ - Added per-particle radius neighbor search for VerletList
+ - Import-based Halo support (for when you know who you are receiving from rather than sending to)
+ - Spline functions extended to 6th order (previous maximum 3rd order)
+
+**Bug Fixes and Improvements**
+- Fix slice edge case where size is a multiple of the vector length
+- Fix Gather/Scatter plan update sizes
+- Expand ParameterPack for non-default constructible types
+- Remove volatile overloads for Array join
+- Use the user provided execution space for index space execution policy creation 
+- Fix random seeds for grid-based random particle generation
+- Fix remove edge case when no particles removed
+- Improve HDF5 particle output: add time to XDMF and increase output precision for reproducibility
+- Fixed heFFTe CMake integration
+- Add namespace and class/function naming to error messages and parallel loop labels
+- Added customizable cmake install location with `Cabana_INSTALL_PACKAGEDIR`
+- Allow disabling Doxygen builds with `Cabana_ENABLE_DOXYGEN`
+- Enable installing test executables with `Cabana_INSTALL_TEST_EXECUTABLES`
+- Added CMake feature summary
+
+**Deprecated features**
+- Cajita deprecation wrappers removed
+- Device type template parameter deprecated support removed
+
+**Minimum dependency version updates**
+- Building with Kokkos past version 4.6 requires `Kokkos_ENABLE_IMPL_VIEW_LEGACY=ON`
+
 ## 0.7.0
 
 **New Features**
