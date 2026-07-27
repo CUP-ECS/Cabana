@@ -92,7 +92,7 @@ void writeFields(
     const std::size_t end, const SliceType& slice,
 
     typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Reorder in a contiguous blocked format.
     Kokkos::View<typename SliceType::value_type*,
@@ -118,7 +118,7 @@ void writeFields(
     DBfile* silo_file, const std::string& mesh_name, const std::size_t begin,
     const std::size_t end, const SliceType& slice,
     typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Reorder in a contiguous blocked format.
     Kokkos::View<typename SliceType::value_type**, Kokkos::LayoutLeft,
@@ -149,7 +149,7 @@ void writeFields(
     DBfile* silo_file, const std::string& mesh_name, const std::size_t begin,
     const std::size_t end, const SliceType& slice,
     typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Reorder in a contiguous blocked format.
     Kokkos::View<typename SliceType::value_type***, Kokkos::LayoutLeft,

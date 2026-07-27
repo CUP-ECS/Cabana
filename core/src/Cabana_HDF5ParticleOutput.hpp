@@ -261,7 +261,7 @@ void writeFields(
     const char* filename_hdf5, const char* filename_xdmf,
     const SliceType& slice,
     typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     hid_t plist_id;
     hid_t dset_id;
@@ -337,7 +337,7 @@ void writeFields(
     const char* filename_hdf5, const char* filename_xdmf,
     const SliceType& slice,
     typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     hid_t plist_id;
     hid_t dset_id;
@@ -420,7 +420,7 @@ void writeFields(
     const char* filename_hdf5, const char* filename_xdmf,
     const SliceType& slice,
     typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     hid_t plist_id;
     hid_t dset_id;
@@ -776,7 +776,7 @@ void readField(
     hid_t dset_id, hid_t dtype_id, hid_t memspace_id, hid_t filespace_id,
     hid_t plist_id, std::size_t n_local, const SliceType& slice,
     typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Read the field into a View.
     Kokkos::View<typename SliceType::value_type*, Kokkos::HostSpace> host_view(
@@ -796,7 +796,7 @@ void readField(
     hid_t dset_id, hid_t dtype_id, hid_t memspace_id, hid_t filespace_id,
     hid_t plist_id, std::size_t n_local, const SliceType& slice,
     typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Read the field into a View.
     Kokkos::View<typename SliceType::value_type**, Kokkos::LayoutRight,
@@ -818,7 +818,7 @@ void readField(
     hid_t dset_id, hid_t dtype_id, hid_t memspace_id, hid_t filespace_id,
     hid_t plist_id, std::size_t n_local, const SliceType& slice,
     typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Read the field into a View.
     Kokkos::View<typename SliceType::value_type***, Kokkos::LayoutRight,

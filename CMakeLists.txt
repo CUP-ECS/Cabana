@@ -41,11 +41,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # find kokkos
 find_package(Kokkos 4.1 REQUIRED)
 
-# FIXME: remove when custom layout support with mdspan Views is added.
-if(Kokkos_VERSION VERSION_GREATER_EQUAL 4.6.99 AND NOT Kokkos_ENABLE_IMPL_VIEW_LEGACY)
-  message(FATAL_ERROR "Current Kokkos does not support custom View layouts needed for AoSoA unless "
-          "Kokkos is built with Kokkos_ENABLE_IMPL_VIEW_LEGACY=ON.")
-endif()
+# The AoSoA slice layout has two implementations: a legacy Kokkos array layout
+# with a ViewOffset plugin (Kokkos < 4.7, or Kokkos built with
+# Kokkos_ENABLE_IMPL_VIEW_LEGACY=ON) and an mdspan layout policy (Kokkos >= 4.7
+# with the mdspan-based View). Both are selected automatically in
+# Cabana_Slice.hpp.
 
 # set supported kokkos devices
 set(CABANA_SUPPORTED_DEVICES SERIAL THREADS OPENMP CUDA HIP SYCL OPENMPTARGET)
