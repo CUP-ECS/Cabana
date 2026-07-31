@@ -38,15 +38,10 @@ template <class MemorySpace>
 class BinningData
 {
   public:
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert( Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
     //! Memory space size type.
@@ -658,6 +653,65 @@ void permute(
                           Kokkos::RangePolicy<ExecutionSpace>( begin, end ),
                           copy_back );
     Kokkos::fence();
+}
+
+//---------------------------------------------------------------------------//
+/*!
+  \brief Given binning data permute a View.
+
+  \tparam BinningDataType The binning data type.
+
+  \tparam ViewType The view type.
+
+  \param binning_data The binning data.
+
+  \param view The view to permute.
+ */
+template <class BinningDataType, class ViewType,
+          class MemorySpace = typename BinningDataType::memory_space>
+void permute(
+    const BinningDataType& binning_data, ViewType& view,
+    typename std::enable_if<( is_binning_data<BinningDataType>::value &&
+                              Kokkos::is_view<ViewType>::value ),
+                            int>::type* = 0 )
+{
+    Kokkos::Profiling::pushRegion( "Cabana::permute" );
+
+    auto begin = binning_data.rangeBegin();
+    auto end = binning_data.rangeEnd();
+
+    // Get the number of components (1 for View).
+    std::size_t num_comp = 1;
+    for ( std::size_t d = 1; d < view.rank; ++d )
+        num_comp *= view.extent( d );
+
+    Kokkos::View<typename ViewType::value_type**, MemorySpace> scratch(
+        Kokkos::ViewAllocateWithoutInitializing( "scratch" ), end - begin,
+        num_comp );
+
+    auto permute_to_scratch = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        auto permute_i = binning_data.permutation( i - begin );
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            scratch( i - begin, n ) = view( permute_i, n );
+    };
+    auto policy =
+        Kokkos::RangePolicy<typename BinningDataType::execution_space>( begin,
+                                                                        end );
+    Kokkos::parallel_for( "Cabana::kokkosBinSort::permute_to_scratch", policy,
+                          permute_to_scratch );
+    Kokkos::fence();
+
+    auto copy_back = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            view( i, n ) = scratch( i - begin, n );
+    };
+    Kokkos::parallel_for( "Cabana::kokkosBinSort::copy_back", policy,
+                          copy_back );
+    Kokkos::fence();
+
+    Kokkos::Profiling::popRegion();
 }
 
 //---------------------------------------------------------------------------//

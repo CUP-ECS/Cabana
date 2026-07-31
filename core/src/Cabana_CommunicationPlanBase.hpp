@@ -10,12 +10,14 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_CommunicationPlan.hpp
-  \brief Multi-node communication patterns
+  \file Cabana_CommunicationPlanBase.hpp
+  \brief Multi-node communication patterns. Base class.
 */
-#ifndef CABANA_COMMUNICATIONPLAN_HPP
-#define CABANA_COMMUNICATIONPLAN_HPP
+#ifndef CABANA_COMMUNICATIONPLANBASE_HPP
+#define CABANA_COMMUNICATIONPLANBASE_HPP
 
+#include <Cabana_Core_Config.hpp>
+#include <Cabana_Tags.hpp>
 #include <Cabana_Utils.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -32,6 +34,8 @@
 
 namespace Cabana
 {
+//---------------------------------------------------------------------------//
+
 namespace Impl
 {
 //! \cond Impl
@@ -59,7 +63,7 @@ struct CountSendsAndCreateSteeringAlgorithm<Kokkos::Cuda>
 #endif // end KOKKOS_ENABLE_CUDA
 #ifdef KOKKOS_ENABLE_HIP
 template <>
-struct CountSendsAndCreateSteeringAlgorithm<Kokkos::Experimental::HIP>
+struct CountSendsAndCreateSteeringAlgorithm<Kokkos::HIP>
 {
     using type = CountSendsAndCreateSteeringAtomic;
 };
@@ -416,34 +420,26 @@ inline std::vector<int> getUniqueTopology( MPI_Comm comm,
   is being exported will appear first in the steering vector.
 */
 template <class MemorySpace>
-class CommunicationPlan
+class CommunicationPlanBase
 {
   public:
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert( Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
-
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be memory_space::size_type after
-    // next release.
     //! Size type.
     using size_type = typename memory_space::memory_space::size_type;
 
+  protected:
     /*!
       \brief Constructor.
 
       \param comm The MPI communicator over which the distributor is defined.
     */
-    CommunicationPlan( MPI_Comm comm )
+    CommunicationPlanBase( MPI_Comm comm )
     {
         _comm_ptr.reset(
             // Duplicate the communicator and store in a std::shared_ptr so that
@@ -462,6 +458,7 @@ class CommunicationPlan
             } );
     }
 
+  public:
     /*!
       \brief Get the MPI communicator.
     */
@@ -555,376 +552,6 @@ class CommunicationPlan
     // with lambda functions.
   public:
     /*!
-      \brief Neighbor and export rank creator. Use this when you already know
-      which ranks neighbor each other (i.e. every rank already knows who they
-      will be sending and receiving from) as it will be more efficient. In
-      this case you already know the topology of the point-to-point
-      communication but not how much data to send to and receive from the
-      neighbors.
-
-      \param exec_space Kokkos execution space.
-
-      \param element_export_ranks The destination rank in the target
-      decomposition of each locally owned element in the source
-      decomposition. Each element will have one unique destination to which it
-      will be exported. This export rank may be any one of the listed neighbor
-      ranks which can include the calling rank. An export rank of -1 will
-      signal that this element is *not* to be exported and will be ignored in
-      the data migration. The input is expected to be a Kokkos view or Cabana
-      slice in the same memory space as the communication plan.
-
-      \param neighbor_ranks List of ranks this rank will send to and receive
-      from. This list can include the calling rank. This is effectively a
-      description of the topology of the point-to-point communication
-      plan. Only the unique elements in this list are used.
-
-      \return The location of each export element in the send buffer for its
-      given neighbor.
-
-      \note Calling this function completely updates the state of this object
-      and invalidates the previous state.
-
-      \note For elements that you do not wish to export, use an export rank of
-      -1 to signal that this element is *not* to be exported and will be
-      ignored in the data migration. In other words, this element will be
-      *completely* removed in the new decomposition. If the data is staying on
-      this rank, just use this rank as the export destination and the data
-      will be efficiently migrated.
-    */
-    template <class ExecutionSpace, class ViewType>
-    Kokkos::View<size_type*, memory_space>
-    createFromExportsAndTopology( ExecutionSpace exec_space,
-                                  const ViewType& element_export_ranks,
-                                  const std::vector<int>& neighbor_ranks )
-    {
-        static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
-
-        // Store the number of export elements.
-        _num_export_element = element_export_ranks.size();
-
-        // Store the unique neighbors (this rank first).
-        _neighbors = getUniqueTopology( comm(), neighbor_ranks );
-        int num_n = _neighbors.size();
-
-        // Get the size of this communicator.
-        int comm_size = -1;
-        MPI_Comm_size( comm(), &comm_size );
-
-        // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( comm(), &my_rank );
-
-        // Pick an mpi tag for communication. This object has it's own
-        // communication space so any mpi tag will do.
-        const int mpi_tag = 1221;
-
-        // Initialize import/export sizes.
-        _num_export.assign( num_n, 0 );
-        _num_import.assign( num_n, 0 );
-
-        // Count the number of sends this rank will do to other ranks. Keep
-        // track of which slot we get in our neighbor's send buffer.
-        auto counts_and_ids = Impl::countSendsAndCreateSteering(
-            exec_space, element_export_ranks, comm_size,
-            typename Impl::CountSendsAndCreateSteeringAlgorithm<
-                ExecutionSpace>::type() );
-
-        // Copy the counts to the host.
-        auto neighbor_counts_host = Kokkos::create_mirror_view_and_copy(
-            Kokkos::HostSpace(), counts_and_ids.first );
-
-        // Get the export counts.
-        for ( int n = 0; n < num_n; ++n )
-            _num_export[n] = neighbor_counts_host( _neighbors[n] );
-
-        // Post receives for the number of imports we will get.
-        std::vector<MPI_Request> requests;
-        requests.reserve( num_n );
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != _neighbors[n] )
-            {
-                requests.push_back( MPI_Request() );
-                MPI_Irecv( &_num_import[n], 1, MPI_UNSIGNED_LONG, _neighbors[n],
-                           mpi_tag, comm(), &( requests.back() ) );
-            }
-            else
-                _num_import[n] = _num_export[n];
-
-        // Send the number of exports to each of our neighbors.
-        for ( int n = 0; n < num_n; ++n )
-            if ( my_rank != _neighbors[n] )
-                MPI_Send( &_num_export[n], 1, MPI_UNSIGNED_LONG, _neighbors[n],
-                          mpi_tag, comm() );
-
-        // Wait on receives.
-        std::vector<MPI_Status> status( requests.size() );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
-
-        // Get the total number of imports/exports.
-        _total_num_export =
-            std::accumulate( _num_export.begin(), _num_export.end(), 0 );
-        _total_num_import =
-            std::accumulate( _num_import.begin(), _num_import.end(), 0 );
-
-        // Barrier before continuing to ensure synchronization.
-        MPI_Barrier( comm() );
-
-        // Return the neighbor ids.
-        return counts_and_ids.second;
-    }
-
-    /*!
-      \brief Neighbor and export rank creator. Use this when you already know
-      which ranks neighbor each other (i.e. every rank already knows who they
-      will be sending and receiving from) as it will be more efficient. In
-      this case you already know the topology of the point-to-point
-      communication but not how much data to send to and receive from the
-      neighbors.
-
-      \param element_export_ranks The destination rank in the target
-      decomposition of each locally owned element in the source
-      decomposition. Each element will have one unique destination to which it
-      will be exported. This export rank may be any one of the listed neighbor
-      ranks which can include the calling rank. An export rank of -1 will
-      signal that this element is *not* to be exported and will be ignored in
-      the data migration. The input is expected to be a Kokkos view or Cabana
-      slice in the same memory space as the communication plan.
-
-      \param neighbor_ranks List of ranks this rank will send to and receive
-      from. This list can include the calling rank. This is effectively a
-      description of the topology of the point-to-point communication
-      plan. Only the unique elements in this list are used.
-
-      \return The location of each export element in the send buffer for its
-      given neighbor.
-
-      \note Calling this function completely updates the state of this object
-      and invalidates the previous state.
-
-      \note For elements that you do not wish to export, use an export rank of
-      -1 to signal that this element is *not* to be exported and will be
-      ignored in the data migration. In other words, this element will be
-      *completely* removed in the new decomposition. If the data is staying on
-      this rank, just use this rank as the export destination and the data
-      will be efficiently migrated.
-    */
-    template <class ViewType>
-    Kokkos::View<size_type*, memory_space>
-    createFromExportsAndTopology( const ViewType& element_export_ranks,
-                                  const std::vector<int>& neighbor_ranks )
-    {
-        // Use the default execution space.
-        return createFromExportsAndTopology(
-            execution_space{}, element_export_ranks, neighbor_ranks );
-    }
-
-    /*!
-      \brief Export rank creator. Use this when you don't know who you will
-      receiving from - only who you are sending to. This is less efficient
-      than if we already knew who our neighbors were because we have to
-      determine the topology of the point-to-point communication first.
-
-      \param exec_space Kokkos execution space.
-
-      \param element_export_ranks The destination rank in the target
-      decomposition of each locally owned element in the source
-      decomposition. Each element will have one unique destination to which it
-      will be exported. This export rank may any one of the listed neighbor
-      ranks which can include the calling rank. An export rank of -1 will
-      signal that this element is *not* to be exported and will be ignored in
-      the data migration. The input is expected to be a Kokkos view or Cabana
-      slice in the same memory space as the communication plan.
-
-      \return The location of each export element in the send buffer for its
-      given neighbor.
-
-      \note Calling this function completely updates the state of this object
-      and invalidates the previous state.
-
-      \note For elements that you do not wish to export, use an export rank of
-      -1 to signal that this element is *not* to be exported and will be
-      ignored in the data migration. In other words, this element will be
-      *completely* removed in the new decomposition. If the data is staying on
-      this rank, just use this rank as the export destination and the data
-      will be efficiently migrated.
-    */
-    template <class ExecutionSpace, class ViewType>
-    Kokkos::View<size_type*, memory_space>
-    createFromExportsOnly( ExecutionSpace exec_space,
-                           const ViewType& element_export_ranks )
-    {
-        static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
-
-        // Store the number of export elements.
-        _num_export_element = element_export_ranks.size();
-
-        // Get the size of this communicator.
-        int comm_size = -1;
-        MPI_Comm_size( comm(), &comm_size );
-
-        // Get the MPI rank we are currently on.
-        int my_rank = -1;
-        MPI_Comm_rank( comm(), &my_rank );
-
-        // Pick an mpi tag for communication. This object has it's own
-        // communication space so any mpi tag will do.
-        const int mpi_tag = 1221;
-
-        // Count the number of sends this rank will do to other ranks. Keep
-        // track of which slot we get in our neighbor's send buffer.
-        auto counts_and_ids = Impl::countSendsAndCreateSteering(
-            exec_space, element_export_ranks, comm_size,
-            typename Impl::CountSendsAndCreateSteeringAlgorithm<
-                ExecutionSpace>::type() );
-
-        // Copy the counts to the host.
-        auto neighbor_counts_host = Kokkos::create_mirror_view_and_copy(
-            Kokkos::HostSpace(), counts_and_ids.first );
-
-        // Extract the export ranks and number of exports and then flag the
-        // send ranks.
-        _neighbors.clear();
-        _num_export.clear();
-        _total_num_export = 0;
-        for ( int r = 0; r < comm_size; ++r )
-            if ( neighbor_counts_host( r ) > 0 )
-            {
-                _neighbors.push_back( r );
-                _num_export.push_back( neighbor_counts_host( r ) );
-                _total_num_export += neighbor_counts_host( r );
-                neighbor_counts_host( r ) = 1;
-            }
-
-        // Get the number of export ranks and initially allocate the import
-        // sizes.
-        int num_export_rank = _neighbors.size();
-        _num_import.assign( num_export_rank, 0 );
-
-        // If we are sending to ourself put that one first in the neighbor
-        // list and assign the number of imports to be the number of exports.
-        bool self_send = false;
-        for ( int n = 0; n < num_export_rank; ++n )
-            if ( _neighbors[n] == my_rank )
-            {
-                std::swap( _neighbors[n], _neighbors[0] );
-                std::swap( _num_export[n], _num_export[0] );
-                _num_import[0] = _num_export[0];
-                self_send = true;
-                break;
-            }
-
-        // Determine how many total import ranks each neighbor has.
-        int num_import_rank = -1;
-        std::vector<int> recv_counts( comm_size, 1 );
-        MPI_Reduce_scatter( neighbor_counts_host.data(), &num_import_rank,
-                            recv_counts.data(), MPI_INT, MPI_SUM, comm() );
-        if ( self_send )
-            --num_import_rank;
-
-        // Post the expected number of receives and indicate we might get them
-        // from any rank.
-        std::vector<std::size_t> import_sizes( num_import_rank );
-        std::vector<MPI_Request> requests( num_import_rank );
-        for ( int n = 0; n < num_import_rank; ++n )
-            MPI_Irecv( &import_sizes[n], 1, MPI_UNSIGNED_LONG, MPI_ANY_SOURCE,
-                       mpi_tag, comm(), &requests[n] );
-
-        // Do blocking sends. Dont do any self sends.
-        int self_offset = ( self_send ) ? 1 : 0;
-        for ( int n = self_offset; n < num_export_rank; ++n )
-            MPI_Send( &_num_export[n], 1, MPI_UNSIGNED_LONG, _neighbors[n],
-                      mpi_tag, comm() );
-
-        // Wait on non-blocking receives.
-        std::vector<MPI_Status> status( requests.size() );
-        const int ec =
-            MPI_Waitall( requests.size(), requests.data(), status.data() );
-        if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "Failed MPI Communication" );
-
-        // Compute the total number of imports.
-        _total_num_import =
-            std::accumulate( import_sizes.begin(), import_sizes.end(),
-                             ( self_send ) ? _num_import[0] : 0 );
-
-        // Extract the imports. If we did self sends we already know what
-        // imports we got from that.
-        for ( int i = 0; i < num_import_rank; ++i )
-        {
-            // Get the message source.
-            const auto source = status[i].MPI_SOURCE;
-
-            // See if the neighbor we received stuff from was someone we also
-            // sent stuff to.
-            auto found_neighbor =
-                std::find( _neighbors.begin(), _neighbors.end(), source );
-
-            // If this is a new neighbor (i.e. someone we didn't send anything
-            // to) record this.
-            if ( found_neighbor == std::end( _neighbors ) )
-            {
-                _neighbors.push_back( source );
-                _num_import.push_back( import_sizes[i] );
-                _num_export.push_back( 0 );
-            }
-
-            // Otherwise if we already sent something to this neighbor that
-            // means we already have a neighbor/export entry. Just assign the
-            // import entry for that neighbor.
-            else
-            {
-                auto n = std::distance( _neighbors.begin(), found_neighbor );
-                _num_import[n] = import_sizes[i];
-            }
-        }
-
-        // Barrier before continuing to ensure synchronization.
-        MPI_Barrier( comm() );
-
-        // Return the neighbor ids.
-        return counts_and_ids.second;
-    }
-
-    /*!
-      \brief Export rank creator. Use this when you don't know who you will
-      receiving from - only who you are sending to. This is less efficient
-      than if we already knew who our neighbors were because we have to
-      determine the topology of the point-to-point communication first.
-
-      \param element_export_ranks The destination rank in the target
-      decomposition of each locally owned element in the source
-      decomposition. Each element will have one unique destination to which it
-      will be exported. This export rank may any one of the listed neighbor
-      ranks which can include the calling rank. An export rank of -1 will
-      signal that this element is *not* to be exported and will be ignored in
-      the data migration. The input is expected to be a Kokkos view or Cabana
-      slice in the same memory space as the communication plan.
-
-      \return The location of each export element in the send buffer for its
-      given neighbor.
-
-      \note Calling this function completely updates the state of this object
-      and invalidates the previous state.
-
-      \note For elements that you do not wish to export, use an export rank of
-      -1 to signal that this element is *not* to be exported and will be
-      ignored in the data migration. In other words, this element will be
-      *completely* removed in the new decomposition. If the data is staying on
-      this rank, just use this rank as the export destination and the data
-      will be efficiently migrated.
-    */
-    template <class ViewType>
-    Kokkos::View<size_type*, memory_space>
-    createFromExportsOnly( const ViewType& element_export_ranks )
-    {
-        // Use the default execution space.
-        return createFromExportsOnly( execution_space{}, element_export_ranks );
-    }
-
-    /*!
       \brief Create the export steering vector.
 
       Creates an array describing which export element ids are moved to which
@@ -988,7 +615,9 @@ class CommunicationPlan
 
         if ( !use_iota &&
              ( element_export_ids.size() != element_export_ranks.size() ) )
-            throw std::runtime_error( "Export ids and ranks different sizes!" );
+            throw std::runtime_error(
+                "Cabana::CommunicationPlan::createSteering: Export ids and "
+                "ranks different sizes!" );
 
         // Get the size of this communicator.
         int comm_size = -1;
@@ -1017,7 +646,7 @@ class CommunicationPlan
             _total_num_export );
         auto steer_vec = _export_steering;
         Kokkos::parallel_for(
-            "Cabana::createSteering",
+            "Cabana::CommunicationPlan::createSteering",
             Kokkos::RangePolicy<ExecutionSpace>( 0, _num_export_element ),
             KOKKOS_LAMBDA( const int i ) {
                 if ( element_export_ranks( i ) >= 0 )
@@ -1039,14 +668,24 @@ class CommunicationPlan
     }
     //! \endcond
 
-  private:
+  protected:
+    //! Shared pointer to Mpi communicator
     std::shared_ptr<MPI_Comm> _comm_ptr;
+    //! List of Mpi neighbors
     std::vector<int> _neighbors;
+    //! Number of elements exported
     std::size_t _total_num_export;
+    //! Number of elements imported
     std::size_t _total_num_import;
+    //! Number of elements exported to each neighbor
     std::vector<std::size_t> _num_export;
+    //! Number of elements imported from each neighbor
     std::vector<std::size_t> _num_import;
+    //! Number of elements exported. May be different from _total_num_export
+    //! if some of the export ranks used in the construction are -1 and
+    //! therefore will not particpate in an export operation.
     std::size_t _num_export_element;
+    //! Export steering vector
     Kokkos::View<std::size_t*, memory_space> _export_steering;
 };
 
@@ -1169,7 +808,7 @@ struct CommunicationDataSlice
   \brief Store communication plan and communication buffers.
 */
 template <class CommPlanType, class CommDataType>
-class CommunicationData
+class CommunicationDataBase
 {
   public:
     //! Communication plan type (Halo, Distributor)
@@ -1189,21 +828,23 @@ class CommunicationData
     //! Communication buffer type.
     using buffer_type = typename comm_data_type::buffer_type;
 
+  protected:
     /*!
       \param comm_plan The communication plan.
       \param particles The particle data (either AoSoA or slice).
       \param overallocation An optional factor to keep extra space in the
       buffers to avoid frequent resizing.
     */
-    CommunicationData( const CommPlanType& comm_plan,
-                       const particle_data_type& particles,
-                       const double overallocation = 1.0 )
+    CommunicationDataBase( const CommPlanType& comm_plan,
+                           const particle_data_type& particles,
+                           const double overallocation = 1.0 )
         : _comm_plan( comm_plan )
         , _comm_data( CommDataType( particles ) )
         , _overallocation( overallocation )
     {
     }
 
+  public:
     //! Get the communication send buffer.
     buffer_type getSendBuffer() const { return _comm_data._send_buffer; }
     //! Get the communication receive buffer.
@@ -1266,7 +907,8 @@ class CommunicationData
                       const double overallocation )
     {
         if ( overallocation < 1.0 )
-            throw std::runtime_error( "Cannot allocate buffers with less space "
+            throw std::runtime_error( "Cabana::CommunicationPlan: "
+                                      "Cannot allocate buffers with less space "
                                       "than data to communicate!" );
         _overallocation = overallocation;
 
@@ -1281,12 +923,14 @@ class CommunicationData
         setData( particles );
 
         auto send_capacity = sendCapacity();
-        std::size_t new_send_size = total_send * _overallocation;
+        auto new_send_size = static_cast<std::size_t>(
+            static_cast<double>( total_send ) * _overallocation );
         if ( new_send_size > send_capacity )
             _comm_data.reallocateSend( new_send_size );
 
         auto recv_capacity = receiveCapacity();
-        std::size_t new_recv_size = total_recv * _overallocation;
+        auto new_recv_size = static_cast<std::size_t>(
+            static_cast<double>( total_recv ) * _overallocation );
         if ( new_recv_size > recv_capacity )
             _comm_data.reallocateReceive( new_recv_size );
 
@@ -1311,6 +955,19 @@ class CommunicationData
     std::size_t _recv_size;
 };
 
-} // end namespace Cabana
+// Forward declaration of the primary CommunicationPlan template.
+template <class MemorySpace, class CommSpaceType = Mpi>
+class CommunicationPlan;
 
-#endif // end CABANA_COMMUNICATIONPLAN_HPP
+// Forward declaration of the primary CommunicationData template.
+template <class CommPlanType, class CommDataType, class CommSpaceType = Mpi>
+class CommunicationData;
+
+} // namespace Cabana
+
+// Include communication backends from what is enabled in CMake.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_CommunicationPlan_Mpi.hpp>
+#endif // Enable MPI
+
+#endif // end CABANA_COMMUNICATIONPLANBASE_HPP

@@ -19,7 +19,6 @@
 #include <Cabana_Grid_GlobalMesh.hpp>
 #include <Cabana_Grid_Partitioner.hpp>
 #include <Cabana_Grid_Types.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
 #include <array>
 #include <memory>
@@ -226,8 +225,8 @@ std::shared_ptr<GlobalGrid<SparseMesh<Scalar, NumSpaceDim>>> createGlobalGrid(
 {
     for ( long unsigned int d = 0; d < NumSpaceDim; ++d )
         if ( periodic[d] )
-            std::runtime_error(
-                "Sparse grid doesn't support periodic BC so far!" );
+            std::runtime_error( "Cabana::Grid::createGlobalGrid: Sparse grid "
+                                "does not support periodic boundaries" );
     return std::make_shared<GlobalGrid<SparseMesh<Scalar, NumSpaceDim>>>(
         comm, global_mesh, periodic, partitioner );
 }
@@ -236,20 +235,6 @@ std::shared_ptr<GlobalGrid<SparseMesh<Scalar, NumSpaceDim>>> createGlobalGrid(
 
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <class MeshType>
-using GlobalGrid CAJITA_DEPRECATED = Cabana::Grid::GlobalGrid<MeshType>;
-
-template <class... Args>
-CAJITA_DEPRECATED auto createGlobalGrid( Args&&... args )
-{
-    return Cabana::Grid::createGlobalGrid( std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Cajita
 
 //---------------------------------------------------------------------------//
 // Template implementation

@@ -111,12 +111,14 @@ slice( const AoSoA_t& aosoa, const std::string& slice_label = "" )
   <tt>MemorySpace</tt>.
 
   \tparam MemoryTraits (optional) Memory traits for the AoSoA data. Can be
-  used to indicate managed memory, unmanaged memory, etc.
+  used to indicate unmanaged memory, atomic access, etc.
  */
 template <class DataTypes, class MemorySpace,
           int VectorLength = Impl::PerformanceTraits<
               typename MemorySpace::execution_space>::vector_length,
-          class MemoryTraits = Kokkos::MemoryManaged>
+          // FIXME: MemoryManaged removed post 4.6 when default was added.
+          // Remove 0 when 4.7 is required.
+          class MemoryTraits = Kokkos::MemoryTraits<0>>
 class AoSoA
 {
   public:
@@ -134,15 +136,10 @@ class AoSoA
     //! Member data types.
     using member_types = DataTypes;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert( Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
 

@@ -19,8 +19,6 @@
 #include <Cabana_Grid_Array.hpp>
 #include <Cabana_Grid_Types.hpp>
 
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
-
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Profiling_ScopedRegion.hpp>
 
@@ -76,9 +74,9 @@ template <class ArrayEntity, class ArrayMesh, class ArrayMemorySpace,
 struct is_matching_array : public std::false_type
 {
     static_assert( std::is_same<ArrayEntity, Entity>::value,
-                   "Array entity type mush match FFT entity type." );
+                   "Array entity type must match FFT entity type." );
     static_assert( std::is_same<ArrayMesh, Mesh>::value,
-                   "Array mesh type mush match FFT mesh type." );
+                   "Array mesh type must match FFT mesh type." );
     static_assert( std::is_same<ArrayMemorySpace, MemorySpace>::value,
                    "Array memory space must match FFT memory space." );
 };
@@ -98,13 +96,24 @@ struct is_matching_array<
 {
 };
 
+/*!
+  \brief Choices of heFFTe MPI communication patterns
+*/
+enum class FFTCommPattern : unsigned int
+{
+    alltoallv = 0u,
+    p2p = 1u,
+    alltoall = 2u,
+    p2p_plined = 3u
+};
+
 //---------------------------------------------------------------------------//
 /*!
   \brief Parameters controlling details for fast Fourier transforms.
 */
 class FastFourierTransformParams
 {
-    bool alltoall = true;
+    FFTCommPattern FFTcomm = FFTCommPattern::alltoallv;
     bool pencils = true;
     bool reorder = true;
 
@@ -113,7 +122,18 @@ class FastFourierTransformParams
       \brief Set MPI communication strategy.
       \param value Use all to all MPI communication.
     */
-    void setAllToAll( bool value ) { alltoall = value; }
+    void setAlltoAll( FFTCommPattern value ) { FFTcomm = value; }
+    /*!
+      \brief Set MPI communication strategy.
+      \param value Use all to all MPI communication.
+    */
+    void setAlltoAll( bool value )
+    {
+        if ( value )
+            FFTcomm = FFTCommPattern::alltoallv;
+        else
+            FFTcomm = FFTCommPattern::p2p;
+    }
     /*!
       \brief Set data exchange type (pencil or slab).
       \param value Use pencil (true) or slab (false) decomposition.
@@ -129,7 +149,7 @@ class FastFourierTransformParams
       \brief Get MPI communication strategy.
       \return Using AllToAll or not.
     */
-    bool getAllToAll() const { return alltoall; }
+    FFTCommPattern getAlltoAll() const { return FFTcomm; }
     /*!
       \brief Get data exchange type (pencil or slab).
       \return Using pencil (true) or slab (false) decomposition.
@@ -159,20 +179,12 @@ class FastFourierTransform
     //! Scalar value type.
     using value_type = Scalar;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
     //! Kokkos memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert(
-        Cabana::Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
     //! Kokkos execution space.
     using execution_space = typename memory_space::execution_space;
-    //! Kokkos execution space.
-    using exec_space [[deprecated]] = execution_space;
-    //! Default Kokkos device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
 
     //! Spatial dimension.
     static constexpr std::size_t num_space_dim = mesh_type::num_space_dim;
@@ -217,7 +229,9 @@ class FastFourierTransform
     {
         if ( 2 != dof )
             throw std::logic_error(
-                "Only 1 complex value per entity allowed in FFT" );
+                "Cabana::Grid::Experimental::FastFourierTransform::"
+                "checkArrayDofs: Only 1 complex value per entity allowed in "
+                "FFT" );
     }
 
     /*!
@@ -274,7 +288,8 @@ class FastFourierTransform
                  LViewType& l_view, const LGViewType lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_to_work", createExecutionPolicy( own_space, exec_space ),
+            "Cabana::Grid::FastFourierTransform::copyTo",
+            createExecutionPolicy( own_space, exec_space ),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -294,7 +309,8 @@ class FastFourierTransform
                  LViewType& l_view, const LGViewType lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_to_work", createExecutionPolicy( own_space, space ),
+            "Cabana::Grid::FastFourierTransform::copyTo",
+            createExecutionPolicy( own_space, space ),
             KOKKOS_LAMBDA( const int i, const int j ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -313,7 +329,8 @@ class FastFourierTransform
                    const LViewType l_view, LGViewType& lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_from_work", createExecutionPolicy( own_space, space ),
+            "Cabana::Grid::FastFourierTransform::copyFrom",
+            createExecutionPolicy( own_space, space ),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -333,7 +350,8 @@ class FastFourierTransform
                    const LViewType l_view, LGViewType& lg_view )
     {
         Kokkos::parallel_for(
-            "fft_copy_from_work", createExecutionPolicy( own_space, space ),
+            "Cabana::Grid::FastFourierTransform::copyFrom",
+            createExecutionPolicy( own_space, space ),
             KOKKOS_LAMBDA( const int i, const int j ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
@@ -381,7 +399,8 @@ struct HeffteBackendTraits<ExecutionSpace, Impl::FFTBackendDefault>
     using backend_type = heffte::backend::mkl;
 };
 #else
-throw std::runtime_error( "Must enable at least one heFFTe host backend." );
+throw std::runtime_error( "Cabana::Grid::FastFourierTransform: Must enable at "
+                          "least one heFFTe host backend." );
 #endif
 #endif
 #ifdef Heffte_ENABLE_CUDA
@@ -396,7 +415,7 @@ struct HeffteBackendTraits<Kokkos::Cuda, Impl::FFTBackendDefault>
 #ifdef Heffte_ENABLE_ROCM
 #ifdef KOKKOS_ENABLE_HIP
 template <>
-struct HeffteBackendTraits<Kokkos::Experimental::HIP, Impl::FFTBackendDefault>
+struct HeffteBackendTraits<Kokkos::HIP, Impl::FFTBackendDefault>
 {
     using backend_type = heffte::backend::rocfft;
 };
@@ -486,20 +505,12 @@ class HeffteFastFourierTransform
     //! Scalar value type.
     using value_type = Scalar;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
     //! Kokkos memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert(
-        Cabana::Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
     //! Kokkos execution space.
     using execution_space = ExecSpace;
-    //! Kokkos execution space.
-    using exec_space [[deprecated]] = execution_space;
-    //! Default Kokkos device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! FFT backend type.
     using backend_type = BackendType;
     //! Mesh type.
@@ -538,12 +549,26 @@ class HeffteFastFourierTransform
 
         heffte::plan_options heffte_params =
             heffte::default_options<heffte_backend_type>();
-        // TODO: use all three heffte options for algorithm
-        bool alltoall = params.getAllToAll();
-        if ( alltoall )
-            heffte_params.algorithm = heffte::reshape_algorithm::alltoallv;
-        else
+        auto FFTcomm = params.getAlltoAll();
+        switch ( FFTcomm )
+        {
+        case Cabana::Grid::Experimental::FFTCommPattern::p2p:
             heffte_params.algorithm = heffte::reshape_algorithm::p2p;
+            break;
+        case Cabana::Grid::Experimental::FFTCommPattern::alltoallv:
+            heffte_params.algorithm = heffte::reshape_algorithm::alltoallv;
+            break;
+        case Cabana::Grid::Experimental::FFTCommPattern::alltoall:
+            heffte_params.algorithm = heffte::reshape_algorithm::alltoall;
+            break;
+        case Cabana::Grid::Experimental::FFTCommPattern::p2p_plined:
+            heffte_params.algorithm = heffte::reshape_algorithm::p2p_plined;
+            break;
+        default:
+            heffte_params.algorithm = heffte::reshape_algorithm::alltoallv;
+            break;
+        }
+
         heffte_params.use_pencils = params.getPencils();
         heffte_params.use_reorder = params.getReorder();
 
@@ -558,8 +583,10 @@ class HeffteFastFourierTransform
         auto entity_space =
             layout.localGrid()->indexSpace( Own(), EntityType(), Local() );
         if ( fftsize < (int)entity_space.size() )
-            throw std::logic_error( "Expected FFT allocation size smaller "
-                                    "than local grid size" );
+            throw std::logic_error(
+                "Cabana::Grid::Experimental::HeffteFastFourierTransform: "
+                "Expected FFT allocation size smaller "
+                "than local grid size" );
 
         _fft_work = Kokkos::View<Scalar*, memory_space>(
             Kokkos::ViewAllocateWithoutInitializing( "fft_work" ),
@@ -633,7 +660,9 @@ class HeffteFastFourierTransform
         else
         {
             throw std::logic_error(
-                "Only 1:forward and -1:backward are allowed as compute flag" );
+                "Cabana::Grid::Experimental::HeffteFastFourierTransform::"
+                "compute: Only 1:forward and -1:backward are allowed as "
+                "compute flag" );
         }
 
         // Copy back to output array.
@@ -698,8 +727,7 @@ auto createHeffteFastFourierTransform(
     const heffte::plan_options heffte_params =
         heffte::default_options<heffte_backend_type>();
     FastFourierTransformParams params;
-    // TODO: set appropriate default for AllToAll
-    params.setAllToAll( true );
+    params.setAlltoAll( FFTCommPattern::alltoallv );
     params.setPencils( heffte_params.use_pencils );
     params.setReorder( heffte_params.use_reorder );
 
@@ -783,69 +811,5 @@ auto createHeffteFastFourierTransform(
 } // end namespace Experimental
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-namespace Experimental
-{
-//! \cond Deprecated
-using FFTScaleFull CAJITA_DEPRECATED = Cabana::Grid::Experimental::FFTScaleFull;
-using FFTScaleNone CAJITA_DEPRECATED = Cabana::Grid::Experimental::FFTScaleNone;
-using FFTScaleSymmetric CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::FFTScaleSymmetric;
-using FFTBackendFFTW CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::FFTBackendFFTW;
-using FFTBackendMKL CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::FFTBackendMKL;
-namespace Impl
-{
-using FFTBackendDefault CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::Impl::FFTBackendDefault;
-}
-
-template <class ArrayEntity, class ArrayMesh, class ArrayDevice,
-          class ArrayScalar, class Entity, class Mesh, class Device,
-          class Scalar, typename SFINAE = void>
-using is_matching_array CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::is_matching_array<
-        ArrayEntity, ArrayMesh, ArrayDevice, ArrayScalar, Entity, Mesh, Device,
-        Scalar, SFINAE>;
-
-template <class EntityType, class MeshType, class Scalar, class DeviceType,
-          class Derived>
-using FastFourierTransform CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::FastFourierTransform<
-        EntityType, MeshType, Scalar, DeviceType, Derived>;
-
-using FastFourierTransformParams CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::FastFourierTransformParams;
-
-template <class EntityType, class MeshType, class Scalar, class DeviceType,
-          class Derived>
-using FastFourierTransform CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::FastFourierTransform<
-        EntityType, MeshType, Scalar, DeviceType, Derived>;
-
-template <class EntityType, class MeshType, class Scalar, class MemorySpace,
-          class ExecSpace, class BackendType>
-using HeffteFastFourierTransform CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::HeffteFastFourierTransform<
-        EntityType, MeshType, Scalar, MemorySpace, ExecSpace, BackendType>;
-
-template <class Scalar, class MemorySpace, class BackendType, class... Args>
-CAJITA_DEPRECATED auto createHeffteFastFourierTransform( Args&&... args )
-{
-    return Cabana::Grid::Experimental::createHeffteFastFourierTransform<
-        Scalar, MemorySpace, BackendType>( std::forward<Args>( args )... );
-}
-template <class Scalar, class MemorySpace, class... Args>
-CAJITA_DEPRECATED auto createHeffteFastFourierTransform( Args&&... args )
-{
-    return Cabana::Grid::Experimental::createHeffteFastFourierTransform<
-        Scalar, MemorySpace>( std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Experimental
-} // namespace Cajita
 
 #endif // end CABANA_GRID_FASTFOURIERTRANSFORM_HPP

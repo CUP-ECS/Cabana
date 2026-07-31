@@ -18,32 +18,60 @@
 
 #include <Cabana_Core_Config.hpp>
 
-#include <type_traits>
+#include <Kokkos_Core.hpp>
 
+#include <array>
+#include <type_traits>
 namespace Cabana
 {
+//---------------------------------------------------------------------------//
+// Array copies.
+//---------------------------------------------------------------------------//
+//! Copy std::array into Kokkos::Array for potential device use.
+template <class Scalar, std::size_t Dim>
+auto copyArray( const std::array<Scalar, Dim> input )
+{
+    Kokkos::Array<Scalar, Dim> output;
+    for ( std::size_t d = 0; d < Dim; ++d )
+        output[d] = input[d];
+
+    return output;
+}
+//! Return original Kokkos::Array.
+template <class Scalar, std::size_t Dim>
+auto copyArray( const Kokkos::Array<Scalar, Dim> input )
+{
+    return input;
+}
+//! Copy c-array into Kokkos::Array for potential device use.
+template <class Scalar, std::size_t Dim>
+auto copyArray( const Scalar input[Dim] )
+{
+    Kokkos::Array<Scalar, Dim> output;
+    for ( std::size_t d = 0; d < Dim; ++d )
+        output[d] = input[d];
+
+    return output;
+}
+
 namespace Impl
 {
 //! \cond Impl
 
-// Custom warning for switch from device_type to memory_space.
+// Custom warning for use within static_assert.
 constexpr bool deprecated( std::false_type ) { return true; }
 
-[[deprecated(
-    "Template parameter should be converted from Kokkos device type to "
-    "Kokkos memory space." )]] constexpr bool
+[[deprecated( "Cabana deprecation." )]] constexpr bool
 deprecated( std::true_type )
 {
     return true;
 }
 
-// Custom warning for switch from Cajita to Grid.
-#ifdef Cabana_DISABLE_CAJITA_DEPRECATION_WARNINGS
-#define CAJITA_DEPRECATED
+// Custom warning.
+#ifdef Cabana_DISABLE_DEPRECATION_WARNINGS
+#define CABANA_DEPRECATED
 #else
-#define CAJITA_DEPRECATED                                                      \
-    [[deprecated( "Cajita is now Cabana::Grid. The Cajita namespace will be "  \
-                  "removed in a future release." )]]
+#define CABANA_DEPRECATED [[deprecated( "Cabana deprecation." )]]
 #endif
 
 //! \endcond

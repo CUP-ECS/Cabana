@@ -177,8 +177,9 @@ void g2p2g( const ScalarValueP2GType& scalar_p2g, const Coordinates& points,
 // Performance test.
 template <class Device>
 void performanceTest( std::ostream& stream, const std::string& test_prefix,
-                      std::vector<int> cells_per_dim,
-                      std::vector<int> particles_per_cell )
+                      std::vector<int> cells_per_dim_per_rank,
+                      std::vector<int> particles_per_cell,
+                      const DimBlockPartitioner<3> partitioner, MPI_Comm comm )
 {
     using exec_space = typename Device::execution_space;
     using memory_space = typename Device::memory_space;
@@ -192,7 +193,7 @@ void performanceTest( std::ostream& stream, const std::string& test_prefix,
     std::array<bool, 3> is_dim_periodic = { false, false, false };
 
     // System sizes
-    int num_problem_size = cells_per_dim.size();
+    int num_problem_size = cells_per_dim_per_rank.size();
     int num_particles_per_cell = particles_per_cell.size();
 
     // Define the particle types.
@@ -201,7 +202,6 @@ void performanceTest( std::ostream& stream, const std::string& test_prefix,
     using aosoa_type = Cabana::AoSoA<member_types, memory_space>;
 
     // Define properties that do not depend on mesh size.
-    DimBlockPartitioner<3> partitioner;
     int halo_width = 1;
     uint64_t seed = 1938347;
 
@@ -298,21 +298,33 @@ void performanceTest( std::ostream& stream, const std::string& test_prefix,
         for ( int n = 0; n < num_problem_size; ++n )
         {
             // Create the global grid
-            double cell_size = 1.0 / cells_per_dim[n];
+            auto ranks_per_dim =
+                partitioner.ranksPerDimension( comm, { 0, 0, 0 } );
+            std::array<int, 3> cells_per_dim;
+            for ( int d = 0; d < 3; ++d )
+            {
+                cells_per_dim[d] = cells_per_dim_per_rank[n] * ranks_per_dim[d];
+            }
             auto global_mesh = createUniformGlobalMesh(
-                global_low_corner, global_high_corner, cell_size );
+                global_low_corner, global_high_corner, cells_per_dim );
             auto global_grid = createGlobalGrid( MPI_COMM_WORLD, global_mesh,
                                                  is_dim_periodic, partitioner );
 
             // Create a local grid and local mesh
             auto local_grid = createLocalGrid( global_grid, halo_width );
-            auto local_mesh = createLocalMesh<exec_space>( *local_grid );
+            auto local_mesh = createLocalMesh<memory_space>( *local_grid );
             auto owned_cells = local_grid->indexSpace( Own(), Cell(), Local() );
             int num_cells = owned_cells.size();
 
             // Create a random number generator.
-            Kokkos::Random_XorShift64_Pool<exec_space> pool;
+            using random_type = Kokkos::Random_XorShift64_Pool<exec_space>;
+            // FIXME: remove when 4.7 required
+#if ( KOKKOS_VERSION < 40700 )
+            random_type pool;
             pool.init( seed, num_cells );
+#else
+            random_type pool( seed, num_cells );
+#endif
 
             // Create the particles.
             int num_ppc = particles_per_cell[ppc];
@@ -500,32 +512,32 @@ void performanceTest( std::ostream& stream, const std::string& test_prefix,
         }
 
         // Output results
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       p2g_scalar_value_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       p2g_vector_value_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       p2g_scalar_gradient_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       p2g_vector_divergence_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       p2g_tensor_divergence_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p_scalar_value_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p_vector_value_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p_scalar_gradient_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p_vector_gradient_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p_vector_divergence_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       p2g_fused_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p_fused_timer );
-        outputResults( stream, "grid_size_per_dim", cells_per_dim,
-                       g2p2g_fused_timer );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       p2g_scalar_value_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       p2g_vector_value_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       p2g_scalar_gradient_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       p2g_vector_divergence_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       p2g_tensor_divergence_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p_scalar_value_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p_vector_value_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p_scalar_gradient_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p_vector_gradient_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p_vector_divergence_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       p2g_fused_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p_fused_timer, comm );
+        outputResults( stream, "grid_size_per_dim", cells_per_dim_per_rank,
+                       g2p2g_fused_timer, comm );
 
         stream << std::flush;
     }
@@ -555,16 +567,50 @@ int main( int argc, char* argv[] )
     std::string run_type = "";
     if ( argc > 2 )
         run_type = argv[2];
-    std::vector<int> cells_per_dim = { 16, 32 };
+    std::vector<int> cells_per_dim_per_rank = { 16, 32 };
     std::vector<int> particles_per_cell = { 1, 4 };
     if ( run_type == "large" )
     {
-        cells_per_dim = { 16, 32, 64, 128 };
+        cells_per_dim_per_rank = { 16, 32, 64, 128 };
         particles_per_cell = { 1, 8, 16 };
     }
+
+    // Barier before continuing.
+    MPI_Barrier( MPI_COMM_WORLD );
+
+    // Get comm rank and size;
+    int comm_rank;
+    MPI_Comm_rank( MPI_COMM_WORLD, &comm_rank );
+    int comm_size;
+    MPI_Comm_size( MPI_COMM_WORLD, &comm_size );
+
+    // Get partitioner
+    DimBlockPartitioner<3> partitioner;
+    // Get ranks per dimension
+    std::array<int, 3> ranks_per_dimension =
+        partitioner.ranksPerDimension( MPI_COMM_WORLD, { 0, 0, 0 } );
+
     // Open the output file on rank 0.
     std::fstream file;
-    file.open( filename, std::fstream::out );
+    // Output problem details.
+    if ( 0 == comm_rank )
+    {
+        file.open( filename + "_" + std::to_string( comm_size ),
+                   std::fstream::out );
+        file << "\n";
+        file << "Cabana::Grid Interpolation Performance Benchmark"
+             << "\n";
+        file << "----------------------------------------------"
+             << "\n";
+        file << "MPI Ranks: " << comm_size << "\n";
+        file << "MPI Cartesian Dim Ranks: (" << ranks_per_dimension[0] << ", "
+             << ranks_per_dimension[1] << ", " << ranks_per_dimension[2]
+             << ")\n";
+        file << "----------------------------------------------"
+             << "\n";
+        file << "\n";
+        file << std::flush;
+    }
 
     // Do everything on the default CPU.
     using host_exec_space = Kokkos::DefaultHostExecutionSpace;
@@ -576,11 +622,13 @@ int main( int argc, char* argv[] )
     // Don't run twice on the CPU if only host enabled.
     if ( !std::is_same<device_type, host_device_type>{} )
     {
-        performanceTest<device_type>( file, "device_", cells_per_dim,
-                                      particles_per_cell );
+        performanceTest<device_type>( file, "device_", cells_per_dim_per_rank,
+                                      particles_per_cell, partitioner,
+                                      MPI_COMM_WORLD );
     }
-    performanceTest<host_device_type>( file, "host_", cells_per_dim,
-                                       particles_per_cell );
+    performanceTest<host_device_type>( file, "host_", cells_per_dim_per_rank,
+                                       particles_per_cell, partitioner,
+                                       MPI_COMM_WORLD );
 
     // Close the output file on rank 0.
     file.close();

@@ -22,7 +22,6 @@
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Grid_LocalGrid.hpp>
 #include <Cabana_Grid_Types.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
 #include <HYPRE_config.h>
 #include <HYPRE_sstruct_ls.h>
@@ -84,7 +83,7 @@ class HypreSemiStructuredSolver
         static_assert(
             std::is_same<typename ArrayLayout_t::entity_type,
                          entity_type>::value,
-            "Array layout entity type mush match solver entity type" );
+            "Array layout entity type must match solver entity type" );
 
         // Spatial dimension.
         const std::size_t num_space_dim = ArrayLayout_t::num_space_dim;
@@ -107,8 +106,8 @@ class HypreSemiStructuredSolver
             // this to KJI from IJK to be consistent with HYPRE ordering. By
             // setting up the grid like this, HYPRE will then want layout-right
             // data indexed as (i,j,k) or (i,j,k,l) which will allow us to
-            // directly use Kokkos::deep_copy to move data between Cajita arrays
-            // and HYPRE data structures.
+            // directly use Kokkos::deep_copy to move data between arrays and
+            // HYPRE data structures.
             auto global_space = layout.indexSpace( Own(), Global() );
             _lower.resize( num_space_dim );
             _upper.resize( num_space_dim );
@@ -360,7 +359,7 @@ class HypreSemiStructuredSolver
         static_assert( is_array<Array_t>::value, "Must use an array" );
         static_assert(
             std::is_same<typename Array_t::entity_type, entity_type>::value,
-            "Array entity type mush match solver entity type" );
+            "Array entity type must match solver entity type" );
         static_assert(
             std::is_same<typename Array_t::memory_space, MemorySpace>::value,
             "Array device type and solver device type are different." );
@@ -381,6 +380,7 @@ class HypreSemiStructuredSolver
         if ( values.layout()->dofsPerEntity() !=
              static_cast<int>( index_size ) )
             throw std::runtime_error(
+                "Cabana::Grid::HypreSemiStructuredSolver::setMatrixValues: "
                 "Number of matrix values does not match stencil size" );
 
         // Spatial dimension.
@@ -501,7 +501,7 @@ class HypreSemiStructuredSolver
         static_assert( is_array<Array_t>::value, "Must use an array" );
         static_assert(
             std::is_same<typename Array_t::entity_type, entity_type>::value,
-            "Array entity type mush match solver entity type" );
+            "Array entity type must match solver entity type" );
         static_assert(
             std::is_same<typename Array_t::memory_space, MemorySpace>::value,
             "Array device type and solver device type are different." );
@@ -1220,69 +1220,14 @@ createHypreSemiStructuredSolver( const std::string& solver_type,
         return createHypreSemiStructDiagonal<Scalar, MemorySpace>(
             layout, is_preconditioner, n_vars );
     else
-        throw std::runtime_error( "Invalid solver type" );
+        throw std::runtime_error(
+            "Cabana::Grid::createHypreSemiStructuredSolver: Invalid solver "
+            "type" );
 }
 
 //---------------------------------------------------------------------------//
 
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreSemiStructuredSolver CAJITA_DEPRECATED =
-    Cabana::Grid::HypreSemiStructuredSolver<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreSemiStructPCG CAJITA_DEPRECATED =
-    Cabana::Grid::HypreSemiStructPCG<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreSemiStructGMRES CAJITA_DEPRECATED =
-    Cabana::Grid::HypreSemiStructGMRES<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreSemiStructBiCGSTAB CAJITA_DEPRECATED =
-    Cabana::Grid::HypreSemiStructBiCGSTAB<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreSemiStructDiagonal CAJITA_DEPRECATED =
-    Cabana::Grid::HypreSemiStructDiagonal<Scalar, EntityType, MemorySpace>;
-
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreSemiStructPCG( Args&&... args )
-{
-    return Cabana::Grid::createHypreSemiStructPCG(
-        std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreSemiStructGMRES( Args&&... args )
-{
-    return Cabana::Grid::createHypreSemiStructGMRES(
-        std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreSemiStructBiCGSTAB( Args&&... args )
-{
-    return Cabana::Grid::createHypreSemiStructBiCGSTAB(
-        std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreSemiStructDiagonal( Args&&... args )
-{
-    return Cabana::Grid::createHypreSemiStructDiagonal(
-        std::forward<Args>( args )... );
-}
-
-template <class Scalar, class MemorySpace, class... Args>
-CAJITA_DEPRECATED auto createHypreSemiStructuredSolver( Args&&... args )
-{
-    return Cabana::Grid::createHypreSemiStructuredSolver<Scalar, MemorySpace>(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Cajita
 
 #endif // end CABANA_GRID_HypreSemiStRUCTUREDSOLVER_HPP

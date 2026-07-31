@@ -10,7 +10,8 @@
  ****************************************************************************/
 
 #include <Cabana_AoSoA.hpp>
-#include <Cabana_CommunicationPlan.hpp>
+#include <Cabana_CommunicationPlanBase.hpp>
+
 #include <Cabana_DeepCopy.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -20,19 +21,23 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <set>
 #include <vector>
 
 namespace Test
 {
 //---------------------------------------------------------------------------//
-class CommPlanTester : public Cabana::CommunicationPlan<TEST_MEMSPACE>
+template <class TestCommSpace>
+class CommSpaceTester
+    : public Cabana::CommunicationPlan<TEST_MEMSPACE, TestCommSpace>
 {
   public:
     using memory_space = TEST_MEMSPACE;
+    using plan_type = TestCommSpace;
     using size_type = typename TEST_MEMSPACE::size_type;
 
-    CommPlanTester( MPI_Comm comm )
-        : Cabana::CommunicationPlan<memory_space>( comm )
+    CommSpaceTester( MPI_Comm comm )
+        : Cabana::CommunicationPlan<memory_space, plan_type>( comm )
     {
     }
 
@@ -41,15 +46,41 @@ class CommPlanTester : public Cabana::CommunicationPlan<TEST_MEMSPACE>
     createFromExportsAndNeighbors( const ViewType& element_export_ranks,
                                    const std::vector<int>& neighbor_ranks )
     {
-        return this->createFromExportsAndTopology( element_export_ranks,
-                                                   neighbor_ranks );
+        return this->createWithTopology( Cabana::Export(), element_export_ranks,
+                                         neighbor_ranks );
     }
 
     template <class ViewType>
     Kokkos::View<size_type*, memory_space>
     createFromExports( const ViewType& element_export_ranks )
     {
-        return this->createFromExportsOnly( element_export_ranks );
+        return this->createWithoutTopology( Cabana::Export(),
+                                            element_export_ranks );
+    }
+
+    template <class ViewType>
+    std::tuple<Kokkos::View<typename ViewType::size_type*,
+                            typename ViewType::memory_space>,
+               Kokkos::View<int*, typename ViewType::memory_space>,
+               Kokkos::View<int*, typename ViewType::memory_space>>
+    createFromImportsAndNeighbors( const ViewType& element_import_ranks,
+                                   const ViewType& element_import_ids,
+                                   const std::vector<int>& neighbor_ranks )
+    {
+        return this->createWithTopology( Cabana::Import(), element_import_ranks,
+                                         element_import_ids, neighbor_ranks );
+    }
+
+    template <class ViewType>
+    std::tuple<Kokkos::View<typename ViewType::size_type*,
+                            typename ViewType::memory_space>,
+               Kokkos::View<int*, typename ViewType::memory_space>,
+               Kokkos::View<int*, typename ViewType::memory_space>>
+    createFromImports( const ViewType& element_import_ranks,
+                       const ViewType& element_import_ids )
+    {
+        return this->createWithoutTopology(
+            Cabana::Import(), element_import_ranks, element_import_ids );
     }
 
     template <class ViewType>
@@ -70,10 +101,11 @@ class CommPlanTester : public Cabana::CommunicationPlan<TEST_MEMSPACE>
 };
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test1( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_tmp( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_tmp( MPI_COMM_WORLD );
     auto comm_plan = comm_tmp;
 
     // Get my rank.
@@ -122,10 +154,11 @@ void test1( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test2( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -184,10 +217,11 @@ void test2( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test3( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -223,7 +257,7 @@ void test3( const bool use_topology )
     EXPECT_EQ( comm_plan.numImport( 0 ), num_data );
     EXPECT_EQ( comm_plan.totalNumImport(), num_data );
 
-    // Create the export steering vector.
+    // Create the export steering vector.`
     comm_plan.createSteering( neighbor_ids, export_ranks );
 
     // Check the steering vector. We thread the creation of the steering
@@ -241,10 +275,11 @@ void test3( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test4( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -359,10 +394,11 @@ void test4( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test5( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -444,10 +480,11 @@ void test5( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test6( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -514,10 +551,11 @@ void test6( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
 void test7( const bool use_topology )
 {
     // Make a communication plan.
-    CommPlanTester comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -593,37 +631,457 @@ void testTopology()
 }
 
 //---------------------------------------------------------------------------//
+template <class TestCommSpace>
+void test8( const bool use_topology )
+{
+    // Make a communication plan.
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
+
+    // Get my rank.
+    int my_rank = -1;
+    MPI_Comm_rank( MPI_COMM_WORLD, &my_rank );
+
+    // Every rank will import from itself and import all of its data.
+    int num_data = 10;
+    Kokkos::View<int*, TEST_MEMSPACE> import_ranks( "import_ranks", num_data );
+    Kokkos::View<int*, TEST_MEMSPACE> import_ids( "import_ids", num_data );
+    Kokkos::deep_copy( import_ranks, my_rank );
+
+    // Fill the import_ids.
+    auto fill_func = KOKKOS_LAMBDA( const int i ) { import_ids( i ) = i; };
+    Kokkos::RangePolicy<TEST_EXECSPACE> range_policy( 0, num_data );
+    Kokkos::parallel_for( range_policy, fill_func );
+    Kokkos::fence();
+
+    std::vector<int> neighbor_ranks( 1, my_rank );
+
+    // Create the plan.
+    using size_type = typename TEST_MEMSPACE::size_type;
+    std::tuple<Kokkos::View<size_type*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>>
+        neighbor_ids_ranks_indices;
+    if ( use_topology )
+        neighbor_ids_ranks_indices = comm_plan.createFromImportsAndNeighbors(
+            import_ranks, import_ids, neighbor_ranks );
+    else
+        neighbor_ids_ranks_indices =
+            comm_plan.createFromImports( import_ranks, import_ids );
+
+    // Check the plan.
+    EXPECT_EQ( comm_plan.numNeighbor(), 1 );
+    EXPECT_EQ( comm_plan.neighborRank( 0 ), my_rank );
+    EXPECT_EQ( comm_plan.numExport( 0 ), num_data );
+    EXPECT_EQ( comm_plan.totalNumExport(), num_data );
+    EXPECT_EQ( comm_plan.numImport( 0 ), num_data );
+    EXPECT_EQ( comm_plan.totalNumImport(), num_data );
+    EXPECT_EQ( comm_plan.exportSize(), num_data );
+
+    // Create the export steering vector.
+    comm_plan.createSteering( std::get<0>( neighbor_ids_ranks_indices ),
+                              std::get<1>( neighbor_ids_ranks_indices ),
+                              std::get<2>( neighbor_ids_ranks_indices ) );
+
+    // Check the steering vector. We thread the creation of the steering
+    // vector so we don't really know what order it is in - only that it is
+    // grouped by the ranks to which we are exporting. In this case just sort
+    // the steering vector and make sure all of the ids are there. We can do
+    // this because we are only sending to one rank.
+    auto steering = comm_plan.getExportSteering();
+    auto host_steering =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), steering );
+    std::sort( host_steering.data(),
+               host_steering.data() + host_steering.size() );
+    EXPECT_EQ( host_steering.size(), num_data );
+    for ( int n = 0; n < num_data; ++n )
+        EXPECT_EQ( n, host_steering( n ) );
+}
+
+//---------------------------------------------------------------------------//
+template <class TestCommSpace>
+void test9( const bool use_topology )
+{
+    // Make a communication plan.
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
+
+    // Get my rank.
+    int my_rank = -1;
+    MPI_Comm_rank( MPI_COMM_WORLD, &my_rank );
+
+    // Get my size.
+    int my_size = -1;
+    MPI_Comm_size( MPI_COMM_WORLD, &my_size );
+
+    // Compute the inverse rank.
+    int inverse_rank = my_size - my_rank - 1;
+
+    // Every rank will import all the data from its inverse rank
+    int num_data = 10;
+    Kokkos::View<int*, TEST_MEMSPACE> import_ranks( "import_ranks", num_data );
+    Kokkos::View<int*, TEST_MEMSPACE> import_ids( "import_ids", num_data );
+    Kokkos::deep_copy( import_ranks, inverse_rank );
+
+    // Fill the import_ids.
+    auto fill_func = KOKKOS_LAMBDA( const int i ) { import_ids( i ) = i; };
+    Kokkos::RangePolicy<TEST_EXECSPACE> range_policy( 0, num_data );
+    Kokkos::parallel_for( range_policy, fill_func );
+    Kokkos::fence();
+
+    std::vector<int> neighbor_ranks( 1, inverse_rank );
+
+    // Create the plan.
+    using size_type = typename TEST_MEMSPACE::size_type;
+    std::tuple<Kokkos::View<size_type*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>>
+        neighbor_ids_ranks_indices;
+    if ( use_topology )
+        neighbor_ids_ranks_indices = comm_plan.createFromImportsAndNeighbors(
+            import_ranks, import_ids, neighbor_ranks );
+    else
+        neighbor_ids_ranks_indices =
+            comm_plan.createFromImports( import_ranks, import_ids );
+
+    // Check the plan.
+    EXPECT_EQ( comm_plan.numNeighbor(), 1 ) << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.neighborRank( 0 ), inverse_rank )
+        << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.numExport( 0 ), num_data )
+        << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.totalNumExport(), num_data )
+        << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.numImport( 0 ), num_data )
+        << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.totalNumImport(), num_data )
+        << "Rank " << my_rank << "\n";
+
+    // Create the export steering vector.
+    comm_plan.createSteering( std::get<0>( neighbor_ids_ranks_indices ),
+                              std::get<1>( neighbor_ids_ranks_indices ),
+                              std::get<2>( neighbor_ids_ranks_indices ) );
+
+    // Check the steering vector. We thread the creation of the steering
+    // vector so we don't really know what order it is in - only that it is
+    // grouped by the ranks to which we are exporting. In this case just sort
+    // the steering vector and make sure all of the ids are there. We can do
+    // this because we are only sending to one rank.
+    auto steering = comm_plan.getExportSteering();
+    auto host_steering =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), steering );
+    std::sort( host_steering.data(),
+               host_steering.data() + host_steering.size() );
+    EXPECT_EQ( host_steering.size(), num_data );
+    for ( int n = 0; n < num_data; ++n )
+        EXPECT_EQ( n, host_steering( n ) );
+}
+
+//---------------------------------------------------------------------------//
+template <class TestCommSpace>
+void test10( const bool use_topology )
+{
+    // Make a communication plan.
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
+
+    // Get my rank.
+    int my_rank = -1;
+    MPI_Comm_rank( MPI_COMM_WORLD, &my_rank );
+
+    // Get my size.
+    int comm_size = -1;
+    MPI_Comm_size( MPI_COMM_WORLD, &comm_size );
+
+    // Every rank will import data from its previous and next ranks
+    int num_data = 10;
+    Kokkos::View<int*, TEST_MEMSPACE> import_ranks( "import_ranks", num_data );
+    Kokkos::View<int*, TEST_MEMSPACE> import_ids( "import_ids", num_data );
+    int previous_rank = ( my_rank == 0 ) ? ( comm_size - 1 ) : ( my_rank - 1 );
+    int next_rank = ( my_rank == comm_size - 1 ) ? 0 : ( my_rank + 1 );
+
+    // Create subviews
+    auto subview_0_4 = Kokkos::subview( import_ranks, std::make_pair( 0, 5 ) );
+    auto subview_5_9 = Kokkos::subview( import_ranks, std::make_pair( 5, 10 ) );
+
+    Kokkos::deep_copy( subview_0_4, previous_rank );
+    Kokkos::deep_copy( subview_5_9, next_rank );
+
+    // Fill the import_ids.
+    auto fill_func = KOKKOS_LAMBDA( const int i ) { import_ids( i ) = i; };
+    Kokkos::RangePolicy<TEST_EXECSPACE> range_policy( 0, num_data );
+    Kokkos::parallel_for( range_policy, fill_func );
+    Kokkos::fence();
+
+    std::vector<int> neighbor_ranks = { previous_rank, next_rank };
+
+    // Create the plan.
+    using size_type = typename TEST_MEMSPACE::size_type;
+    std::tuple<Kokkos::View<size_type*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>>
+        neighbor_ids_ranks_indices;
+    if ( use_topology )
+        neighbor_ids_ranks_indices = comm_plan.createFromImportsAndNeighbors(
+            import_ranks, import_ids, neighbor_ranks );
+    else
+        neighbor_ids_ranks_indices =
+            comm_plan.createFromImports( import_ranks, import_ids );
+
+    // Check the plan.
+    if ( comm_size < 3 )
+        EXPECT_EQ( comm_plan.numNeighbor(), 1 ) << "Rank " << my_rank << "\n";
+    else
+        EXPECT_EQ( comm_plan.numNeighbor(), 2 ) << "Rank " << my_rank << "\n";
+
+    // neighborRank built differently depending on rank. Check that all ranks
+    // are present
+    std::set<int> expected_neighbors = { previous_rank, next_rank };
+    std::set<int> actual_neighbors;
+    for ( int i = 0; i < comm_plan.numNeighbor(); i++ )
+        actual_neighbors.insert( comm_plan.neighborRank( i ) );
+
+    EXPECT_EQ( expected_neighbors, actual_neighbors )
+        << "Rank " << my_rank << "\n";
+
+    // If comm_size is < 3, we export num_data either ourselves
+    // or one other rank instead of two other ranks.
+    if ( comm_size < 3 )
+    {
+        EXPECT_EQ( comm_plan.numExport( 0 ), num_data )
+            << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.numImport( 0 ), num_data )
+            << "Rank " << my_rank << "\n";
+    }
+    else
+    {
+        EXPECT_EQ( comm_plan.numExport( 0 ), num_data / 2 )
+            << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.numExport( 1 ), num_data / 2 )
+            << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.numImport( 0 ), num_data / 2 )
+            << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.numImport( 1 ), num_data / 2 )
+            << "Rank " << my_rank << "\n";
+    }
+
+    EXPECT_EQ( comm_plan.totalNumExport(), num_data )
+        << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.totalNumImport(), num_data )
+        << "Rank " << my_rank << "\n";
+
+    // Create the export steering vector.
+    comm_plan.createSteering( std::get<0>( neighbor_ids_ranks_indices ),
+                              std::get<1>( neighbor_ids_ranks_indices ),
+                              std::get<2>( neighbor_ids_ranks_indices ) );
+
+    // Check the steering vector. We thread the creation of the steering
+    // vector so we don't really know what order it is in - only that it is
+    // grouped by the ranks to which we are exporting. In this case just sort
+    // the steering vector and make sure all of the ids are there. We can do
+    // this because we are sending all ids between the previous/next rank
+    auto steering = comm_plan.getExportSteering();
+    auto host_steering =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), steering );
+    std::sort( host_steering.data(),
+               host_steering.data() + host_steering.size() );
+    EXPECT_EQ( host_steering.size(), num_data );
+    for ( int n = 0; n < num_data; ++n )
+        EXPECT_EQ( n, host_steering( n ) );
+}
+
+//---------------------------------------------------------------------------//
+template <class TestCommSpace>
+void test11( const bool use_topology )
+{
+    // Make a communication plan.
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
+
+    // Get my rank.
+    int my_rank = -1;
+    MPI_Comm_rank( MPI_COMM_WORLD, &my_rank );
+
+    // Get the comm size.
+    int my_size = -1;
+    MPI_Comm_size( MPI_COMM_WORLD, &my_size );
+
+    // Rank 0 imports one element from each rank
+    // Every has one element
+    int num_data = 1;
+    Kokkos::View<int*, TEST_MEMSPACE> import_ranks( "import_ranks", my_size );
+    Kokkos::View<int*, TEST_MEMSPACE> import_ids( "import_ids", my_size );
+    Kokkos::deep_copy( import_ranks, 0 );
+    Kokkos::deep_copy( import_ids, 0 );
+    std::vector<int> neighbor_ranks;
+    if ( 0 == my_rank )
+    {
+        neighbor_ranks.resize( my_size );
+        std::iota( neighbor_ranks.begin(), neighbor_ranks.end(), 0 );
+
+        // Fill the import_ids and ranks.
+        auto fill_func0 = KOKKOS_LAMBDA( const int i )
+        {
+            import_ids( i ) = 0;
+            import_ranks( i ) = i;
+        };
+        Kokkos::RangePolicy<TEST_EXECSPACE> range_policy0( 0, my_size );
+        Kokkos::parallel_for( range_policy0, fill_func0 );
+        Kokkos::fence();
+    }
+    else
+    {
+        neighbor_ranks.assign( 1, 0 );
+
+        // No other rank is collecting
+        Kokkos::resize( import_ranks, 0 );
+        Kokkos::resize( import_ids, 0 );
+    }
+
+    // Create the plan.
+    using size_type = typename TEST_MEMSPACE::size_type;
+    std::tuple<Kokkos::View<size_type*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>,
+               Kokkos::View<int*, TEST_MEMSPACE>>
+        neighbor_ids_ranks_indices;
+    if ( use_topology )
+        neighbor_ids_ranks_indices = comm_plan.createFromImportsAndNeighbors(
+            import_ranks, import_ids, neighbor_ranks );
+    else
+        neighbor_ids_ranks_indices =
+            comm_plan.createFromImports( import_ranks, import_ids );
+
+    // Check the plan.
+    if ( 0 == my_rank )
+    {
+        EXPECT_EQ( comm_plan.numNeighbor(), my_size )
+            << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.numImport( 0 ), 1 ) << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.totalNumImport(), my_size )
+            << "Rank " << my_rank << "\n";
+    }
+    else
+    {
+        EXPECT_EQ( comm_plan.numNeighbor(), 1 ) << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.neighborRank( 0 ), 0 )
+            << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.numImport( 0 ), 0 ) << "Rank " << my_rank << "\n";
+        EXPECT_EQ( comm_plan.totalNumImport(), 0 )
+            << "Rank " << my_rank << "\n";
+    }
+    EXPECT_EQ( comm_plan.numExport( 0 ), num_data )
+        << "Rank " << my_rank << "\n";
+    EXPECT_EQ( comm_plan.totalNumExport(), num_data )
+        << "Rank " << my_rank << "\n";
+
+    // Create the export steering vector.
+    comm_plan.createSteering( std::get<0>( neighbor_ids_ranks_indices ),
+                              std::get<1>( neighbor_ids_ranks_indices ),
+                              std::get<2>( neighbor_ids_ranks_indices ) );
+
+    // Check the steering vector. We thread the creation of the steering
+    // vector so we don't really know what order it is in - only that it is
+    // grouped by the ranks to which we are exporting. In this case just sort
+    // the steering vector and make sure all of the ids are there. We can do
+    // this because we are only sending to one rank.
+    auto steering = comm_plan.getExportSteering();
+    auto host_steering =
+        Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), steering );
+    EXPECT_EQ( host_steering.size(), num_data ) << "Rank " << my_rank << "\n";
+    EXPECT_EQ( 0, host_steering( 0 ) ) << "Rank " << my_rank << "\n";
+}
+
+//---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, comm_plan_test_1 ) { test1( true ); }
+template <typename TestCommSpace>
+class CommunicationPlanTypedTest : public ::testing::Test
+{
+};
 
-TEST( TEST_CATEGORY, comm_plan_test_2 ) { test2( true ); }
+// Add additional backends to test when implemented.
+using CommSpaceTypes = ::testing::Types<Cabana::Mpi>;
 
-TEST( TEST_CATEGORY, comm_plan_test_3 ) { test3( true ); }
+// Need a trailing comma
+// to avoid an error when compiling with clang++
+TYPED_TEST_SUITE( CommunicationPlanTypedTest, CommSpaceTypes, );
 
-TEST( TEST_CATEGORY, comm_plan_test_4 ) { test4( true ); }
+// Export tests
+TYPED_TEST( CommunicationPlanTypedTest, Test1 ) { test1<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_5 ) { test5( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test2 ) { test2<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_6 ) { test6( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test3 ) { test3<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_7 ) { test7( true ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test4 ) { test4<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_1_no_topo ) { test1( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test5 ) { test5<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_2_no_topo ) { test2( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test6 ) { test6<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_3_no_topo ) { test3( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test7 ) { test7<TypeParam>( true ); }
 
-TEST( TEST_CATEGORY, comm_plan_test_4_no_topo ) { test4( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test1NoTopo )
+{
+    test1<TypeParam>( false );
+}
 
-TEST( TEST_CATEGORY, comm_plan_test_5_no_topo ) { test5( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test2NoTopo )
+{
+    test2<TypeParam>( false );
+}
 
-TEST( TEST_CATEGORY, comm_plan_test_6_no_topo ) { test6( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test3NoTopo )
+{
+    test3<TypeParam>( false );
+}
 
-TEST( TEST_CATEGORY, comm_plan_test_7_no_topo ) { test7( false ); }
+TYPED_TEST( CommunicationPlanTypedTest, Test4NoTopo )
+{
+    test4<TypeParam>( false );
+}
 
-TEST( TEST_CATEGORY, comm_plan_test_topology ) { testTopology(); }
+TYPED_TEST( CommunicationPlanTypedTest, Test5NoTopo )
+{
+    test5<TypeParam>( false );
+}
+
+TYPED_TEST( CommunicationPlanTypedTest, Test6NoTopo )
+{
+    test6<TypeParam>( false );
+}
+
+TYPED_TEST( CommunicationPlanTypedTest, Test7NoTopo )
+{
+    test7<TypeParam>( false );
+}
+
+TEST( CommSpace, TestTopology ) { testTopology(); }
+
+// Import tests
+TYPED_TEST( CommunicationPlanTypedTest, Test8 ) { test8<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test9 ) { test9<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test10 ) { test10<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test11 ) { test11<TypeParam>( true ); }
+
+TYPED_TEST( CommunicationPlanTypedTest, Test8NoTopo )
+{
+    test8<TypeParam>( false );
+}
+
+TYPED_TEST( CommunicationPlanTypedTest, Test9NoTopo )
+{
+    test9<TypeParam>( false );
+}
+
+TYPED_TEST( CommunicationPlanTypedTest, Test10NoTopo )
+{
+    test10<TypeParam>( false );
+}
+
+TYPED_TEST( CommunicationPlanTypedTest, Test11NoTopo )
+{
+    test11<TypeParam>( false );
+}
 
 //---------------------------------------------------------------------------//
 

@@ -11,11 +11,14 @@
 
 include(${TEST_HARNESS_DIR}/test_harness.cmake)
 
-set(SERIAL_TESTS
+set(NOBACKEND_TESTS
   GlobalMesh
+  Splines
+  )
+
+set(SERIAL_TESTS
   IndexSpace
   SparseIndexSpace
-  Splines
   )
 
 set(MPI_TESTS
@@ -30,8 +33,8 @@ set(MPI_TESTS
   Halo3d
   Halo2d
   ParticleInit
-  ParticleGridDistributor2d
-  ParticleGridDistributor3d
+  ParticleDistributor2d
+  ParticleDistributor3d
   SplineEvaluation3d
   SplineEvaluation2d
   Interpolation3d
@@ -80,6 +83,8 @@ endif()
 if(Cabana_ENABLE_SILO)
   list(APPEND MPI_TESTS SiloParticleOutput)
 endif()
+
+Cabana_add_tests_nobackend(PACKAGE Grid NAMES ${NOBACKEND_TESTS})
 
 Cabana_add_tests(PACKAGE Grid NAMES ${SERIAL_TESTS})
 

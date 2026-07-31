@@ -37,9 +37,9 @@ template <class Space, class SrcAoSoA>
 inline AoSoA<typename SrcAoSoA::member_types, Space, SrcAoSoA::vector_length>
 create_mirror(
     const Space&, const SrcAoSoA& src,
-    typename std::enable_if<
-        ( !std::is_same<typename SrcAoSoA::memory_space,
-                        typename Space::memory_space>::value )>::type* = 0 )
+    std::enable_if_t<( !std::is_same_v<typename SrcAoSoA::memory_space,
+                                       typename Space::memory_space> )>* =
+        nullptr )
 {
     static_assert( is_aosoa<SrcAoSoA>::value,
                    "create_mirror() requires an AoSoA" );
@@ -61,9 +61,9 @@ create_mirror(
 template <class Space, class SrcAoSoA>
 inline SrcAoSoA create_mirror_view(
     const Space&, const SrcAoSoA& src,
-    typename std::enable_if<
-        ( std::is_same<typename SrcAoSoA::memory_space,
-                       typename Space::memory_space>::value )>::type* = 0 )
+    std::enable_if_t<( std::is_same_v<typename SrcAoSoA::memory_space,
+                                      typename Space::memory_space> )>* =
+        nullptr )
 {
     static_assert( is_aosoa<SrcAoSoA>::value,
                    "create_mirror_view() requires an AoSoA" );
@@ -84,9 +84,9 @@ template <class Space, class SrcAoSoA>
 inline AoSoA<typename SrcAoSoA::member_types, Space, SrcAoSoA::vector_length>
 create_mirror_view(
     const Space& space, const SrcAoSoA& src,
-    typename std::enable_if<
-        ( !std::is_same<typename SrcAoSoA::memory_space,
-                        typename Space::memory_space>::value )>::type* = 0 )
+    std::enable_if_t<( !std::is_same_v<typename SrcAoSoA::memory_space,
+                                       typename Space::memory_space> )>* =
+        nullptr )
 {
     static_assert( is_aosoa<SrcAoSoA>::value,
                    "create_mirror_view() requires an AoSoA" );
@@ -107,10 +107,9 @@ create_mirror_view(
 template <class Space, class SrcAoSoA>
 inline SrcAoSoA create_mirror_view_and_copy(
     const Space&, const SrcAoSoA& src,
-    typename std::enable_if<
-        ( std::is_same<typename SrcAoSoA::memory_space,
-                       typename Space::memory_space>::value &&
-          is_aosoa<SrcAoSoA>::value )>::type* = 0 )
+    std::enable_if_t<( std::is_same_v<typename SrcAoSoA::memory_space,
+                                      typename Space::memory_space> &&
+                       is_aosoa<SrcAoSoA>::value )>* = nullptr )
 {
     return src;
 }
@@ -130,10 +129,9 @@ template <class Space, class SrcAoSoA>
 inline AoSoA<typename SrcAoSoA::member_types, Space, SrcAoSoA::vector_length>
 create_mirror_view_and_copy(
     const Space& space, const SrcAoSoA& src,
-    typename std::enable_if<
-        ( !std::is_same<typename SrcAoSoA::memory_space,
-                        typename Space::memory_space>::value &&
-          is_aosoa<SrcAoSoA>::value )>::type* = 0 )
+    std::enable_if_t<( !std::is_same_v<typename SrcAoSoA::memory_space,
+                                       typename Space::memory_space> &&
+                       is_aosoa<SrcAoSoA>::value )>* = nullptr )
 {
     auto dst = create_mirror( space, src );
 
@@ -156,8 +154,8 @@ create_mirror_view_and_copy(
 template <class DstAoSoA, class SrcAoSoA>
 inline void
 deep_copy( DstAoSoA& dst, const SrcAoSoA& src,
-           typename std::enable_if<( is_aosoa<DstAoSoA>::value &&
-                                     is_aosoa<SrcAoSoA>::value )>::type* = 0 )
+           std::enable_if_t<( is_aosoa<DstAoSoA>::value &&
+                              is_aosoa<SrcAoSoA>::value )>* = nullptr )
 {
     using dst_type = DstAoSoA;
     using src_type = SrcAoSoA;
@@ -167,16 +165,18 @@ deep_copy( DstAoSoA& dst, const SrcAoSoA& src,
     using src_soa_type = typename src_type::soa_type;
 
     // Check that the data types are the same.
-    static_assert(
-        std::is_same<typename dst_type::member_types,
-                     typename src_type::member_types>::value,
-        "Attempted to deep copy AoSoA objects of different member types" );
+    static_assert( std::is_same_v<typename dst_type::member_types,
+                                  typename src_type::member_types>,
+                   "Cabana::deep_copy: Attempted to deep copy AoSoA objects of "
+                   "different member types" );
 
     // Check for the same number of values.
     if ( dst.size() != src.size() )
     {
         throw std::runtime_error(
-            "Attempted to deep copy AoSoA objects of different sizes" );
+            "Cabana::deep_copy: Attempted to deep copy "
+            "AoSoA objects of different sizes. (Labels: " +
+            src.label() + ", " + dst.label() + ")" );
     }
 
     // Get the pointers to the beginning of the data blocks.
@@ -202,7 +202,7 @@ deep_copy( DstAoSoA& dst, const SrcAoSoA& src,
 
     // If the inner array size is the same and both AoSoAs have the same number
     // of values then we can do a byte-wise copy directly.
-    if ( std::is_same<dst_soa_type, src_soa_type>::value )
+    if ( std::is_same_v<dst_soa_type, src_soa_type> )
     {
         Kokkos::deep_copy( Kokkos::View<char*, dst_memory_space>(
                                reinterpret_cast<char*>( dst.data() ),
@@ -239,11 +239,11 @@ deep_copy( DstAoSoA& dst, const SrcAoSoA& src,
   \param dst The destination for the copied data.
   \param src The source of the copied data.
 s*/
-template <class DstMemorySpace, class SrcMemorySpace, int VectorLength,
-          class... FieldTags>
-inline void
-deep_copy( ParticleList<DstMemorySpace, VectorLength, FieldTags...>& dst,
-           const ParticleList<SrcMemorySpace, VectorLength, FieldTags...>& src )
+template <class DstMemorySpace, class SrcMemorySpace, int DstVectorLength,
+          int SrcVectorLength, class... FieldTags>
+inline void deep_copy(
+    ParticleList<DstMemorySpace, DstVectorLength, FieldTags...>& dst,
+    const ParticleList<SrcMemorySpace, SrcVectorLength, FieldTags...>& src )
 {
     // Copy particle data to new memory space.
     auto aosoa_src = src.aosoa();
@@ -265,7 +265,7 @@ inline void deep_copy( AoSoA_t& aosoa,
                        const typename AoSoA_t::tuple_type& tuple )
 {
     static_assert( is_aosoa<AoSoA_t>::value,
-                   "Only AoSoAs can be assigned tuples" );
+                   "Cabana::deep_copy: Only AoSoAs can be assigned tuples" );
     auto assign_func = KOKKOS_LAMBDA( const std::size_t i )
     {
         aosoa.setTuple( i, tuple );
@@ -288,37 +288,39 @@ inline void deep_copy( AoSoA_t& aosoa,
 template <class DstSlice, class SrcSlice>
 inline void
 deep_copy( DstSlice& dst, const SrcSlice& src,
-           typename std::enable_if<( is_slice<DstSlice>::value &&
-                                     is_slice<SrcSlice>::value )>::type* = 0 )
+           std::enable_if_t<( is_slice<DstSlice>::value &&
+                              is_slice<SrcSlice>::value )>* = nullptr )
 {
     using dst_type = DstSlice;
     using src_type = SrcSlice;
 
     // Check that the data types are the same.
-    static_assert(
-        std::is_same<typename dst_type::value_type,
-                     typename src_type::value_type>::value,
-        "Attempted to deep copy Slice objects of different value types" );
+    static_assert( std::is_same_v<typename dst_type::value_type,
+                                  typename src_type::value_type>,
+                   "Cabana::deep_copy: Attempted to deep copy Slice objects of "
+                   "different value types" );
 
     // Check that the element dimensions are the same.
     static_assert( SrcSlice::view_layout::D0 == SrcSlice::view_layout::D0,
-                   "Slice dimension 0 is different" );
+                   "Cabana::deep_copy: Slice dimension 0 is different" );
     static_assert( SrcSlice::view_layout::D1 == SrcSlice::view_layout::D1,
-                   "Slice dimension 1 is different" );
+                   "Cabana::deep_copy: Slice dimension 1 is different" );
     static_assert( SrcSlice::view_layout::D2 == SrcSlice::view_layout::D2,
-                   "Slice dimension 2 is different" );
+                   "Cabana::deep_copy: Slice dimension 2 is different" );
     static_assert( SrcSlice::view_layout::D3 == SrcSlice::view_layout::D3,
-                   "Slice dimension 3 is different" );
+                   "Cabana::deep_copy: Slice dimension 3 is different" );
     static_assert( SrcSlice::view_layout::D4 == SrcSlice::view_layout::D4,
-                   "Slice dimension 4 is different" );
+                   "Cabana::deep_copy: Slice dimension 4 is different" );
     static_assert( SrcSlice::view_layout::D5 == SrcSlice::view_layout::D5,
-                   "Slice dimension 5 is different" );
+                   "Cabana::deep_copy: Slice dimension 5 is different" );
 
     // Check for the same number of elements.
     if ( dst.size() != src.size() )
     {
         throw std::runtime_error(
-            "Attempted to deep copy Slice objects of different sizes" );
+            "Cabana::deep_copy: Attempted to deep copy Slice objects of "
+            "different sizes. (Labels: " +
+            src.label() + ", " + dst.label() + ")" );
     }
 
     // Get the pointers to the beginning of the data blocks.
@@ -400,8 +402,33 @@ inline void deep_copy( Slice_t& slice,
                        const typename Slice_t::value_type scalar )
 {
     static_assert( is_slice<Slice_t>::value,
-                   "Only slices can be assigned scalars" );
-    Kokkos::deep_copy( slice.view(), scalar );
+                   "Cabana::deep_copy: Only slices can be assigned scalars" );
+
+    // Note that Kokkos::deep_copy() cannot be used on the slice view: it fills
+    // through an all-dynamic LayoutRight mirror of the view type, which is not
+    // constructible from the Cabana slice layout.
+
+    // Get the number of components in each slice element.
+    std::size_t num_comp = 1;
+    for ( std::size_t d = 2; d < slice.viewRank(); ++d )
+        num_comp *= slice.extent( d );
+
+    // Fill each component of every element.
+    auto data = slice.data();
+    if ( data == nullptr )
+        return;
+    const auto soa_stride = slice.stride( 0 );
+    auto fill_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        auto offset = Slice_t::index_type::s( i ) * soa_stride +
+                      Slice_t::index_type::a( i );
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            data[offset + Slice_t::vector_length * n] = scalar;
+    };
+    Kokkos::RangePolicy<typename Slice_t::execution_space> fill_policy(
+        0, slice.size() );
+    Kokkos::parallel_for( "Cabana::deep_copy::fill", fill_policy, fill_func );
+    Kokkos::fence();
 }
 
 //---------------------------------------------------------------------------//
@@ -417,8 +444,8 @@ template <class DstMemorySpace, class SrcMemorySpace, int VectorLength,
 auto create_mirror_view_and_copy(
     DstMemorySpace,
     ParticleList<SrcMemorySpace, VectorLength, FieldTags...> plist_src,
-    typename std::enable_if<
-        std::is_same<SrcMemorySpace, DstMemorySpace>::value>::type* = 0 )
+    std::enable_if_t<std::is_same_v<SrcMemorySpace, DstMemorySpace>>* =
+        nullptr )
 {
     return plist_src;
 }
@@ -435,8 +462,8 @@ template <class DstMemorySpace, class SrcMemorySpace, int VectorLength,
 auto create_mirror_view_and_copy(
     DstMemorySpace,
     ParticleList<SrcMemorySpace, VectorLength, FieldTags...> plist_src,
-    typename std::enable_if<
-        !std::is_same<SrcMemorySpace, DstMemorySpace>::value>::type* = 0 )
+    std::enable_if_t<!std::is_same_v<SrcMemorySpace, DstMemorySpace>>* =
+        nullptr )
 {
     // Extract the original AoSoA.
     auto aosoa_src = plist_src.aosoa();

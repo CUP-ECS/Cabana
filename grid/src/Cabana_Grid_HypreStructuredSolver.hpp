@@ -22,7 +22,6 @@
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Grid_LocalGrid.hpp>
 #include <Cabana_Grid_Types.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
 #include <HYPRE_config.h>
 #include <HYPRE_struct_ls.h>
@@ -71,12 +70,13 @@ class HypreStructuredSolver
         : _comm( layout.localGrid()->globalGrid().comm() )
         , _is_preconditioner( is_preconditioner )
     {
-        static_assert( is_array_layout<ArrayLayout_t>::value,
-                       "Must use an array layout" );
         static_assert(
-            std::is_same<typename ArrayLayout_t::entity_type,
-                         entity_type>::value,
-            "Array layout entity type mush match solver entity type" );
+            is_array_layout<ArrayLayout_t>::value,
+            "Cabana::Grid::HypreStructuredSolver: Must use an array layout" );
+        static_assert( std::is_same<typename ArrayLayout_t::entity_type,
+                                    entity_type>::value,
+                       "Cabana::Grid::HypreStructuredSolver: Array layout "
+                       "entity type must match solver entity type" );
 
         // Spatial dimension.
         const std::size_t num_space_dim = ArrayLayout_t::num_space_dim;
@@ -94,8 +94,8 @@ class HypreStructuredSolver
             // this to KJI from IJK to be consistent with HYPRE ordering. By
             // setting up the grid like this, HYPRE will then want layout-right
             // data indexed as (i,j,k) or (i,j,k,l) which will allow us to
-            // directly use Kokkos::deep_copy to move data between Cajita arrays
-            // and HYPRE data structures.
+            // directly use Kokkos::deep_copy to move data between arrays and
+            // HYPRE data structures.
             auto global_space = layout.indexSpace( Own(), Global() );
             _lower.resize( num_space_dim );
             _upper.resize( num_space_dim );
@@ -233,24 +233,29 @@ class HypreStructuredSolver
         static_assert( is_array<Array_t>::value, "Must use an array" );
         static_assert(
             std::is_same<typename Array_t::entity_type, entity_type>::value,
-            "Array entity type mush match solver entity type" );
+            "Cabana::Grid::HypreStructuredSolver::setMatrixValues: Array "
+            "entity type must match solver entity type" );
         static_assert(
             std::is_same<typename Array_t::memory_space, MemorySpace>::value,
-            "Array memory space and solver memory space are different." );
+            "Cabana::Grid::HypreStructuredSolver::setMatrixValues: Array "
+            "memory space and solver memory space are different." );
 
         static_assert(
             std::is_same<typename Array_t::value_type, value_type>::value,
-            "Array value type and solver value type are different." );
+            "Cabana::Grid::HypreStructuredSolver::setMatrixValues: Array value "
+            "type and solver value type are different." );
 
         // This function is only valid for non-preconditioners.
         if ( _is_preconditioner )
             throw std::logic_error(
-                "Cannot call setMatrixValues() on preconditioners" );
+                "Cabana::Grid::HypreStructuredSolver::setMatrixValues: Cannot "
+                "call setMatrixValues() on preconditioners" );
 
         if ( values.layout()->dofsPerEntity() !=
              static_cast<int>( _stencil_size ) )
             throw std::runtime_error(
-                "Number of matrix values does not match stencil size" );
+                "Cabana::Grid::HypreStructuredSolver::setMatrixValues: Number "
+                "of matrix values does not match stencil size" );
 
         // Spatial dimension.
         const std::size_t num_space_dim = Array_t::num_space_dim;
@@ -329,11 +334,14 @@ class HypreStructuredSolver
         // This function is only valid for non-preconditioners.
         if ( _is_preconditioner )
             throw std::logic_error(
-                "Cannot call setPreconditioner() on a preconditioner" );
+                "Cabana::Grid::HypreStructuredSolver::setPreconditioner: "
+                "Cannot "
+                "call setPreconditioner() on a preconditioner" );
 
         // Only a preconditioner can be used as a preconditioner.
         if ( !preconditioner->isPreconditioner() )
-            throw std::logic_error( "Not a preconditioner" );
+            throw std::logic_error( "Cabana::Grid::HypreStructuredSolver:"
+                                    "setPreconditioner: Not a preconditioner" );
 
         _preconditioner = preconditioner;
         this->setPreconditionerImpl( *_preconditioner );
@@ -344,7 +352,9 @@ class HypreStructuredSolver
     {
         // This function is only valid for non-preconditioners.
         if ( _is_preconditioner )
-            throw std::logic_error( "Cannot call setup() on preconditioners" );
+            throw std::logic_error(
+                "Cabana::Grid::HypreStructuredSolver::setup:"
+                " Cannot call setup() on preconditioners" );
 
         // FIXME: appears to be a memory issue in the call to this function
         this->setupImpl();
@@ -361,26 +371,34 @@ class HypreStructuredSolver
         Kokkos::Profiling::ScopedRegion region(
             "Cabana::Grid::HypreStructuredSolver::solve" );
 
-        static_assert( is_array<Array_t>::value, "Must use an array" );
+        static_assert(
+            is_array<Array_t>::value,
+            "Cabana::Grid::HypreStructuredSolver::solve: Must use an array" );
         static_assert(
             std::is_same<typename Array_t::entity_type, entity_type>::value,
-            "Array entity type mush match solver entity type" );
+            "Cabana::Grid::HypreStructuredSolver::solve: Array entity type "
+            "must match solver entity type" );
         static_assert(
             std::is_same<typename Array_t::memory_space, MemorySpace>::value,
-            "Array memory space and solver memory space are different." );
+            "Cabana::Grid::HypreStructuredSolver::solve: Array memory space "
+            "and solver memory space are different." );
 
         static_assert(
             std::is_same<typename Array_t::value_type, value_type>::value,
-            "Array value type and solver value type are different." );
+            "Cabana::Grid::HypreStructuredSolver::solve: Array value type and "
+            "solver value type are different." );
 
         // This function is only valid for non-preconditioners.
         if ( _is_preconditioner )
-            throw std::logic_error( "Cannot call solve() on preconditioners" );
+            throw std::logic_error(
+                "Cabana::Grid::HypreStructuredSolver::solve: Cannot call "
+                "solve() on preconditioners" );
 
         if ( b.layout()->dofsPerEntity() != 1 ||
              x.layout()->dofsPerEntity() != 1 )
             throw std::runtime_error(
-                "Structured solver only for scalar fields" );
+                "Cabana::Grid::HypreStructuredSolver::solve: Structured solver "
+                "only for scalar fields" );
 
         // Spatial dimension.
         const std::size_t num_space_dim = Array_t::num_space_dim;
@@ -1516,96 +1534,13 @@ createHypreStructuredSolver( const std::string& solver_type,
         return createHypreStructDiagonal<Scalar, MemorySpace>(
             layout, is_preconditioner );
     else
-        throw std::runtime_error( "Invalid solver type" );
+        throw std::runtime_error(
+            "Cabana::Grid::createHypreStructuredSolver: Invalid solver type" );
 }
 
 //---------------------------------------------------------------------------//
 
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructuredSolver CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructuredSolver<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructPCG CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructPCG<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructGMRES CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructGMRES<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructBiCGSTAB CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructBiCGSTAB<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructPFMG CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructPFMG<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructSMG CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructSMG<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructJacobi CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructJacobi<Scalar, EntityType, MemorySpace>;
-
-template <class Scalar, class EntityType, class MemorySpace>
-using HypreStructDiagonal CAJITA_DEPRECATED =
-    Cabana::Grid::HypreStructDiagonal<Scalar, EntityType, MemorySpace>;
-
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructPCG( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructPCG( std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructGMRES( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructGMRES(
-        std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructBiCGSTAB( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructBiCGSTAB(
-        std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructPFMG( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructPFMG( std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructSMG( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructSMG( std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructJacobi( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructJacobi(
-        std::forward<Args>( args )... );
-}
-template <class... Args>
-CAJITA_DEPRECATED auto createHypreStructDiagonal( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructDiagonal(
-        std::forward<Args>( args )... );
-}
-
-template <class Scalar, class MemorySpace, class... Args>
-CAJITA_DEPRECATED auto createHypreStructuredSolver( Args&&... args )
-{
-    return Cabana::Grid::createHypreStructuredSolver<Scalar, MemorySpace>(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Cajita
 
 #endif // end CABANA_GRID_HYPRESTRUCTUREDSOLVER_HPP

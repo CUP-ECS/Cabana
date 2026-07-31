@@ -28,8 +28,153 @@
 #include <type_traits>
 
 //---------------------------------------------------------------------------//
+// Kokkos 4.7 reimplemented Kokkos::View on top of std::mdspan and removed the
+// legacy array_layout/ViewOffset extension mechanism. Custom layouts are still
+// supported, but through mdspan layout policies instead. Select the
+// implementation of the Cabana slice layout accordingly.
+#if KOKKOS_VERSION >= 40700 && !defined( KOKKOS_ENABLE_IMPL_VIEW_LEGACY )
+#define CABANA_SLICE_MDSPAN_LAYOUT
+#endif
+
+//---------------------------------------------------------------------------//
 namespace Kokkos
 {
+#ifdef CABANA_SLICE_MDSPAN_LAYOUT
+//---------------------------------------------------------------------------//
+/*!
+  \brief mdspan layout policy implementing the AoSoA index arithmetic of a
+  Cabana slice.
+
+  For a view indexed \c (s,a,i0,i1,...) - where \c s is the struct index, \c a
+  the vector index and \c i0.. the member component indices - the offset is
+  \code
+  SOASTRIDE * s + a + VLEN * ( row-major offset of i0,i1,... )
+  \endcode
+  The member component extents are carried by the mdspan extents, so the
+  row-major offset is accumulated over dimensions 2 and higher.
+*/
+template <int SOASTRIDE, int VLEN>
+struct LayoutCabanaSlicePolicy
+{
+    //! mdspan layout mapping.
+    template <class Extents>
+    class mapping
+    {
+      public:
+        //! Mapping extents type.
+        using extents_type = Extents;
+        //! Mapping index type.
+        using index_type = typename extents_type::index_type;
+        //! Mapping size type.
+        using size_type = typename extents_type::size_type;
+        //! Mapping rank type.
+        using rank_type = typename extents_type::rank_type;
+        //! Mapping layout policy.
+        using layout_type = LayoutCabanaSlicePolicy;
+
+        // A slice view always has at least a struct and a vector dimension.
+        static_assert( extents_type::rank() >= 2,
+                       "Cabana slice views have rank 2 or greater" );
+
+        //! Default constructor.
+        KOKKOS_FUNCTION constexpr mapping() = default;
+        //! Extents constructor.
+        KOKKOS_FUNCTION constexpr mapping( const extents_type& extents )
+            : _extents( extents )
+        {
+        }
+        /*!
+          \brief Extents and padding stride constructor.
+
+          The stride is ignored: the SoA stride is a compile-time parameter of
+          the layout. This overload only exists so that Kokkos' generic
+          conversion from an array layout to an mdspan mapping instantiates.
+        */
+        KOKKOS_FUNCTION constexpr mapping( const extents_type& extents,
+                                           size_t )
+            : _extents( extents )
+        {
+        }
+
+        //! Get the mapping extents.
+        KOKKOS_FUNCTION constexpr const extents_type& extents() const
+        {
+            return _extents;
+        }
+
+        /*!
+          \brief Get the span of the range space.
+
+          A slice only touches one member of each SoA so this is the number of
+          structs times the SoA stride, not the number of elements.
+        */
+        KOKKOS_FUNCTION constexpr index_type required_span_size() const
+        {
+            for ( rank_type r = 0; r < extents_type::rank(); ++r )
+                if ( _extents.extent( r ) == 0 )
+                    return 0;
+            return static_cast<index_type>( _extents.extent( 0 ) ) * SOASTRIDE;
+        }
+
+        //! Compute the offset of the given multidimensional index.
+        template <class... Indices>
+        KOKKOS_FORCEINLINE_FUNCTION constexpr index_type
+        operator()( Indices... indices ) const
+        {
+            static_assert( sizeof...( Indices ) == extents_type::rank(),
+                           "Number of indices must match the view rank" );
+            const index_type i[extents_type::rank()] = {
+                static_cast<index_type>( indices )... };
+            index_type member_offset = 0;
+            for ( rank_type r = 2; r < extents_type::rank(); ++r )
+                member_offset =
+                    member_offset *
+                        static_cast<index_type>( _extents.extent( r ) ) +
+                    i[r];
+            return static_cast<index_type>( SOASTRIDE ) * i[0] + i[1] +
+                   static_cast<index_type>( VLEN ) * member_offset;
+        }
+
+        //! Get the stride of the given dimension.
+        KOKKOS_FUNCTION constexpr index_type stride( rank_type r ) const
+        {
+            if ( 0 == r )
+                return SOASTRIDE;
+            if ( 1 == r )
+                return 1;
+            index_type s = VLEN;
+            for ( rank_type d = r + 1; d < extents_type::rank(); ++d )
+                s *= static_cast<index_type>( _extents.extent( d ) );
+            return s;
+        }
+
+        //! Each index maps to a unique offset.
+        static constexpr bool is_always_unique() { return true; }
+        //! A slice skips the other members of each SoA.
+        static constexpr bool is_always_exhaustive() { return false; }
+        //! Every dimension has a stride.
+        static constexpr bool is_always_strided() { return true; }
+        //! Each index maps to a unique offset.
+        static constexpr bool is_unique() { return true; }
+        //! A slice skips the other members of each SoA.
+        static constexpr bool is_exhaustive() { return false; }
+        //! Every dimension has a stride.
+        static constexpr bool is_strided() { return true; }
+
+        //! Mappings of the same layout are equal if their extents are equal.
+        template <class OtherExtents>
+        KOKKOS_FUNCTION friend constexpr bool
+        operator==( const mapping& lhs, const mapping<OtherExtents>& rhs )
+        {
+            return lhs.extents() == rhs.extents();
+        }
+
+      private:
+        extents_type _extents{};
+    };
+};
+#endif // end CABANA_SLICE_MDSPAN_LAYOUT
+
 //---------------------------------------------------------------------------//
 //! Cabana Slice layout.
 template <int SOASTRIDE, int VLEN, int DIM0 = 0, int DIM1 = 0, int DIM2 = 0,
@@ -64,6 +209,17 @@ struct LayoutCabanaSlice
     //! Slice dimension.
     size_t dimension[ARRAY_LAYOUT_MAX_RANK];
 
+#ifdef CABANA_SLICE_MDSPAN_LAYOUT
+    /*!
+      \brief Padding stride.
+
+      Unused - the SoA stride is the compile-time \c Stride parameter. Kokkos'
+      generic array-layout-to-mdspan-mapping conversion reads this member, so it
+      must exist and must be defaulted.
+    */
+    size_t stride = KOKKOS_IMPL_CTOR_DEFAULT_ARG;
+#endif
+
     //! Const copy constructor.
     LayoutCabanaSlice( LayoutCabanaSlice const& ) = default;
     //! Copy constructor.
@@ -89,6 +245,22 @@ struct LayoutCabanaSlice
 namespace Impl
 {
 //! \cond Impl
+
+#ifdef CABANA_SLICE_MDSPAN_LAYOUT
+
+//---------------------------------------------------------------------------//
+// mdspan layout of LayoutCabanaSlice. This is the only Kokkos-internal hook
+// needed by the mdspan View: without it the layout resolves to
+// UnsupportedKokkosArrayLayout.
+template <int... LayoutDims>
+struct LayoutFromArrayLayout<Kokkos::LayoutCabanaSlice<LayoutDims...>>
+{
+    using array_layout = Kokkos::LayoutCabanaSlice<LayoutDims...>;
+    using type = Kokkos::LayoutCabanaSlicePolicy<array_layout::Stride,
+                                                 array_layout::VectorLength>;
+};
+
+#else
 
 //---------------------------------------------------------------------------//
 // View offset of LayoutCabanaSlice.
@@ -365,6 +537,8 @@ struct ViewOffset<Dimension, Kokkos::LayoutCabanaSlice<LayoutDims...>, void>
     }
 };
 
+#endif // end CABANA_SLICE_MDSPAN_LAYOUT
+
 //---------------------------------------------------------------------------//
 
 //! \endcond
@@ -509,15 +683,10 @@ class Slice
     using slice_type =
         Slice<DataType, MemorySpace, MemoryAccessType, VectorLength, Stride>;
 
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert( Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
 
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
 
@@ -678,9 +847,21 @@ class Slice
     KOKKOS_INLINE_FUNCTION
     size_type arraySize( const size_type s ) const
     {
-        return ( static_cast<size_type>( s ) < _view.extent( 0 ) - 1 )
-                   ? vector_length
-                   : ( _size % vector_length );
+        // Check if this is not the last struct index.
+        // If it isn't, the data array is guaranteed to be full.
+        if ( static_cast<size_type>( s ) < _view.extent( 0 ) - 1 )
+        {
+            return vector_length;
+        }
+        else
+        {
+            // This is the last struct index, which may be partially full.
+            // We calculate the remainder to see how many elements it holds.
+            const size_type rem = _size % vector_length;
+            // If rem is 0 and size is positive, the last chunk is full.
+            // Otherwise, the remainder is the correct size (e.g., for _size=0).
+            return ( rem == 0 && _size > 0 ) ? vector_length : rem;
+        }
     }
 
     // ------------
@@ -871,7 +1052,7 @@ void copySliceToView(
     ExecutionSpace exec_space, ViewType& view, const SliceType& slice,
     const std::size_t begin, const std::size_t end,
     typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copySliceToView::Rank0",
@@ -885,10 +1066,10 @@ void copySliceToView(
     ExecutionSpace exec_space, ViewType& view, const SliceType& slice,
     const std::size_t begin, const std::size_t end,
     typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::FieldRank1",
+        "Cabana::copySliceToView::Rank1",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -902,10 +1083,10 @@ void copySliceToView(
     ExecutionSpace exec_space, ViewType& view, const SliceType& slice,
     const std::size_t begin, const std::size_t end,
     typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::writeFieldRank2",
+        "Cabana::copySliceToView::Rank2",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -927,13 +1108,13 @@ void copySliceToView( ViewType& view, const SliceType& slice,
 // Copy from View.
 //---------------------------------------------------------------------------//
 
-//! Copy from slice to View. Rank-0
+//! Copy from View to slice. Rank-0
 template <class ExecutionSpace, class SliceType, class ViewType>
 void copyViewToSlice(
     ExecutionSpace exec_space, SliceType& slice, const ViewType& view,
     const std::size_t begin, const std::size_t end,
     typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copyViewToSlice::Rank0",
@@ -941,16 +1122,16 @@ void copyViewToSlice(
         KOKKOS_LAMBDA( const int i ) { slice( i - begin ) = view( i ); } );
 }
 
-//! Copy from slice to View. Rank-1
+//! Copy from View to slice. Rank-1
 template <class ExecutionSpace, class SliceType, class ViewType>
 void copyViewToSlice(
     ExecutionSpace exec_space, SliceType& slice, const ViewType& view,
     const std::size_t begin, const std::size_t end,
     typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::FieldRank1",
+        "Cabana::copyViewToSlice::Rank1",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -958,16 +1139,16 @@ void copyViewToSlice(
         } );
 }
 
-//! Copy from slice to View. Rank-2
+//! Copy from View to slice. Rank-2
 template <class ExecutionSpace, class SliceType, class ViewType>
 void copyViewToSlice(
     ExecutionSpace exec_space, SliceType& slice, const ViewType& view,
     const std::size_t begin, const std::size_t end,
     typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::dimension::rank, int*>::type = 0 )
+        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     Kokkos::parallel_for(
-        "Cabana::copySliceToView::writeFieldRank2",
+        "Cabana::copyViewToSlice::Rank2",
         Kokkos::RangePolicy<ExecutionSpace>( exec_space, begin, end ),
         KOKKOS_LAMBDA( const int i ) {
             for ( std::size_t d0 = 0; d0 < slice.extent( 2 ); ++d0 )
@@ -976,13 +1157,13 @@ void copyViewToSlice(
         } );
 }
 
-//! Copy from slice to View with default execution space.
+//! Copy from View to slice with default execution space.
 template <class ViewType, class SliceType>
-void copyViewToSlice( ViewType& view, const SliceType& slice,
+void copyViewToSlice( SliceType& slice, const ViewType& view,
                       const std::size_t begin, const std::size_t end )
 {
     using exec_space = typename SliceType::execution_space;
-    copyViewToSlice( exec_space{}, view, slice, begin, end );
+    copyViewToSlice( exec_space{}, slice, view, begin, end );
 }
 
 //! Check slice size (differs from Kokkos View).
@@ -1006,6 +1187,24 @@ void checkSize(
 }
 
 //---------------------------------------------------------------------------//
+
+//! Check slice size (differs from Kokkos View).
+template <class SliceType>
+KOKKOS_INLINE_FUNCTION auto
+size( SliceType slice,
+      typename std::enable_if<is_slice<SliceType>::value, int>::type* = 0 )
+{
+    return slice.size();
+}
+
+//! Check View size (differs from Slice).
+template <class ViewType>
+KOKKOS_INLINE_FUNCTION auto size(
+    ViewType view,
+    typename std::enable_if<Kokkos::is_view<ViewType>::value, int>::type* = 0 )
+{
+    return view.extent( 0 );
+}
 
 } // end namespace Cabana
 

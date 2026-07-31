@@ -530,6 +530,9 @@ struct MySoA
     int m1[VLEN];
     double m2[D1][VLEN];
     double m3[D1][D2][VLEN];
+
+    KOKKOS_INLINE_FUNCTION
+    MySoA(){};
 };
 
 // Test an unmanaged AoSoA.
@@ -606,19 +609,19 @@ void testUnmanaged()
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, aosoa_test ) { testAoSoA(); }
+TEST( AoSoA, Test ) { testAoSoA(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, aosoa_raw_data_test ) { testRawData(); }
+TEST( AoSoA, RawData ) { testRawData(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, aosoa_tuple_test ) { testTuple(); }
+TEST( AoSoA, Tuple ) { testTuple(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, aosoa_access_test ) { testAccess(); }
+TEST( AoSoA, Access ) { testAccess(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, aosoa_unmanaged_test ) { testUnmanaged(); }
+TEST( AoSoA, Unmanaged ) { testUnmanaged(); }
 
 //---------------------------------------------------------------------------//
 

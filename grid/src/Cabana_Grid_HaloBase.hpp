@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Grid_Halo.hpp
+  \file Cabana_Grid_HaloBase.hpp
   \brief Multi-node grid scatter/gather
 */
 #ifndef CABANA_GRID_HALO_HPP
@@ -18,9 +18,10 @@
 
 #include <Cabana_Grid_Array.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
+#include <Cabana_Tags.hpp>
 
+#include <Cabana_Core_Config.hpp>
 #include <Cabana_ParameterPack.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Profiling_ScopedRegion.hpp>
@@ -37,6 +38,7 @@ namespace Cabana
 {
 namespace Grid
 {
+
 //---------------------------------------------------------------------------//
 // Halo exchange patterns.
 //---------------------------------------------------------------------------//
@@ -198,12 +200,13 @@ struct Replace
   space. These requirements are checked at construction.
 */
 template <class MemorySpace>
-class Halo
+class HaloBase
 {
   public:
     //! Memory space.
     using memory_space = MemorySpace;
 
+  protected:
     /*!
       \brief Constructor.
       \tparam The arrays types to construct the halo for.
@@ -214,7 +217,8 @@ class Halo
       provided in the same order
     */
     template <class Pattern, class... ArrayTypes>
-    Halo( const Pattern& pattern, const int width, const ArrayTypes&... arrays )
+    HaloBase( const Pattern& pattern, const int width,
+              const ArrayTypes&... arrays )
     {
         // Spatial dimension.
         const std::size_t num_space_dim = Pattern::num_space_dim;
@@ -275,183 +279,6 @@ class Halo
         }
     }
 
-    /*!
-      \brief Gather data into our ghosts from their owners.
-
-      \param exec_space The execution space to use for pack/unpack.
-
-      \param arrays The arrays to gather. NOTE: These arrays must be given in
-      the same order as in the constructor. These could technically be
-      different arrays, they just need to have the same layouts and data types
-      as the input arrays.
-    */
-    template <class ExecutionSpace, class... ArrayTypes>
-    void gather( const ExecutionSpace& exec_space,
-                 const ArrayTypes&... arrays ) const
-    {
-        Kokkos::Profiling::ScopedRegion region( "Cabana::Grid::gather" );
-
-        // Get the number of neighbors. Return if we have none.
-        int num_n = _neighbor_ranks.size();
-        if ( 0 == num_n )
-            return;
-
-        // Get the MPI communicator.
-        auto comm = getComm( arrays... );
-
-        // Allocate requests.
-        std::vector<MPI_Request> requests( 2 * num_n, MPI_REQUEST_NULL );
-
-        // Pick a tag to use for communication. This object has its own
-        // communication space so any tag will do.
-        const int mpi_tag = 1234;
-
-        // Post receives.
-        for ( int n = 0; n < num_n; ++n )
-        {
-            // Only process this neighbor if there is work to do.
-            if ( 0 < _ghosted_buffers[n].size() )
-            {
-                MPI_Irecv( _ghosted_buffers[n].data(),
-                           _ghosted_buffers[n].size(), MPI_BYTE,
-                           _neighbor_ranks[n], mpi_tag + _receive_tags[n], comm,
-                           &requests[n] );
-            }
-        }
-
-        // Pack send buffers and post sends.
-        for ( int n = 0; n < num_n; ++n )
-        {
-            // Only process this neighbor if there is work to do.
-            if ( 0 < _owned_buffers[n].size() )
-            {
-                // Pack the send buffer.
-                packBuffer( exec_space, _owned_buffers[n], _owned_steering[n],
-                            arrays.view()... );
-
-                // Post a send.
-                MPI_Isend( _owned_buffers[n].data(), _owned_buffers[n].size(),
-                           MPI_BYTE, _neighbor_ranks[n],
-                           mpi_tag + _send_tags[n], comm,
-                           &requests[num_n + n] );
-            }
-        }
-
-        // Unpack receive buffers.
-        bool unpack_complete = false;
-        while ( !unpack_complete )
-        {
-            // Get the next buffer to unpack.
-            int unpack_index = MPI_UNDEFINED;
-            MPI_Waitany( num_n, requests.data(), &unpack_index,
-                         MPI_STATUS_IGNORE );
-
-            // If there are no more buffers to unpack we are done.
-            if ( MPI_UNDEFINED == unpack_index )
-            {
-                unpack_complete = true;
-            }
-
-            // Otherwise unpack the next buffer.
-            else
-            {
-                unpackBuffer( ScatterReduce::Replace(), exec_space,
-                              _ghosted_buffers[unpack_index],
-                              _ghosted_steering[unpack_index],
-                              arrays.view()... );
-            }
-        }
-
-        // Wait on send requests.
-        MPI_Waitall( num_n, requests.data() + num_n, MPI_STATUSES_IGNORE );
-    }
-
-    /*!
-      \brief Scatter data from our ghosts to their owners using the given type
-      of reduce operation.
-      \param reduce_op The functor used to reduce the results.
-      \param exec_space The execution space to use for pack/unpack.
-      \param arrays The arrays to scatter.
-    */
-    template <class ExecutionSpace, class ReduceOp, class... ArrayTypes>
-    void scatter( const ExecutionSpace& exec_space, const ReduceOp& reduce_op,
-                  const ArrayTypes&... arrays ) const
-    {
-        Kokkos::Profiling::ScopedRegion region( "Cabana::Grid::scatter" );
-
-        // Get the number of neighbors. Return if we have none.
-        int num_n = _neighbor_ranks.size();
-        if ( 0 == num_n )
-            return;
-
-        // Get the MPI communicator.
-        auto comm = getComm( arrays... );
-
-        // Requests.
-        std::vector<MPI_Request> requests( 2 * num_n, MPI_REQUEST_NULL );
-
-        // Pick a tag to use for communication. This object has its own
-        // communication space so any tag will do.
-        const int mpi_tag = 2345;
-
-        // Post receives for all neighbors that are not self sends.
-        for ( int n = 0; n < num_n; ++n )
-        {
-            // Only process this neighbor if there is work to do.
-            if ( 0 < _owned_buffers[n].size() )
-            {
-                MPI_Irecv( _owned_buffers[n].data(), _owned_buffers[n].size(),
-                           MPI_BYTE, _neighbor_ranks[n],
-                           mpi_tag + _receive_tags[n], comm, &requests[n] );
-            }
-        }
-
-        // Pack send buffers and post sends.
-        for ( int n = 0; n < num_n; ++n )
-        {
-            // Only process this neighbor if there is work to do.
-            if ( 0 < _ghosted_buffers[n].size() )
-            {
-                // Pack the send buffer.
-                packBuffer( exec_space, _ghosted_buffers[n],
-                            _ghosted_steering[n], arrays.view()... );
-
-                // Post a send.
-                MPI_Isend( _ghosted_buffers[n].data(),
-                           _ghosted_buffers[n].size(), MPI_BYTE,
-                           _neighbor_ranks[n], mpi_tag + _send_tags[n], comm,
-                           &requests[num_n + n] );
-            }
-        }
-
-        // Unpack receive buffers.
-        bool unpack_complete = false;
-        while ( !unpack_complete )
-        {
-            // Get the next buffer to unpack.
-            int unpack_index = MPI_UNDEFINED;
-            MPI_Waitany( num_n, requests.data(), &unpack_index,
-                         MPI_STATUS_IGNORE );
-
-            // If there are no more buffers to unpack we are done.
-            if ( MPI_UNDEFINED == unpack_index )
-            {
-                unpack_complete = true;
-            }
-
-            // Otherwise unpack the next buffer and apply the reduce operation.
-            else
-            {
-                unpackBuffer( reduce_op, exec_space,
-                              _owned_buffers[unpack_index],
-                              _owned_steering[unpack_index], arrays.view()... );
-            }
-
-            // Wait on send requests.
-            MPI_Waitall( num_n, requests.data() + num_n, MPI_STATUSES_IGNORE );
-        }
-    }
-
   public:
     //! Get the communicator.
     template <class Array_t>
@@ -471,7 +298,8 @@ class Halo
         int result;
         MPI_Comm_compare( comm, getComm( arrays... ), &result );
         if ( result != MPI_IDENT && result != MPI_CONGRUENT )
-            throw std::runtime_error( "Arrays have different communicators" );
+            throw std::runtime_error( "Cabana::Grid::Halo::getComm: Arrays "
+                                      "have different communicators" );
 
         return comm;
     }
@@ -496,7 +324,8 @@ class Halo
         if ( local_grid->haloCellWidth() !=
              array.layout()->localGrid()->haloCellWidth() )
         {
-            throw std::runtime_error( "Arrays have different halo widths" );
+            throw std::runtime_error( "Cabana::Grid::Halo::getlocalGrid: "
+                                      "Arrays have different halo widths" );
         }
 
         return local_grid;
@@ -601,10 +430,12 @@ class Halo
 
         // Check that all elements and bytes are accounted for.
         if ( byte_counter != buffer_bytes )
-            throw std::logic_error( "Steering vector contains different number "
+            throw std::logic_error( "Cabana::Grid::Halo::buildSteeringVector: "
+                                    "Steering vector contains different number "
                                     "of bytes than buffer" );
         if ( elem_counter != buffer_num_element )
-            throw std::logic_error( "Steering vector contains different number "
+            throw std::logic_error( "Cabana::Grid::Halo::buildSteeringVector: "
+                                    "Steering vector contains different number "
                                     "of elements than buffer" );
 
         // Copy steering vector to device.
@@ -658,10 +489,12 @@ class Halo
 
         // Check that all elements and bytes are accounted for.
         if ( byte_counter != buffer_bytes )
-            throw std::logic_error( "Steering vector contains different number "
+            throw std::logic_error( "Cabana::Grid::Halo::buildSteeringVector: "
+                                    "Steering vector contains different number "
                                     "of bytes than buffer" );
         if ( elem_counter != buffer_num_element )
-            throw std::logic_error( "Steering vector contains different number "
+            throw std::logic_error( "Cabana::Grid::Halo::buildSteeringVector: "
+                                    "Steering vector contains different number "
                                     "of elements than buffer" );
 
         // Copy steering vector to device.
@@ -905,28 +738,25 @@ class Halo
     }
 
   protected:
-    // The following variables in accessible in subclasses that want to
-    // implement different communication strategies.
-
-    // The tag we use in this class for sending to each neighbor.
-    std::vector<int> _send_tags;
-
-    // The tag we use in this class for receiving from each neighbor.
-    std::vector<int> _receive_tags;
-
-    // The ranks we will send/receive from.
+    //! The ranks we will send/receive from.
     std::vector<int> _neighbor_ranks;
 
-    // For each neighbor, send/receive buffers for data we own.
+    //! The tag we use for sending to each neighbor.
+    std::vector<int> _send_tags;
+
+    //! The tag we use for receiving from each neighbor.
+    std::vector<int> _receive_tags;
+
+    //! For each neighbor, send/receive buffers for data we own.
     std::vector<Kokkos::View<char*, memory_space>> _owned_buffers;
 
-    // For each neighbor, send/receive buffers for data we ghost.
+    //! For each neighbor, send/receive buffers for data we ghost.
     std::vector<Kokkos::View<char*, memory_space>> _ghosted_buffers;
 
-    // For each neighbor, steering vector for the owned buffer.
+    //! For each neighbor, steering vector for the owned buffer.
     std::vector<Kokkos::View<int**, memory_space>> _owned_steering;
 
-    // For each neighbor, steering vector for the ghosted buffer.
+    //! For each neighbor, steering vector for the ghosted buffer.
     std::vector<Kokkos::View<int**, memory_space>> _ghosted_steering;
 };
 
@@ -941,6 +771,23 @@ struct ArrayPackMemorySpace
     using type = typename ArrayT::memory_space;
 };
 
+// Forward declaration of the primary grid Halo template.
+template <class MemorySpace, class CommSpaceType = Mpi>
+class Halo;
+
+} // end namespace Grid
+} // end namespace Cabana
+
+// Include communication backends from what is enabled in CMake.
+#ifdef Cabana_ENABLE_MPI
+#include <impl/Cabana_Grid_Halo_Mpi.hpp>
+#endif // Enable MPI
+
+namespace Cabana
+{
+namespace Grid
+{
+
 //---------------------------------------------------------------------------//
 /*!
   \brief Halo creation function.
@@ -949,68 +796,18 @@ struct ArrayPackMemorySpace
   \param arrays The arrays over which to build the halo.
   \return Shared pointer to a Halo.
 */
-template <class Pattern, class... ArrayTypes>
+template <class CommSpaceType = Mpi, class Pattern, class... ArrayTypes>
 auto createHalo( const Pattern& pattern, const int width,
                  const ArrayTypes&... arrays )
 {
     using memory_space = typename ArrayPackMemorySpace<ArrayTypes...>::type;
-    return std::make_shared<Halo<memory_space>>( pattern, width, arrays... );
+    return std::make_shared<Halo<memory_space, CommSpaceType>>( pattern, width,
+                                                                arrays... );
 }
+
+} // end namespace Grid
+} // end namespace Cabana
 
 //---------------------------------------------------------------------------//
 
-} // namespace Grid
-} // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <std::size_t NumSpaceDim>
-using HaloPattern CAJITA_DEPRECATED = Cabana::Grid::HaloPattern<NumSpaceDim>;
-template <std::size_t NumSpaceDim>
-using NodeHaloPattern CAJITA_DEPRECATED =
-    Cabana::Grid::NodeHaloPattern<NumSpaceDim>;
-template <std::size_t NumSpaceDim>
-using FaceHaloPattern CAJITA_DEPRECATED =
-    Cabana::Grid::FaceHaloPattern<NumSpaceDim>;
-
-template <class MemorySpace>
-using Halo CAJITA_DEPRECATED = Cabana::Grid::Halo<MemorySpace>;
-
-template <class ArrayT, class... Types>
-using ArrayPackMemorySpace CAJITA_DEPRECATED =
-    Cabana::Grid::ArrayPackMemorySpace<ArrayT, Types...>;
-
-template <std::size_t NumSpaceDim>
-using HaloPattern CAJITA_DEPRECATED = Cabana::Grid::HaloPattern<NumSpaceDim>;
-template <std::size_t NumSpaceDim>
-using NodeHaloPattern CAJITA_DEPRECATED =
-    Cabana::Grid::NodeHaloPattern<NumSpaceDim>;
-template <std::size_t NumSpaceDim>
-using FaceHaloPattern CAJITA_DEPRECATED =
-    Cabana::Grid::FaceHaloPattern<NumSpaceDim>;
-
-template <class MemorySpace>
-using Halo CAJITA_DEPRECATED = Cabana::Grid::Halo<MemorySpace>;
-
-template <class ArrayT, class... Types>
-using ArrayPackMemorySpace CAJITA_DEPRECATED =
-    Cabana::Grid::ArrayPackMemorySpace<ArrayT, Types...>;
-
-template <class... Args>
-CAJITA_DEPRECATED auto createHalo( Args&&... args )
-{
-    return Cabana::Grid::createHalo( std::forward<Args>( args )... );
-}
-
-namespace ScatterReduce
-{
-using Sum CAJITA_DEPRECATED = Cabana::Grid::ScatterReduce::Sum;
-using Min CAJITA_DEPRECATED = Cabana::Grid::ScatterReduce::Min;
-using Max CAJITA_DEPRECATED = Cabana::Grid::ScatterReduce::Max;
-using Replace CAJITA_DEPRECATED = Cabana::Grid::ScatterReduce::Replace;
-} // namespace ScatterReduce
-//! \endcond
-} // namespace Cajita
-
-#endif // end CABANA_GRID_HALO_HPP
+#endif // end CABANA_GRID_HALOBASE_HPP

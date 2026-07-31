@@ -156,7 +156,7 @@ class SparseArrayLayout
         auto& low_corner = _global_low_corner;
         // register sparse map in sparse array layout
         Kokkos::parallel_for(
-            "register sparse map in sparse array layout",
+            "Cabana::Grid::Experimental::SparseArrayLayout::registerSparseMap",
             Kokkos::RangePolicy<ExecSpace>( 0, particle_num ),
             KOKKOS_LAMBDA( const int pid ) {
                 scalar_type pos[3] = { positions( pid, 0 ) - low_corner[0],
@@ -318,16 +318,9 @@ class SparseArray
     //! self type
     using sparse_array_type = SparseArray<DataTypes, MemorySpace, EntityType,
                                           MeshType, SparseMapType>;
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    // FIXME: replace warning with memory space assert after next release.
-    static_assert(
-        Cabana::Impl::deprecated( Kokkos::is_device<MemorySpace>() ) );
-
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
     //! Memory space size type
@@ -709,47 +702,5 @@ auto createSparseArray(
 } // namespace Experimental
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-namespace Experimental
-{
-//! \cond Deprecated
-template <class DataTypes, class EntityType, class MeshType,
-          class SparseMapType>
-using SparseArrayLayout CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::SparseArrayLayout<DataTypes, EntityType,
-                                                  MeshType, SparseMapType>;
-
-template <class... Args>
-CAJITA_DEPRECATED auto createSparseArrayLayout( Args&&... args )
-{
-    return Cabana::Grid::Experimental::createSparseArrayLayout(
-        std::forward<Args>( args )... );
-}
-
-template <class T>
-using is_sparse_array_layout CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::is_sparse_array_layout<T>;
-
-template <class DataTypes, class MemorySpace, class EntityType, class MeshType,
-          class SparseMapType>
-using SparseArray CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::SparseArray<DataTypes, MemorySpace, EntityType,
-                                            MeshType, SparseMapType>;
-
-template <class T>
-using is_sparse_array CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::is_sparse_array<T>;
-
-template <class MemorySpace, class... Args>
-CAJITA_DEPRECATED auto createSparseArray( Args&&... args )
-{
-    return Cabana::Grid::Experimental::createSparseArray<MemorySpace>(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Experimental
-} // end namespace Cajita
 
 #endif // CABANA_GRID_SPARSE_ARRAY_HPP

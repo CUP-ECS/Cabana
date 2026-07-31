@@ -18,7 +18,7 @@
 
 #include <Cabana_Grid_Array.hpp>
 #include <Cabana_Grid_GlobalGrid.hpp>
-#include <Cabana_Grid_Halo.hpp>
+#include <Cabana_Grid_HaloBase.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Grid_LocalGrid.hpp>
 #include <Cabana_Grid_MpiTraits.hpp>
@@ -53,12 +53,9 @@ class ReferenceStructuredSolver
     using entity_type = EntityType;
     //! Scalar value type.
     using value_type = Scalar;
-    // FIXME: extracting the self type for backwards compatibility with previous
-    // template on DeviceType. Should simply be MemorySpace after next release.
-    //! Memory space.
-    using memory_space = typename MemorySpace::memory_space;
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
+    //! Kokkos memory space.
+    using memory_space = MemorySpace;
+    static_assert( Kokkos::is_memory_space<MemorySpace>() );
     //! Default execution space.
     using execution_space = typename memory_space::execution_space;
     //! Array type.
@@ -156,8 +153,6 @@ class ReferenceConjugateGradient
         ReferenceStructuredSolver<Scalar, EntityType, MeshType, MemorySpace>;
     //! Memory space.
     using memory_space = typename base_type::memory_space;
-    //! Default device type.
-    using device_type [[deprecated]] = typename memory_space::device_type;
     //! Default execution space.
     using execution_space = typename base_type::execution_space;
 
@@ -457,7 +452,9 @@ class ReferenceConjugateGradient
 
         // If we didn't converge throw.
         if ( !converged )
-            throw std::runtime_error( "CG solver did not converge" );
+            throw std::runtime_error(
+                "Cabana::Grid::ReferenceConjugateGradient::solve: CG solver "
+                "did not converge" );
     }
 
     //! Get the number of iterations taken on the last solve.
@@ -986,27 +983,5 @@ createReferenceConjugateGradient(
 
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <class Scalar, class EntityType, class MeshType, class DeviceType>
-using ReferenceStructuredSolver CAJITA_DEPRECATED =
-    Cabana::Grid::ReferenceStructuredSolver<Scalar, EntityType, MeshType,
-                                            DeviceType>;
-
-template <class Scalar, class EntityType, class MeshType, class DeviceType>
-using ReferenceConjugateGradient CAJITA_DEPRECATED =
-    Cabana::Grid::ReferenceConjugateGradient<Scalar, EntityType, MeshType,
-                                             DeviceType>;
-
-template <class Scalar, class... Params, class... Args>
-CAJITA_DEPRECATED auto createReferenceConjugateGradient( Args&&... args )
-{
-    return Cabana::Grid::createReferenceConjugateGradient<Scalar, Params...>(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Cajita
 
 #endif // end CABANA_GRID_REFERENCESTRUCTUREDSOLVER_HPP

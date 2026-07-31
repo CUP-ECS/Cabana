@@ -23,10 +23,11 @@
 namespace Test
 {
 //---------------------------------------------------------------------------//
+template <std::size_t Dim>
 void testArborXListFull()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Check CSR neighbor lists.
@@ -84,10 +85,11 @@ void testArborXListFull()
 }
 
 //---------------------------------------------------------------------------//
+template <std::size_t Dim>
 void testArborXListHalf()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Check CSR neighbor lists.
@@ -145,41 +147,43 @@ void testArborXListHalf()
 }
 
 //---------------------------------------------------------------------------//
+template <std::size_t Dim>
 void testArborXListFullPartialRange()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     {
         // Create the neighbor list.
         auto const nlist = Cabana::Experimental::makeNeighborList(
-            Cabana::FullNeighborTag{}, position, 0, test_data.num_ignore,
+            Cabana::FullNeighborTag{}, position, 0, test_data.end,
             test_data.test_radius );
 
         // Check the neighbor list.
         checkFullNeighborListPartialRange( nlist, test_data.N2_list_copy,
-                                           test_data.num_particle,
-                                           test_data.num_ignore );
+                                           test_data.num_particle, 0,
+                                           test_data.end );
     }
     {
         // Create the neighbor list.
         auto const nlist = Cabana::Experimental::make2DNeighborList(
-            Cabana::FullNeighborTag{}, position, 0, test_data.num_ignore,
+            Cabana::FullNeighborTag{}, position, 0, test_data.end,
             test_data.test_radius );
 
         // Check the neighbor list.
         checkFullNeighborListPartialRange( nlist, test_data.N2_list_copy,
-                                           test_data.num_particle,
-                                           test_data.num_ignore );
+                                           test_data.num_particle, 0,
+                                           test_data.end );
     }
 }
 
 //---------------------------------------------------------------------------//
+template <std::size_t Dim>
 void testNeighborArborXParallelFor()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     {
@@ -235,10 +239,11 @@ void testNeighborArborXParallelFor()
 }
 
 //---------------------------------------------------------------------------//
+template <std::size_t Dim>
 void testNeighborArborXParallelReduce()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     {
@@ -290,25 +295,19 @@ void testNeighborArborXParallelReduce()
 //---------------------------------------------------------------------------//
 // TESTS
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, neighbor_list_full_test ) { testArborXListFull(); }
+TEST( ArborXList, Full3d ) { testArborXListFull<3>(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, neighbor_list_half_test ) { testArborXListHalf(); }
+TEST( ArborXList, Half3d ) { testArborXListHalf<3>(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, neighbor_list_full_range_test )
-{
-    testArborXListFullPartialRange();
-}
+TEST( ArborXList, FullRange3d ) { testArborXListFullPartialRange<3>(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, parallel_for_test ) { testNeighborArborXParallelFor(); }
+TEST( ArborXList, ParallelFor3d ) { testNeighborArborXParallelFor<3>(); }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, parallel_reduce_test )
-{
-    testNeighborArborXParallelReduce();
-}
+TEST( ArborXList, ParallelReduce3d ) { testNeighborArborXParallelReduce<3>(); }
 //---------------------------------------------------------------------------//
 
 } // end namespace Test

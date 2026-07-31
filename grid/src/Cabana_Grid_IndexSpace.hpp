@@ -172,10 +172,11 @@ class IndexSpace
 */
 template <class ExecutionSpace>
 Kokkos::RangePolicy<ExecutionSpace>
-createExecutionPolicy( const IndexSpace<1>& index_space, const ExecutionSpace& )
+createExecutionPolicy( const IndexSpace<1>& index_space,
+                       const ExecutionSpace& exec_space )
 {
-    return Kokkos::RangePolicy<ExecutionSpace>( index_space.min( 0 ),
-                                                index_space.max( 0 ) );
+    return Kokkos::RangePolicy<ExecutionSpace>(
+        exec_space, index_space.min( 0 ), index_space.max( 0 ) );
 }
 
 //---------------------------------------------------------------------------//
@@ -187,11 +188,11 @@ createExecutionPolicy( const IndexSpace<1>& index_space, const ExecutionSpace& )
 */
 template <class ExecutionSpace, class WorkTag>
 Kokkos::RangePolicy<ExecutionSpace, WorkTag>
-createExecutionPolicy( const IndexSpace<1>& index_space, const ExecutionSpace&,
-                       const WorkTag& )
+createExecutionPolicy( const IndexSpace<1>& index_space,
+                       const ExecutionSpace& exec_space, const WorkTag& )
 {
-    return Kokkos::RangePolicy<ExecutionSpace, WorkTag>( index_space.min( 0 ),
-                                                         index_space.max( 0 ) );
+    return Kokkos::RangePolicy<ExecutionSpace, WorkTag>(
+        exec_space, index_space.min( 0 ), index_space.max( 0 ) );
 }
 
 //---------------------------------------------------------------------------//
@@ -201,11 +202,12 @@ createExecutionPolicy( const IndexSpace<1>& index_space, const ExecutionSpace&,
 */
 template <class IndexSpace_t, class ExecutionSpace>
 Kokkos::MDRangePolicy<ExecutionSpace, Kokkos::Rank<IndexSpace_t::Rank>>
-createExecutionPolicy( const IndexSpace_t& index_space, const ExecutionSpace& )
+createExecutionPolicy( const IndexSpace_t& index_space,
+                       const ExecutionSpace& exec_space )
 {
     return Kokkos::MDRangePolicy<ExecutionSpace,
                                  Kokkos::Rank<IndexSpace_t::Rank>>(
-        index_space.min(), index_space.max() );
+        exec_space, index_space.min(), index_space.max() );
 }
 
 //---------------------------------------------------------------------------//
@@ -216,12 +218,12 @@ createExecutionPolicy( const IndexSpace_t& index_space, const ExecutionSpace& )
 */
 template <class IndexSpace_t, class ExecutionSpace, class WorkTag>
 Kokkos::MDRangePolicy<ExecutionSpace, WorkTag, Kokkos::Rank<IndexSpace_t::Rank>>
-createExecutionPolicy( const IndexSpace_t& index_space, const ExecutionSpace&,
-                       const WorkTag& )
+createExecutionPolicy( const IndexSpace_t& index_space,
+                       const ExecutionSpace& exec_space, const WorkTag& )
 {
     return Kokkos::MDRangePolicy<ExecutionSpace, WorkTag,
                                  Kokkos::Rank<IndexSpace_t::Rank>>(
-        index_space.min(), index_space.max() );
+        exec_space, index_space.min(), index_space.max() );
 }
 
 //---------------------------------------------------------------------------//
@@ -482,37 +484,5 @@ IndexSpace<N + 1> appendDimension( const IndexSpace<N>& index_space,
 
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <long N>
-using IndexSpace CAJITA_DEPRECATED = Cabana::Grid::IndexSpace<N>;
-
-template <typename... Args>
-CAJITA_DEPRECATED auto createExecutionPolicy( Args&&... args )
-{
-    return Cabana::Grid::createExecutionPolicy( std::forward<Args>( args )... );
-}
-
-template <typename... Args>
-CAJITA_DEPRECATED auto createView( Args&&... args )
-{
-    return Cabana::Grid::createView( std::forward<Args>( args )... );
-}
-
-template <class... Args>
-CAJITA_DEPRECATED auto createSubview( Args&&... args )
-{
-    return Cabana::Grid::createSubview( std::forward<Args>( args )... );
-}
-
-template <class... Args>
-CAJITA_DEPRECATED auto appendDimension( Args&&... args )
-{
-    return Cabana::Grid::appendDimension( std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Cajita
 
 #endif // end CABANA_GRID_INDEXSPACE_HPP

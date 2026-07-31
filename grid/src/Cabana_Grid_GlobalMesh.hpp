@@ -17,7 +17,6 @@
 #define CABANA_GRID_GLOBALMESH_HPP
 
 #include <Cabana_Grid_Types.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
 #include <array>
 #include <cmath>
@@ -76,7 +75,8 @@ class GlobalMesh
                  scalar_type( 100.0 ) *
                      std::numeric_limits<scalar_type>::epsilon() )
                 throw std::logic_error(
-                    "Extent not evenly divisible by uniform cell size" );
+                    "Cabana::Grid::GlobalMesh: Extent not evenly divisible by "
+                    "uniform cell size" );
         }
     }
 
@@ -98,7 +98,8 @@ class GlobalMesh
                  scalar_type( 100.0 ) *
                      std::numeric_limits<scalar_type>::epsilon() )
                 throw std::logic_error(
-                    "Extent not evenly divisible by uniform cell size" );
+                    "Cabana::Grid::GlocalMesh: Extent not evenly divisible by "
+                    "uniform cell size" );
         }
     }
 
@@ -125,9 +126,11 @@ class GlobalMesh
                  scalar_type( 100.0 ) *
                      std::numeric_limits<scalar_type>::epsilon() )
                 throw std::logic_error(
-                    "Extent not evenly divisible by uniform cell size" );
+                    "Cabana::Grid::GlocalMesh: Extent not evenly divisible by "
+                    "uniform cell size" );
             if ( globalNumCell( d ) != global_num_cell[d] )
-                throw std::logic_error( "Global number of cells mismatch" );
+                throw std::logic_error( "Cabana::Grid::GlocalMesh: Global "
+                                        "number of cells mismatch" );
         }
     }
 
@@ -487,34 +490,5 @@ createNonUniformGlobalMesh( const std::vector<Scalar>& i_edges,
 
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-//! \cond Deprecated
-template <class MeshType>
-using GlobalMesh CAJITA_DEPRECATED = Cabana::Grid::GlobalMesh<MeshType>;
-
-template <class... Args>
-CAJITA_DEPRECATED auto createUniformGlobalMesh( Args&&... args )
-{
-    return Cabana::Grid::createUniformGlobalMesh(
-        std::forward<Args>( args )... );
-}
-
-template <class... Args>
-CAJITA_DEPRECATED auto createNonUniformGlobalMesh( Args&&... args )
-{
-    return Cabana::Grid::createNonUniformGlobalMesh(
-        std::forward<Args>( args )... );
-}
-
-template <class... Args>
-CAJITA_DEPRECATED auto createSparseGlobalMesh( Args&&... args )
-{
-    return Cabana::Grid::createSparseGlobalMesh(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Cajita
 
 #endif // end CABANA_GRID_GLOBALMESH_HPP

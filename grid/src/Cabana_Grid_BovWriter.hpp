@@ -17,11 +17,10 @@
 #define CABANA_GRID_BOVWRITER_HPP
 
 #include <Cabana_Grid_Array.hpp>
-#include <Cabana_Grid_Halo.hpp>
+#include <Cabana_Grid_HaloBase.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Grid_MpiTraits.hpp>
 #include <Cabana_Grid_Types.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
 #include <Kokkos_Core.hpp>
 
@@ -144,7 +143,8 @@ reorderView( TargetView& target, const SourceView& source,
              const Indices& index_space, const ExecSpace& exec_space )
 {
     Kokkos::parallel_for(
-        "bov_reorder", createExecutionPolicy( index_space, exec_space ),
+        "Cabana::Grid::BovWriter::Reorder",
+        createExecutionPolicy( index_space, exec_space ),
         KOKKOS_LAMBDA( const int k, const int j, const int i, const int l ) {
             target( k, j, i, l ) = source( i, j, k, l );
         } );
@@ -158,7 +158,8 @@ reorderView( TargetView& target, const SourceView& source,
              const Indices& index_space, const ExecSpace& exec_space )
 {
     Kokkos::parallel_for(
-        "bov_reorder", createExecutionPolicy( index_space, exec_space ),
+        "Cabana::Grid::BovWriter::Reorder",
+        createExecutionPolicy( index_space, exec_space ),
         KOKKOS_LAMBDA( const int j, const int i, const int l ) {
             target( j, i, l ) = source( i, j, l );
         } );
@@ -172,6 +173,7 @@ reorderView( TargetView& target, const SourceView& source,
   This version writes a single output and does not use bricklets. We will do
   this in the future to improve parallel visualization.
 
+  \param prefix The filename prefix
   \param time_step_index The index of the time step we are writing.
   \param time The current time
   \param array The array to write
@@ -179,9 +181,9 @@ reorderView( TargetView& target, const SourceView& source,
   consistent.
 */
 template <class ExecutionSpace, class Array_t>
-void writeTimeStep( ExecutionSpace, const int time_step_index,
-                    const double time, const Array_t& array,
-                    const bool gather_array = true )
+void writeTimeStep( ExecutionSpace, const std::string& prefix,
+                    const int time_step_index, const double time,
+                    const Array_t& array, const bool gather_array = true )
 {
     static_assert( isUniformMesh<typename Array_t::mesh_type>::value,
                    "ViSIT BOV writer can only be used with uniform mesh" );
@@ -281,8 +283,8 @@ void writeTimeStep( ExecutionSpace, const int time_step_index,
 
     // Compose a data file name prefix.
     std::stringstream file_name;
-    file_name << "grid_" << array.label() << "_" << std::setfill( '0' )
-              << std::setw( 6 ) << time_step_index;
+    file_name << prefix << "_" << std::setfill( '0' ) << std::setw( 6 )
+              << time_step_index;
 
     // Open a binary data file.
     std::string data_file_name = file_name.str() + ".dat";
@@ -393,6 +395,52 @@ void writeTimeStep( ExecutionSpace, const int time_step_index,
   This version writes a single output and does not use bricklets. We will do
   this in the future to improve parallel visualization.
 
+  \param prefix The filename prefix
+  \param time_step_index The index of the time step we are writing.
+  \param time The current time
+  \param array The array to write
+  \param gather_array Gather the array before writing to make parallel
+  consistent.
+*/
+template <class Array_t>
+void writeTimeStep( const std::string& prefix, const int time_step_index,
+                    const double time, const Array_t& array,
+                    const bool gather_array = true )
+{
+    using exec_space = typename Array_t::execution_space;
+    writeTimeStep( exec_space{}, prefix, time_step_index, time, array,
+                   gather_array );
+}
+
+/*!
+  \brief Write a grid array to a VisIt BOV.
+
+  This version writes a single output and does not use bricklets. We will do
+  this in the future to improve parallel visualization.
+
+  \param time_step_index The index of the time step we are writing.
+  \param time The current time
+  \param array The array to write
+  \param gather_array Gather the array before writing to make parallel
+  consistent.
+*/
+template <class ExecutionSpace, class Array_t,
+          typename std::enable_if<
+              Kokkos::is_execution_space<ExecutionSpace>::value, int>::type = 0>
+void writeTimeStep( ExecutionSpace, const int time_step_index,
+                    const double time, const Array_t& array,
+                    const bool gather_array = true )
+{
+    writeTimeStep( ExecutionSpace{}, "grid_" + array.label(), time_step_index,
+                   time, array, gather_array );
+}
+
+/*!
+  \brief Write a grid array to a VisIt BOV.
+
+  This version writes a single output and does not use bricklets. We will do
+  this in the future to improve parallel visualization.
+
   \param time_step_index The index of the time step we are writing.
   \param time The current time
   \param array The array to write
@@ -404,7 +452,8 @@ void writeTimeStep( const int time_step_index, const double time,
                     const Array_t& array, const bool gather_array = true )
 {
     using exec_space = typename Array_t::execution_space;
-    writeTimeStep( exec_space{}, time_step_index, time, array, gather_array );
+    writeTimeStep( exec_space{}, "grid_" + array.label(), time_step_index, time,
+                   array, gather_array );
 }
 
 //---------------------------------------------------------------------------//
@@ -413,44 +462,5 @@ void writeTimeStep( const int time_step_index, const double time,
 } // end namespace Experimental
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-namespace Experimental
-{
-namespace BovWriter
-{
-//! \cond Deprecated
-template <typename T>
-using BovFormat CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::BovWriter::BovFormat<T>;
-template <typename T>
-using BovCentering CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::BovWriter::BovCentering<T>;
-
-template <class... Args>
-CAJITA_DEPRECATED void createSubarray( Args&&... args )
-{
-    return Cabana::Grid::Experimental::BovWriter::createSubarray(
-        std::forward<Args>( args )... );
-}
-
-template <class... Args>
-CAJITA_DEPRECATED auto reorderView( Args&&... args )
-{
-    return Cabana::Grid::Experimental::BovWriter::reorderView(
-        std::forward<Args>( args )... );
-}
-
-template <class... Args>
-CAJITA_DEPRECATED auto writeTimeStep( Args&&... args )
-{
-    return Cabana::Grid::Experimental::BovWriter::writeTimeStep(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace BovWriter
-} // namespace Experimental
-} // namespace Cajita
 
 #endif // end CABANA_GRID_BOVWRITER_HPP

@@ -13,14 +13,13 @@ configure_file(Cabana_Grid_Config.hpp.in Cabana_Grid_Config.hpp)
 
 set(HEADERS_PUBLIC
   Cabana_Grid.hpp
-  Cajita.hpp # FIXME: remove in next release
   Cabana_Grid_Array.hpp
   Cabana_Grid_BovWriter.hpp
   Cabana_Grid_GlobalGrid.hpp
   Cabana_Grid_GlobalGrid_impl.hpp
   Cabana_Grid_GlobalMesh.hpp
   Cabana_Grid_GlobalParticleComm.hpp
-  Cabana_Grid_Halo.hpp
+  Cabana_Grid_HaloBase.hpp
   Cabana_Grid_IndexConversion.hpp
   Cabana_Grid_IndexSpace.hpp
   Cabana_Grid_Interpolation.hpp
@@ -29,7 +28,7 @@ set(HEADERS_PUBLIC
   Cabana_Grid_LocalMesh.hpp
   Cabana_Grid_MpiTraits.hpp
   Cabana_Grid_Parallel.hpp
-  Cabana_Grid_ParticleGridDistributor.hpp
+  Cabana_Grid_ParticleDistributor.hpp
   Cabana_Grid_ParticleInit.hpp
   Cabana_Grid_ParticleList.hpp
   Cabana_Grid_Partitioner.hpp
@@ -44,10 +43,8 @@ set(HEADERS_PUBLIC
   Cabana_Grid_Types.hpp
   )
 
-set(HEADERS_IMPL
+set(HEADERS_IMPL impl/Cabana_Grid_Halo_Mpi.hpp
    )
-
-install(FILES ${HEADERS_IMPL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/impl/)
 
 if(Cabana_BUILD_STREAM_HALO)
   list(APPEND HEADERS_PUBLIC
@@ -69,6 +66,7 @@ if(Cabana_BUILD_STREAM_HALO)
     )
   endif()
 endif()
+
 
 if(Cabana_ENABLE_HYPRE)
   list(APPEND HEADERS_PUBLIC
@@ -96,15 +94,6 @@ endif()
 
 add_library(Grid INTERFACE)
 add_library(Cabana::Grid ALIAS Grid)
-
-### FIXME: remove Cajita in next release.
-add_library(Cajita INTERFACE)
-target_link_libraries(Cajita INTERFACE Grid)
-if(CMAKE_VERSION VERSION_GREATER 3.17)
-  if(NOT Cabana_DISABLE_CAJITA_DEPRECATION_WARNINGS)
-    set_property(TARGET Cajita PROPERTY DEPRECATION "NOTE: Cajita subpackage is now Grid. Link to Cabana::Grid. Cabana::Cajita will be removed in a future release.")
-  endif()
-endif()
 
 set_target_properties(Grid PROPERTIES INTERFACE_COMPILE_FEATURES cxx_std_17)
 
@@ -136,7 +125,7 @@ target_include_directories(Grid
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
-install(TARGETS Grid Cajita
+install(TARGETS Grid
   EXPORT Cabana_Targets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -144,7 +133,6 @@ install(TARGETS Grid Cajita
 install(FILES ${HEADERS_PUBLIC}
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(FILES ${HEADERS_IMPL}
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/impl)
+install(FILES ${HEADERS_IMPL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/impl/)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Cabana_Grid_Config.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

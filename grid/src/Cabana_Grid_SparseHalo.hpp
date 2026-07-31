@@ -15,9 +15,8 @@
 #include <Cabana_MemberTypes.hpp>
 #include <Cabana_SoA.hpp>
 #include <Cabana_Tuple.hpp>
-#include <Cabana_Utils.hpp> // FIXME: remove after next release.
 
-#include <Cabana_Grid_Halo.hpp> // to get the pattern and tags defined here
+#include <Cabana_Grid_HaloBase.hpp> // to get the pattern and tags defined here
 #include <Cabana_Grid_SparseArray.hpp>
 #include <Cabana_Grid_SparseIndexSpace.hpp>
 #include <Cabana_Grid_Types.hpp>
@@ -317,7 +316,9 @@ class SparseHalo
                     Kokkos::resize( _tmp_tile_steering[i], tmp_steering_size );
             }
             else
-                std::runtime_error( "neighbor rank doesn't match id" );
+                std::runtime_error(
+                    "Cabana::Grid::Experimental::SparseHalo::updateTileSpace: "
+                    "Neighbor rank doesn't match id" );
         }
     }
 
@@ -452,7 +453,9 @@ class SparseHalo
 
         // check if the counting communication succeed
         if ( MPI_SUCCESS != ec )
-            throw std::logic_error( "sparse_halo: counting sending failed." );
+            throw std::logic_error(
+                "Cabana::Grid::Experimental::SparseHalo::"
+                "collectNeighborCounting: counting sending failed." );
         MPI_Barrier( comm );
     }
 
@@ -620,8 +623,8 @@ class SparseHalo
             valid_sends.size(), steering_requests.data() + valid_recvs.size(),
             MPI_STATUSES_IGNORE );
         if ( MPI_SUCCESS != ec_ss )
-            throw std::logic_error(
-                "sparse_halo_gather: steering sending failed." );
+            throw std::logic_error( "Cabana::Grid::Experimental::SparseHalo::"
+                                    "gather: steering sending failed." );
         MPI_Barrier( comm );
 
         // ------------------------------------------------------------------
@@ -681,7 +684,8 @@ class SparseHalo
             // if not there could be some problems
             if ( MPI_UNDEFINED == unpack_index )
                 std::runtime_error(
-                    std::string( "sparse_halo_gather: data receiving failed, "
+                    std::string( "Cabana::Grid::Experimental::SparseHalo::"
+                                 "gather: data receiving failed, "
                                  "get only " ) +
                     std::to_string( i ) + ", need " +
                     std::to_string( valid_recvs.size() ) );
@@ -795,8 +799,8 @@ class SparseHalo
             valid_sends.size(), steering_requests.data() + valid_recvs.size(),
             MPI_STATUSES_IGNORE );
         if ( MPI_SUCCESS != ec_ss )
-            throw std::logic_error(
-                "sparse_halo_scatter: steering sending failed." );
+            throw std::logic_error( "Cabana::Grid::Experimental::SparseHalo::"
+                                    "scatter: steering sending failed." );
         MPI_Barrier( comm );
 
         // ------------------------------------------------------------------
@@ -878,8 +882,8 @@ class SparseHalo
                                          requests.data() + valid_recvs.size(),
                                          MPI_STATUSES_IGNORE );
         if ( MPI_SUCCESS != ec_data )
-            throw std::logic_error(
-                "sparse_halo_scatter: data sending failed." );
+            throw std::logic_error( "Cabana::Grid::Experimental::SparseHalo::"
+                                    "scatter: data sending failed." );
 
         // reinit steerings for next round of communication
         for ( std::size_t i = 0; i < _tmp_tile_steering.size(); ++i )
@@ -892,21 +896,19 @@ class SparseHalo
         \brief Pack sparse arrays at halo regions into a buffer
         \tparam ExecSpace execution space type
         \tparam SparseArrayType sparse array type
-        \tparam CountType counting number type
         \param exec_space execution space
         \param buffer buffer to store sparse array data and to communicate
         \param tile_steering Kokkos view to store halo tile keys
         \param sparse_array sparse array (all sparse grids on current rank)
         \param count number of halo grids to pack
     */
-    template <class ExecSpace, class SparseArrayType, class CountType>
+    template <class ExecSpace, class SparseArrayType>
     void packBuffer( const ExecSpace& exec_space, const buffer_view& buffer,
                      const steering_view& tile_steering,
-                     SparseArrayType& sparse_array,
-                     const CountType count ) const
+                     SparseArrayType& sparse_array, const int count ) const
     {
         Kokkos::parallel_for(
-            "pack_spares_halo_buffer",
+            "Cabana::Grid::Experimental::SparseHalo::packBuffer",
             Kokkos::RangePolicy<ExecSpace>( exec_space, 0, count ),
             KOKKOS_LAMBDA( const int i ) {
                 if ( tile_steering( i ) != invalid_key )
@@ -1137,7 +1139,6 @@ class SparseHalo
         \tparam ExecSpace execution space type
         \tparam SparseArrayType sparse array type
         \tparam SparseMapType sparse map type
-        \tparam CountType counting number type
         \param reduce_op reduce operation
         \param exec_space execution space
         \param buffer buffer to store sparse array data and to communicate
@@ -1147,15 +1148,15 @@ class SparseHalo
         \param count number of halo grids to unpack
     */
     template <class ReduceOp, class ExecSpace, class SparseArrayType,
-              class SparseMapType, class CountType>
+              class SparseMapType>
     void unpackBuffer( const ReduceOp& reduce_op, const ExecSpace& exec_space,
                        const buffer_view& buffer,
                        const steering_view& tile_steering,
                        const SparseArrayType& sparse_array, SparseMapType& map,
-                       const CountType count ) const
+                       const int count ) const
     {
         Kokkos::parallel_for(
-            "unpack_spares_halo_buffer",
+            "Cabana::Grid::Experimental::SparseHalo::unpackBuffer",
             Kokkos::RangePolicy<ExecSpace>( exec_space, 0, count ),
             KOKKOS_LAMBDA( const int i ) {
                 if ( tile_steering( i ) != invalid_key )
@@ -1316,30 +1317,5 @@ auto createSparseHalo(
 } // namespace Experimental
 } // namespace Grid
 } // namespace Cabana
-
-namespace Cajita
-{
-namespace Experimental
-{
-//! \cond Deprecated
-template <class MemorySpace, class DataTypes, class EntityType,
-          std::size_t NumSpaceDim, unsigned long long cellBitsPerTileDim,
-          class Value = int, class Key = uint64_t>
-using SparseHalo CAJITA_DEPRECATED =
-    Cabana::Grid::Experimental::SparseHalo<MemorySpace, DataTypes, EntityType,
-                                           NumSpaceDim, cellBitsPerTileDim,
-                                           Value, Key>;
-
-template <class DeviceType, unsigned long long cellBitsPerTileDim,
-          class... Args>
-CAJITA_DEPRECATED auto createSparseHalo( Args&&... args )
-{
-    return Cabana::Grid::Experimental::createSparseHalo<DeviceType,
-                                                        cellBitsPerTileDim>(
-        std::forward<Args>( args )... );
-}
-//! \endcond
-} // namespace Experimental
-} // namespace Cajita
 
 #endif // CABANA_GRID_SPARSEHALO_HPP

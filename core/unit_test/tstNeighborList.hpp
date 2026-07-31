@@ -22,104 +22,25 @@
 
 namespace Test
 {
-//---------------------------------------------------------------------------//
-// Linked cell list cell stencil test.
-void testLinkedCellStencil()
-{
-    // Point in the middle
-    {
-        double min[3] = { 0.0, 0.0, 0.0 };
-        double max[3] = { 10.0, 10.0, 10.0 };
-        double radius = 1.0;
-        double ratio = 1.0;
-        Cabana::Impl::LinkedCellStencil<double> stencil( radius, ratio, min,
-                                                         max );
-
-        double xp = 4.5;
-        double yp = 5.5;
-        double zp = 3.5;
-        int ic, jc, kc;
-        stencil.grid.locatePoint( xp, yp, zp, ic, jc, kc );
-        int cell = stencil.grid.cardinalCellIndex( ic, jc, kc );
-        int imin, imax, jmin, jmax, kmin, kmax;
-        stencil.getCells( cell, imin, imax, jmin, jmax, kmin, kmax );
-        EXPECT_EQ( imin, 3 );
-        EXPECT_EQ( imax, 6 );
-        EXPECT_EQ( jmin, 4 );
-        EXPECT_EQ( jmax, 7 );
-        EXPECT_EQ( kmin, 2 );
-        EXPECT_EQ( kmax, 5 );
-    }
-
-    // Point in the lower right corner
-    {
-        double min[3] = { 0.0, 0.0, 0.0 };
-        double max[3] = { 10.0, 10.0, 10.0 };
-        double radius = 1.0;
-        double ratio = 1.0;
-        Cabana::Impl::LinkedCellStencil<double> stencil( radius, ratio, min,
-                                                         max );
-
-        double xp = 0.5;
-        double yp = 0.5;
-        double zp = 0.5;
-        int ic, jc, kc;
-        stencil.grid.locatePoint( xp, yp, zp, ic, jc, kc );
-        int cell = stencil.grid.cardinalCellIndex( ic, jc, kc );
-        int imin, imax, jmin, jmax, kmin, kmax;
-        stencil.getCells( cell, imin, imax, jmin, jmax, kmin, kmax );
-        EXPECT_EQ( imin, 0 );
-        EXPECT_EQ( imax, 2 );
-        EXPECT_EQ( jmin, 0 );
-        EXPECT_EQ( jmax, 2 );
-        EXPECT_EQ( kmin, 0 );
-        EXPECT_EQ( kmax, 2 );
-    }
-
-    // Point in the upper left corner
-    {
-        double min[3] = { 0.0, 0.0, 0.0 };
-        double max[3] = { 10.0, 10.0, 10.0 };
-        double radius = 1.0;
-        double ratio = 1.0;
-        Cabana::Impl::LinkedCellStencil<double> stencil( radius, ratio, min,
-                                                         max );
-
-        double xp = 9.5;
-        double yp = 9.5;
-        double zp = 9.5;
-        int ic, jc, kc;
-        stencil.grid.locatePoint( xp, yp, zp, ic, jc, kc );
-        int cell = stencil.grid.cardinalCellIndex( ic, jc, kc );
-        int imin, imax, jmin, jmax, kmin, kmax;
-        stencil.getCells( cell, imin, imax, jmin, jmax, kmin, kmax );
-        EXPECT_EQ( imin, 8 );
-        EXPECT_EQ( imax, 10 );
-        EXPECT_EQ( jmin, 8 );
-        EXPECT_EQ( jmax, 10 );
-        EXPECT_EQ( kmin, 8 );
-        EXPECT_EQ( kmax, 10 );
-    }
-}
 
 //---------------------------------------------------------------------------//
-template <class LayoutTag, class BuildTag>
+template <std::size_t Dim, class LayoutTag, class BuildTag>
 void testVerletListFull()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Create the neighbor list.
     {
         Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist_full( position, 0, position.size(), test_data.test_radius,
                         test_data.cell_size_ratio, test_data.grid_min,
                         test_data.grid_max );
         // Test default construction.
         Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist;
 
         nlist = nlist_full;
@@ -137,7 +58,7 @@ void testVerletListFull()
     // Check again, building with a large array allocation size
     {
         Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist_max( position, 0, position.size(), test_data.test_radius,
                        test_data.cell_size_ratio, test_data.grid_min,
                        test_data.grid_max, 100 );
@@ -147,7 +68,7 @@ void testVerletListFull()
     // Check again, building with a small array allocation size (refill)
     {
         Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist_max2( position, 0, position.size(), test_data.test_radius,
                         test_data.cell_size_ratio, test_data.grid_min,
                         test_data.grid_max, 2 );
@@ -157,17 +78,17 @@ void testVerletListFull()
 }
 
 //---------------------------------------------------------------------------//
-template <class LayoutTag, class BuildTag>
+template <std::size_t Dim, class LayoutTag, class BuildTag>
 void testVerletListHalf()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Create the neighbor list.
     {
         Cabana::VerletList<TEST_MEMSPACE, Cabana::HalfNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist( position, 0, position.size(), test_data.test_radius,
                    test_data.cell_size_ratio, test_data.grid_min,
                    test_data.grid_max );
@@ -179,7 +100,7 @@ void testVerletListHalf()
     // Check again, building with a large array allocation size
     {
         Cabana::VerletList<TEST_MEMSPACE, Cabana::HalfNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist_max( position, 0, position.size(), test_data.test_radius,
                        test_data.cell_size_ratio, test_data.grid_min,
                        test_data.grid_max, 100 );
@@ -189,7 +110,7 @@ void testVerletListHalf()
     // Check again, building with a small array allocation size (refill)
     {
         Cabana::VerletList<TEST_MEMSPACE, Cabana::HalfNeighborTag, LayoutTag,
-                           BuildTag>
+                           BuildTag, Dim>
             nlist_max2( position, 0, position.size(), test_data.test_radius,
                         test_data.cell_size_ratio, test_data.grid_min,
                         test_data.grid_max, 2 );
@@ -199,40 +120,39 @@ void testVerletListHalf()
 }
 
 //---------------------------------------------------------------------------//
-template <class LayoutTag, class BuildTag>
+template <std::size_t Dim, class LayoutTag, class BuildTag>
 void testVerletListFullPartialRange()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Create the neighbor list.
     Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag, LayoutTag,
-                       BuildTag>
-        nlist( position, 0, test_data.num_ignore, test_data.test_radius,
+                       BuildTag, Dim>
+        nlist( position, test_data.begin, test_data.end, test_data.test_radius,
                test_data.cell_size_ratio, test_data.grid_min,
                test_data.grid_max );
 
     // Check the neighbor list.
     checkFullNeighborListPartialRange( nlist, test_data.N2_list_copy,
-                                       test_data.num_particle,
-                                       test_data.num_ignore );
+                                       test_data.num_particle, test_data.begin,
+                                       test_data.end );
 }
 
 //---------------------------------------------------------------------------//
-template <class LayoutTag>
+template <std::size_t Dim, class LayoutTag>
 void testNeighborParallelFor()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Create the neighbor list.
-    using ListType = Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag,
-                                        LayoutTag, Cabana::TeamOpTag>;
-    ListType nlist( position, 0, position.size(), test_data.test_radius,
-                    test_data.cell_size_ratio, test_data.grid_min,
-                    test_data.grid_max );
+    auto nlist = Cabana::createVerletList<Cabana::FullNeighborTag, LayoutTag,
+                                          Cabana::TeamOpTag>(
+        position, 0, position.size(), test_data.test_radius,
+        test_data.cell_size_ratio, test_data.grid_min, test_data.grid_max );
 
     checkFirstNeighborParallelForLambda( nlist, test_data.N2_list_copy,
                                          test_data.num_particle );
@@ -255,16 +175,16 @@ void testNeighborParallelFor()
 }
 
 //---------------------------------------------------------------------------//
-template <class LayoutTag>
+template <std::size_t Dim, class LayoutTag>
 void testNeighborParallelReduce()
 {
     // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    NeighborListTestData<Dim> test_data;
     auto position = Cabana::slice<0>( test_data.aosoa );
 
     // Create the neighbor list.
     using ListType = Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag,
-                                        LayoutTag, Cabana::TeamOpTag>;
+                                        LayoutTag, Cabana::TeamOpTag, Dim>;
     ListType nlist( position, 0, position.size(), test_data.test_radius,
                     test_data.cell_size_ratio, test_data.grid_min,
                     test_data.grid_max );
@@ -288,15 +208,61 @@ void testNeighborParallelReduce()
 
 //---------------------------------------------------------------------------//
 template <class LayoutTag>
-void testModifyNeighbors()
+void testNonUniformRadius()
 {
-    // Create the AoSoA and fill with random particle positions.
-    NeighborListTestData test_data;
+    // Create the AoSoA and fill custom particle details.
+    std::size_t particle_x = 2;
+    // Purposely choose radius to reach all particles.
+    double large_radius = 4.05;
+    // Purposely choose radius to reach nearest neighbors only.
+    double small_radius = 3.32;
+    // Create the AoSoA and fill with particles
+    NeighborListTestDataOrdered test_data( particle_x );
     auto position = Cabana::slice<0>( test_data.aosoa );
+    auto radii = Cabana::slice<1>( test_data.aosoa );
+
+    int num_p = test_data.num_particle;
+    Kokkos::RangePolicy<TEST_EXECSPACE> policy( 0, num_p );
+    Kokkos::parallel_for(
+        policy, KOKKOS_LAMBDA( int pid ) {
+            if ( pid == 0 || pid == num_p - 1 )
+                radii( pid ) = large_radius;
+            else
+                radii( pid ) = small_radius;
+        } );
 
     // Create the neighbor list.
     using ListType = Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag,
                                         LayoutTag, Cabana::TeamOpTag>;
+    ListType nlist( position, 0, position.size(), small_radius, radii,
+                    test_data.cell_size_ratio, test_data.grid_min,
+                    test_data.grid_max );
+
+    // Allocate with known maximum neighbors.
+    auto list_copy = copyListToHost( nlist, test_data.num_particle, 10 );
+    // Check the results.
+    for ( std::size_t p = 0; p < test_data.num_particle; ++p )
+    {
+        // Certain particles were manually given larger radius and
+        // should therefore have more neighbors.
+        if ( p == 0 || p == test_data.num_particle - 1 )
+            EXPECT_EQ( list_copy.counts( p ), 6 );
+        else
+            EXPECT_EQ( list_copy.counts( p ), 4 );
+    }
+}
+
+//---------------------------------------------------------------------------//
+template <std::size_t Dim, class LayoutTag>
+void testModifyNeighbors()
+{
+    // Create the AoSoA and fill with random particle positions.
+    NeighborListTestData<Dim> test_data;
+    auto position = Cabana::slice<0>( test_data.aosoa );
+
+    // Create the neighbor list.
+    using ListType = Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag,
+                                        LayoutTag, Cabana::TeamOpTag, Dim>;
     ListType nlist( position, 0, position.size(), test_data.test_radius,
                     test_data.cell_size_ratio, test_data.grid_min,
                     test_data.grid_max );
@@ -316,13 +282,46 @@ void testModifyNeighbors()
         copyListToHost( nlist, test_data.N2_list_copy.neighbors.extent( 0 ),
                         test_data.N2_list_copy.neighbors.extent( 1 ) );
     // Check the results.
-    for ( int p = 0; p < test_data.num_particle; ++p )
+    for ( std::size_t p = 0; p < test_data.num_particle; ++p )
     {
         for ( int n = 0; n < test_data.N2_list_copy.counts( p ); ++n )
             // Check that all neighbors were changed.
             for ( int n = 0; n < test_data.N2_list_copy.counts( p ); ++n )
                 EXPECT_EQ( list_copy.neighbors( p, n ), new_id );
     }
+}
+
+//---------------------------------------------------------------------------//
+template <std::size_t Dim, class LayoutTag>
+void testNeighborView()
+{
+    // Create the AoSoA and fill with random particle positions.
+    NeighborListTestData<Dim> test_data;
+    auto slice = Cabana::slice<0>( test_data.aosoa );
+
+    // Copy manually into a View.
+    Kokkos::View<double**, TEST_MEMSPACE> view( "positions", slice.size(),
+                                                Dim );
+    auto view_copy = KOKKOS_LAMBDA( const int i )
+    {
+        for ( std::size_t d = 0; d < Dim; ++d )
+            view( i, d ) = slice( i, d );
+    };
+    Kokkos::RangePolicy<TEST_EXECSPACE> policy( 0, slice.size() );
+    Kokkos::parallel_for( "view_copy", policy, view_copy );
+    Kokkos::fence();
+
+    // Create the neighbor list with the View data.
+    using ListType = Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag,
+                                        LayoutTag, Cabana::TeamOpTag, Dim>;
+    ListType nlist( view, test_data.test_radius, test_data.cell_size_ratio,
+                    test_data.grid_min, test_data.grid_max );
+    nlist.build( TEST_EXECSPACE{}, view, 0, slice.size(), test_data.test_radius,
+                 test_data.cell_size_ratio, test_data.grid_min,
+                 test_data.grid_max );
+
+    checkFullNeighborList( nlist, test_data.N2_list_copy,
+                           test_data.num_particle );
 }
 
 //---------------------------------------------------------------------------//
@@ -381,85 +380,121 @@ void testNeighborHistogram()
     }
 }
 
-//---------------------------------------------------------------------------//
-// TESTS
-//---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, linked_cell_stencil_test ) { testLinkedCellStencil(); }
-
-//---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, verlet_list_full_test )
+template <std::size_t Dim, class ArrayType>
+void testVerletListArrays( ArrayType grid_min, ArrayType grid_max )
 {
-#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testVerletListFull<Cabana::VerletLayoutCSR, Cabana::TeamOpTag>();
-#endif
-    testVerletListFull<Cabana::VerletLayout2D, Cabana::TeamOpTag>();
+    // Create the AoSoA and fill with random particle positions.
+    NeighborListTestData<Dim> test_data;
+    auto position = Cabana::slice<0>( test_data.aosoa );
+    Cabana::VerletList<TEST_MEMSPACE, Cabana::FullNeighborTag,
+                       Cabana::VerletLayout2D, Cabana::TeamOpTag, Dim>
+        nlist( position, 0, position.size(), test_data.test_radius,
+               test_data.cell_size_ratio, grid_min, grid_max );
 
-#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testVerletListFull<Cabana::VerletLayoutCSR, Cabana::TeamVectorOpTag>();
-#endif
-    testVerletListFull<Cabana::VerletLayout2D, Cabana::TeamVectorOpTag>();
+    checkFullNeighborList( nlist, test_data.N2_list_copy,
+                           test_data.num_particle );
 }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, verlet_list_half_test )
+// 3D TESTS
+//---------------------------------------------------------------------------//
+TEST( VerletList, Full3d )
 {
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testVerletListHalf<Cabana::VerletLayoutCSR, Cabana::TeamOpTag>();
+    testVerletListFull<3, Cabana::VerletLayoutCSR, Cabana::TeamOpTag>();
 #endif
-    testVerletListHalf<Cabana::VerletLayout2D, Cabana::TeamOpTag>();
+    testVerletListFull<3, Cabana::VerletLayout2D, Cabana::TeamOpTag>();
 
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testVerletListHalf<Cabana::VerletLayoutCSR, Cabana::TeamVectorOpTag>();
+    testVerletListFull<3, Cabana::VerletLayoutCSR, Cabana::TeamVectorOpTag>();
 #endif
-    testVerletListHalf<Cabana::VerletLayout2D, Cabana::TeamVectorOpTag>();
+    testVerletListFull<3, Cabana::VerletLayout2D, Cabana::TeamVectorOpTag>();
+}
+
+TEST( VerletList, Arrays3d )
+{
+    NeighborListTestData<3> test_data;
+    double min = test_data.box_min;
+    double max = test_data.box_max;
+    {
+        double grid_min[3] = { min, min, min };
+        double grid_max[3] = { max, max, max };
+        testVerletListArrays<3>( grid_min, grid_max );
+    }
+    {
+        // With the current variadic template for the Kokkos::Array (deprecated
+        // in 4.4, but breaks compile without deprecated code enabled), nvcc
+        // cannot compile with std::array
+#if !defined( KOKKOS_ENABLE_CUDA ) &&                                          \
+    !defined( KOKKOS_ENABLE_DEPRECATED_CODE_4 )
+        std::array<double, 3> grid_min = { min, min, min };
+        std::array<double, 3> grid_max = { max, max, max };
+        testVerletListArrays<3>( grid_min, grid_max );
+#endif
+    }
 }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, verlet_list_full_range_test )
+TEST( VerletList, Half3d )
 {
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testVerletListFullPartialRange<Cabana::VerletLayoutCSR,
+    testVerletListHalf<3, Cabana::VerletLayoutCSR, Cabana::TeamOpTag>();
+#endif
+    testVerletListHalf<3, Cabana::VerletLayout2D, Cabana::TeamOpTag>();
+
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListHalf<3, Cabana::VerletLayoutCSR, Cabana::TeamVectorOpTag>();
+#endif
+    testVerletListHalf<3, Cabana::VerletLayout2D, Cabana::TeamVectorOpTag>();
+}
+
+//---------------------------------------------------------------------------//
+TEST( VerletList, FullRange3d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListFullPartialRange<3, Cabana::VerletLayoutCSR,
                                    Cabana::TeamOpTag>();
 #endif
-    testVerletListFullPartialRange<Cabana::VerletLayout2D, Cabana::TeamOpTag>();
+    testVerletListFullPartialRange<3, Cabana::VerletLayout2D,
+                                   Cabana::TeamOpTag>();
 
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testVerletListFullPartialRange<Cabana::VerletLayoutCSR,
+    testVerletListFullPartialRange<3, Cabana::VerletLayoutCSR,
                                    Cabana::TeamVectorOpTag>();
 #endif
-    testVerletListFullPartialRange<Cabana::VerletLayout2D,
+    testVerletListFullPartialRange<3, Cabana::VerletLayout2D,
                                    Cabana::TeamVectorOpTag>();
 }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, parallel_for_test )
+TEST( VerletList, ParallelFor3d )
 {
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testNeighborParallelFor<Cabana::VerletLayoutCSR>();
+    testNeighborParallelFor<3, Cabana::VerletLayoutCSR>();
 #endif
-    testNeighborParallelFor<Cabana::VerletLayout2D>();
+    testNeighborParallelFor<3, Cabana::VerletLayout2D>();
 }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, parallel_reduce_test )
+TEST( VerletList, ParallelReduce3d )
 {
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testNeighborParallelReduce<Cabana::VerletLayoutCSR>();
+    testNeighborParallelReduce<3, Cabana::VerletLayoutCSR>();
 #endif
-    testNeighborParallelReduce<Cabana::VerletLayout2D>();
+    testNeighborParallelReduce<3, Cabana::VerletLayout2D>();
 }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, modify_list_test )
+TEST( VerletList, ModifyList3d )
 {
 #ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
-    testModifyNeighbors<Cabana::VerletLayoutCSR>();
+    testModifyNeighbors<3, Cabana::VerletLayoutCSR>();
 #endif
-    testModifyNeighbors<Cabana::VerletLayout2D>();
+    testModifyNeighbors<3, Cabana::VerletLayout2D>();
 }
 
 //---------------------------------------------------------------------------//
-TEST( TEST_CATEGORY, neighbor_histogram_test )
+TEST( VerletList, NeighborHistogram3d )
 {
 #ifndef KOKKOS_ENABLE_OPENMPTARGET
     testNeighborHistogram<Cabana::VerletLayoutCSR>();
@@ -467,6 +502,130 @@ TEST( TEST_CATEGORY, neighbor_histogram_test )
     testNeighborHistogram<Cabana::VerletLayout2D>();
 }
 
+TEST( VerletList, non_uniform_radius_test )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET
+    testNonUniformRadius<Cabana::VerletLayoutCSR>();
+#endif
+    testNonUniformRadius<Cabana::VerletLayout2D>();
+}
+
+TEST( VerletList, View3d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testNeighborView<3, Cabana::VerletLayoutCSR>();
+#endif
+    testNeighborView<3, Cabana::VerletLayout2D>();
+}
+
+//---------------------------------------------------------------------------//
+// 2D TESTS
+//---------------------------------------------------------------------------//
+
+TEST( VerletList, Full2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListFull<2, Cabana::VerletLayoutCSR, Cabana::TeamOpTag>();
+#endif
+    testVerletListFull<2, Cabana::VerletLayout2D, Cabana::TeamOpTag>();
+
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListFull<2, Cabana::VerletLayoutCSR, Cabana::TeamVectorOpTag>();
+#endif
+    testVerletListFull<2, Cabana::VerletLayout2D, Cabana::TeamVectorOpTag>();
+}
+
+TEST( VerletList, Arrays2d )
+{
+    NeighborListTestData<2> test_data;
+    double min = test_data.box_min;
+    double max = test_data.box_max;
+    {
+        double grid_min[2] = { min, min };
+        double grid_max[2] = { max, max };
+        testVerletListArrays<2>( grid_min, grid_max );
+    }
+    {
+        // With the current variadic template for the Kokkos::Array (deprecated
+        // in 4.4, but breaks compile without deprecated code enabled), nvcc
+        // cannot compile with std::array
+#if !defined( KOKKOS_ENABLE_CUDA ) &&                                          \
+    !defined( KOKKOS_ENABLE_DEPRECATED_CODE_4 )
+        std::array<double, 2> grid_min = { min, min };
+        std::array<double, 2> grid_max = { max, max };
+        testVerletListArrays<2>( grid_min, grid_max );
+#endif
+    }
+}
+
+//---------------------------------------------------------------------------//
+
+TEST( VerletList, Half2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListHalf<2, Cabana::VerletLayoutCSR, Cabana::TeamOpTag>();
+#endif
+    testVerletListHalf<2, Cabana::VerletLayout2D, Cabana::TeamOpTag>();
+
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListHalf<2, Cabana::VerletLayoutCSR, Cabana::TeamVectorOpTag>();
+#endif
+    testVerletListHalf<2, Cabana::VerletLayout2D, Cabana::TeamVectorOpTag>();
+}
+
+//---------------------------------------------------------------------------//
+TEST( VerletList, FullRange2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListFullPartialRange<2, Cabana::VerletLayoutCSR,
+                                   Cabana::TeamOpTag>();
+#endif
+    testVerletListFullPartialRange<2, Cabana::VerletLayout2D,
+                                   Cabana::TeamOpTag>();
+
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testVerletListFullPartialRange<2, Cabana::VerletLayoutCSR,
+                                   Cabana::TeamVectorOpTag>();
+#endif
+    testVerletListFullPartialRange<2, Cabana::VerletLayout2D,
+                                   Cabana::TeamVectorOpTag>();
+}
+
+//---------------------------------------------------------------------------//
+TEST( VerletList, Parallel2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testNeighborParallelFor<2, Cabana::VerletLayoutCSR>();
+#endif
+    testNeighborParallelFor<2, Cabana::VerletLayout2D>();
+}
+
+//---------------------------------------------------------------------------//
+TEST( VerletList, Reduce2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testNeighborParallelReduce<2, Cabana::VerletLayoutCSR>();
+#endif
+    testNeighborParallelReduce<2, Cabana::VerletLayout2D>();
+}
+
+//---------------------------------------------------------------------------//
+TEST( VerletList, Modify2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testModifyNeighbors<2, Cabana::VerletLayoutCSR>();
+#endif
+    testModifyNeighbors<2, Cabana::VerletLayout2D>();
+}
+
+//---------------------------------------------------------------------------//
+TEST( VerletList, View2d )
+{
+#ifndef KOKKOS_ENABLE_OPENMPTARGET // FIXME_OPENMPTARGET
+    testNeighborView<2, Cabana::VerletLayoutCSR>();
+#endif
+    testNeighborView<2, Cabana::VerletLayout2D>();
+}
 //---------------------------------------------------------------------------//
 
 } // end namespace Test

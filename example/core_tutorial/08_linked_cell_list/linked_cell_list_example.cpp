@@ -105,11 +105,10 @@ void linkedCellListExample()
       exercise, try adding both start and end (int) inputs to define a subset
       range of particles to permute:
 
-      Cabana::LinkedCellList<MemorySpace> cell_list( positions, start, end,
-                                                    grid_delta,
-                                                    grid_min, grid_max );
+      auto cell_list = Cabana::createLinkedCellList(
+          positions, start, end, grid_delta, grid_min, grid_max );
      */
-    Cabana::LinkedCellList<MemorySpace> cell_list( positions, grid_delta,
+    auto cell_list = Cabana::createLinkedCellList( positions, grid_delta,
                                                    grid_min, grid_max );
 
     /*

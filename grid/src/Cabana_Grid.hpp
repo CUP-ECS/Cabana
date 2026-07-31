@@ -23,7 +23,7 @@
 #include <Cabana_Grid_GlobalGrid.hpp>
 #include <Cabana_Grid_GlobalMesh.hpp>
 #include <Cabana_Grid_GlobalParticleComm.hpp>
-#include <Cabana_Grid_Halo.hpp>
+#include <Cabana_Grid_HaloBase.hpp>
 #include <Cabana_Grid_IndexConversion.hpp>
 #include <Cabana_Grid_IndexSpace.hpp>
 #include <Cabana_Grid_Interpolation.hpp>
@@ -31,7 +31,7 @@
 #include <Cabana_Grid_LocalMesh.hpp>
 #include <Cabana_Grid_MpiTraits.hpp>
 #include <Cabana_Grid_Parallel.hpp>
-#include <Cabana_Grid_ParticleGridDistributor.hpp>
+#include <Cabana_Grid_ParticleDistributor.hpp>
 #include <Cabana_Grid_ParticleInit.hpp>
 #include <Cabana_Grid_ParticleList.hpp>
 #include <Cabana_Grid_Partitioner.hpp>
