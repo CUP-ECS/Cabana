@@ -298,7 +298,6 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
                 {
                     if ( _double_buffer == 1 )
                     {
-                        // MPIS_Rsend_init(_stream_ghosted_buffers[p][n].data(),
                         MPIS_Rsend_init(
                             _stream_ghosted_buffers[p][n].data(),
                             _stream_ghosted_buffers[p][n].size(), MPI_BYTE,
