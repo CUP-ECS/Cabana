@@ -260,8 +260,8 @@ void writeFields(
     std::size_t n_global, hsize_t n_offset, int comm_rank,
     const char* filename_hdf5, const char* filename_xdmf,
     const SliceType& slice,
-    typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<2 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     hid_t plist_id;
     hid_t dset_id;
@@ -336,8 +336,8 @@ void writeFields(
     std::size_t n_global, hsize_t n_offset, int comm_rank,
     const char* filename_hdf5, const char* filename_xdmf,
     const SliceType& slice,
-    typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<3 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     hid_t plist_id;
     hid_t dset_id;
@@ -419,8 +419,8 @@ void writeFields(
     std::size_t n_global, hsize_t n_offset, int comm_rank,
     const char* filename_hdf5, const char* filename_xdmf,
     const SliceType& slice,
-    typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<4 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     hid_t plist_id;
     hid_t dset_id;
@@ -772,11 +772,11 @@ void writeTimeStep( HDF5Config h5_config, const std::string& prefix,
 //---------------------------------------------------------------------------//
 //! Read particle data from HDF5 output. Rank-0
 template <class SliceType>
-void readField(
-    hid_t dset_id, hid_t dtype_id, hid_t memspace_id, hid_t filespace_id,
-    hid_t plist_id, std::size_t n_local, const SliceType& slice,
-    typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+void readField( hid_t dset_id, hid_t dtype_id, hid_t memspace_id,
+                hid_t filespace_id, hid_t plist_id, std::size_t n_local,
+                const SliceType& slice,
+                typename std::enable_if<
+                    2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Read the field into a View.
     Kokkos::View<typename SliceType::value_type*, Kokkos::HostSpace> host_view(
@@ -792,11 +792,11 @@ void readField(
 
 //! Read particle data from HDF5 output. Rank-1
 template <class SliceType>
-void readField(
-    hid_t dset_id, hid_t dtype_id, hid_t memspace_id, hid_t filespace_id,
-    hid_t plist_id, std::size_t n_local, const SliceType& slice,
-    typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+void readField( hid_t dset_id, hid_t dtype_id, hid_t memspace_id,
+                hid_t filespace_id, hid_t plist_id, std::size_t n_local,
+                const SliceType& slice,
+                typename std::enable_if<
+                    3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Read the field into a View.
     Kokkos::View<typename SliceType::value_type**, Kokkos::LayoutRight,
@@ -814,11 +814,11 @@ void readField(
 
 //! Read particle data from HDF5 output. Rank-2
 template <class SliceType>
-void readField(
-    hid_t dset_id, hid_t dtype_id, hid_t memspace_id, hid_t filespace_id,
-    hid_t plist_id, std::size_t n_local, const SliceType& slice,
-    typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+void readField( hid_t dset_id, hid_t dtype_id, hid_t memspace_id,
+                hid_t filespace_id, hid_t plist_id, std::size_t n_local,
+                const SliceType& slice,
+                typename std::enable_if<
+                    4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
 {
     // Read the field into a View.
     Kokkos::View<typename SliceType::value_type***, Kokkos::LayoutRight,

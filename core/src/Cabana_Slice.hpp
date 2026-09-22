@@ -90,8 +90,7 @@ struct LayoutCabanaSlicePolicy
           the layout. This overload only exists so that Kokkos' generic
           conversion from an array layout to an mdspan mapping instantiates.
         */
-        KOKKOS_FUNCTION constexpr mapping( const extents_type& extents,
-                                           size_t )
+        KOKKOS_FUNCTION constexpr mapping( const extents_type& extents, size_t )
             : _extents( extents )
         {
         }
@@ -127,10 +126,9 @@ struct LayoutCabanaSlicePolicy
                 static_cast<index_type>( indices )... };
             index_type member_offset = 0;
             for ( rank_type r = 2; r < extents_type::rank(); ++r )
-                member_offset =
-                    member_offset *
-                        static_cast<index_type>( _extents.extent( r ) ) +
-                    i[r];
+                member_offset = member_offset * static_cast<index_type>(
+                                                    _extents.extent( r ) ) +
+                                i[r];
             return static_cast<index_type>( SOASTRIDE ) * i[0] + i[1] +
                    static_cast<index_type>( VLEN ) * member_offset;
         }
@@ -1051,8 +1049,8 @@ template <class ExecutionSpace, class ViewType, class SliceType>
 void copySliceToView(
     ExecutionSpace exec_space, ViewType& view, const SliceType& slice,
     const std::size_t begin, const std::size_t end,
-    typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<2 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copySliceToView::Rank0",
@@ -1065,8 +1063,8 @@ template <class ExecutionSpace, class ViewType, class SliceType>
 void copySliceToView(
     ExecutionSpace exec_space, ViewType& view, const SliceType& slice,
     const std::size_t begin, const std::size_t end,
-    typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<3 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copySliceToView::Rank1",
@@ -1082,8 +1080,8 @@ template <class ExecutionSpace, class ViewType, class SliceType>
 void copySliceToView(
     ExecutionSpace exec_space, ViewType& view, const SliceType& slice,
     const std::size_t begin, const std::size_t end,
-    typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<4 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copySliceToView::Rank2",
@@ -1113,8 +1111,8 @@ template <class ExecutionSpace, class SliceType, class ViewType>
 void copyViewToSlice(
     ExecutionSpace exec_space, SliceType& slice, const ViewType& view,
     const std::size_t begin, const std::size_t end,
-    typename std::enable_if<
-        2 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<2 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copyViewToSlice::Rank0",
@@ -1127,8 +1125,8 @@ template <class ExecutionSpace, class SliceType, class ViewType>
 void copyViewToSlice(
     ExecutionSpace exec_space, SliceType& slice, const ViewType& view,
     const std::size_t begin, const std::size_t end,
-    typename std::enable_if<
-        3 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<3 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copyViewToSlice::Rank1",
@@ -1144,8 +1142,8 @@ template <class ExecutionSpace, class SliceType, class ViewType>
 void copyViewToSlice(
     ExecutionSpace exec_space, SliceType& slice, const ViewType& view,
     const std::size_t begin, const std::size_t end,
-    typename std::enable_if<
-        4 == SliceType::kokkos_view::traits::rank, int*>::type = 0 )
+    typename std::enable_if<4 == SliceType::kokkos_view::traits::rank,
+                            int*>::type = 0 )
 {
     Kokkos::parallel_for(
         "Cabana::copyViewToSlice::Rank2",
