@@ -713,8 +713,15 @@ void testHaloBuffers( TestTag tag, CommType comm_space, BuildType build_type,
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-using HaloTestTypes = ::testing::Types<std::tuple<Cabana::Mpi, Cabana::Export>,
-                                       std::tuple<Cabana::Mpi, Cabana::Import>>;
+using HaloTestTypes =
+    ::testing::Types<std::tuple<Cabana::Mpi, Cabana::Export>,
+                     std::tuple<Cabana::Mpi, Cabana::Import>
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+                     ,
+                     std::tuple<Cabana::LocalityAware, Cabana::Export>,
+                     std::tuple<Cabana::LocalityAware, Cabana::Import>
+#endif
+                     >;
 
 template <typename T>
 class HaloTypedTest : public ::testing::Test

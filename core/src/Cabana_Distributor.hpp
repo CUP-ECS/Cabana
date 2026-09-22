@@ -173,6 +173,9 @@ struct is_distributor
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_Migrate_Mpi.hpp>
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+#include <impl/Cabana_Migrate_LocalityAware.hpp>
+#endif // Enable LocalityAware
 #endif // Enable MPI
 
 namespace Cabana
@@ -338,7 +341,7 @@ void migrate( const Distributor_t& distributor, AoSoA_t& aosoa,
 
 /*!
   \brief Synchronously migrate data between two different decompositions using
-  the distributor forward communication plan. Slice version. The user can do
+  the Distributor forward communication plan. Slice version. The user can do
   this in-place with the same slice but they will need to manage the resizing
   themselves as we can't resize slices.
 

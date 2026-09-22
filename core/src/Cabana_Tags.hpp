@@ -28,6 +28,13 @@ struct Mpi
 {
 };
 
+/*!
+    \brief LocalityAware comm tag.
+*/
+struct LocalityAware
+{
+};
+
 //---------------------------------------------------------------------------//
 // Communication driver construction type tags.
 //---------------------------------------------------------------------------//

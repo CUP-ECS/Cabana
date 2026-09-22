@@ -73,8 +73,8 @@ macro(Cabana_add_dependency)
 endmacro()
 
 # find MPI
-if(Cabana_REQUIRE_HDF5)
-  # Workaround for using HDF5 C-bindings
+if(Cabana_REQUIRE_HDF5 OR Cabana_REQUIRE_LOCALITY_AWARE)
+  # Workaround for using the HDF5 and locality-aware (MPI Advance) C-bindings
   enable_language(C)
   Cabana_add_dependency( PACKAGE MPI COMPONENTS C CXX ) 
 else()
@@ -94,7 +94,7 @@ set_package_properties(ALL PROPERTIES TYPE OPTIONAL PURPOSE "Used for load balan
 find_package( CLANG_FORMAT 14 )
 
 # find hypre
-Cabana_add_dependency( PACKAGE HYPRE VERSION 2.22.1 )
+Cabana_add_dependency( PACKAGE HYPRE VERSION 3.0.0 )
 set_package_properties(HYPRE PROPERTIES TYPE OPTIONAL PURPOSE "Used for structured solves")
 
 # find heffte
@@ -106,6 +106,10 @@ if(Heffte_FOUND)
     message(FATAL_ERROR "Cabana heFFTe support requires at least one host backend (FFTW or MKL).")
   endif()
 endif()
+
+# find localityaware
+Cabana_add_dependency( PACKAGE locality_aware )
+set_package_properties(locality_aware PROPERTIES TYPE OPTIONAL PURPOSE "Advanced MPI communication support")
 
 # find Silo
 Cabana_add_dependency( PACKAGE SILO )

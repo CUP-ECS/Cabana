@@ -10,11 +10,11 @@
  ****************************************************************************/
 
 /*!
-  \file Cabana_Halo_Mpi.hpp
-  \brief Multi-node particle scatter/gather, Mpi implementations
+  \file Cabana_comm_plan_LocalityAware.hpp
+  \brief Multi-node particle scatter/gather, LocalityAware implementations
 */
-#ifndef CABANA_HALO_MPI_HPP
-#define CABANA_HALO_MPI_HPP
+#ifndef CABANA_HALO_LOCALITYAWARE_HPP
+#define CABANA_HALO_LOCALITYAWARE_HPP
 
 #include <Cabana_AoSoA.hpp>
 #include <Cabana_CommunicationPlanBase.hpp>
@@ -28,51 +28,28 @@
 #include <exception>
 #include <vector>
 
-//! \cond Impl
-
 namespace Cabana
 {
 
 /*!
-    \brief Perform the gather operation, AoSoA version
-    \class Cabana::Gather
-    \memberof Cabana::Gather
+    \brief Perform the gather operation.
 */
 template <class HaloType, class AoSoAType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, Mpi>::value, void>
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
 Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+    Kokkos::Profiling::ScopedRegion region( "Cabana::gather (LocalityAware)" );
+
+    // Setup persistent communication if not already done
+    this->updateBuffers();
 
     // Get the buffers and particle data (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
     auto recv_buffer = this->getReceiveBuffer();
     auto aosoa = this->getData();
-
-    // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
-
-    // Post non-blocking receives first so they are available while the send
-    // buffer is packed below.
-    int num_n = _comm_plan.numNeighbor();
-    std::vector<MPI_Request> requests;
-    requests.reserve( num_n * 2 );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _comm_plan.numImport( n );
-
-        auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
-
-        if ( recv_subview.size() > 0 )
-            cabanaIrecv( recv_subview, _comm_plan.neighborRank( n ), mpi_tag,
-                         _comm_plan.comm(), requests );
-
-        recv_range.first = recv_range.second;
-    }
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
@@ -86,30 +63,16 @@ Gather<HaloType, AoSoAType,
                           gather_send_buffer_func );
     Kokkos::fence();
 
-    // Post non-blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _comm_plan.numExport( n );
+    // Communicate data
 
-        auto send_subview = Kokkos::subview( send_buffer, send_range );
+    MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
+    MPIL_Start( this->lrequest() );
+    Kokkos::Profiling::popRegion();
 
-        if ( send_subview.size() > 0 )
-            cabanaIsend( send_subview, _comm_plan.neighborRank( n ), mpi_tag,
-                         _comm_plan.comm(), requests );
-
-        send_range.first = send_range.second;
-    }
-
-    // Wait on all non-blocking communication.
-    std::vector<MPI_Status> status( requests.size() );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::Gather::apply: Failed MPI Communication" );
-
-    Kokkos::Profiling::pushRegion( "Cabana::gather::extract_recv_buffer" );
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
+    MPIL_Wait( this->lrequest(), &status );
+    Kokkos::Profiling::popRegion();
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -123,25 +86,24 @@ Gather<HaloType, AoSoAType,
                           recv_policy, extract_recv_buffer_func );
     Kokkos::fence();
 
-    Kokkos::Profiling::popRegion();
-
     // Barrier before completing to ensure synchronization.
     // MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
-    \brief Perform the gather operation, Slice version
-    \class Cabana::Gather
-    \memberof Cabana::Gather
+    \brief Perform the gather operation.
 */
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, Mpi>::value, void>
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
 Gather<HaloType, SliceType,
        typename std::enable_if<is_slice<SliceType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+
+    // Setup persistent communication if not already done
+    this->updateBuffers();
 
     // Get the buffers (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
@@ -172,51 +134,15 @@ Gather<HaloType, SliceType,
                           gather_send_buffer_func );
     Kokkos::fence();
 
-    // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
+    // Communicate data
+    MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
+    MPIL_Start( this->lrequest() );
+    Kokkos::Profiling::popRegion();
 
-    // Post non-blocking receives.
-    int num_n = _comm_plan.numNeighbor();
-    std::vector<MPI_Request> requests;
-    requests.reserve( num_n * 2 );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _comm_plan.numImport( n );
-
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
-
-        if ( recv_subview.size() > 0 )
-            cabanaIrecv( recv_subview, _comm_plan.neighborRank( n ), mpi_tag,
-                         _comm_plan.comm(), requests );
-
-        recv_range.first = recv_range.second;
-    }
-
-    // Post non-blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _comm_plan.numExport( n );
-
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
-
-        if ( send_subview.size() > 0 )
-            cabanaIsend( send_subview, _comm_plan.neighborRank( n ), mpi_tag,
-                         _comm_plan.comm(), requests );
-
-        send_range.first = send_range.second;
-    }
-
-    // Wait on all non-blocking communication.
-    std::vector<MPI_Status> status( requests.size() );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error(
-            "Cabana::gather::apply (SliceType): Failed MPI Communication" );
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
+    MPIL_Wait( this->lrequest(), &status );
+    Kokkos::Profiling::popRegion();
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -243,17 +169,15 @@ Gather<HaloType, SliceType,
  * SCATTER *
  **********/
 
-/*!
-    \brief Perform the scatter operation, Slice version
-    \class Cabana::Scatter
-    \memberof Cabana::Scatter
-*/
 template <class HaloType, class SliceType>
 template <class ExecutionSpace, class CommSpaceType>
-std::enable_if_t<std::is_same<CommSpaceType, Mpi>::value, void>
+std::enable_if_t<std::is_same<CommSpaceType, LocalityAware>::value, void>
 Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::scatter" );
+
+    // Setup persistent communication if not already done
+    this->updateBuffers();
 
     // Get the buffers (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
@@ -286,51 +210,15 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
                           extract_send_buffer_func );
     Kokkos::fence();
 
-    // The halo has it's own communication space so choose any mpi tag.
-    const int mpi_tag = 2345;
+    // Communicate data
+    MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
+    MPIL_Start( this->lrequest() );
+    Kokkos::Profiling::popRegion();
 
-    // Post non-blocking receives.
-    int num_n = _comm_plan.numNeighbor();
-    std::vector<MPI_Request> requests;
-    requests.reserve( num_n * 2 );
-    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        recv_range.second = recv_range.first + _comm_plan.numExport( n );
-
-        auto recv_subview =
-            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
-
-        if ( recv_subview.size() > 0 )
-            cabanaIrecv( recv_subview, _comm_plan.neighborRank( n ), mpi_tag,
-                         _comm_plan.comm(), requests );
-
-        recv_range.first = recv_range.second;
-    }
-
-    // Post non-blocking sends.
-    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
-    for ( int n = 0; n < num_n; ++n )
-    {
-        send_range.second = send_range.first + _comm_plan.numImport( n );
-
-        auto send_subview =
-            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
-
-        if ( send_subview.size() > 0 )
-            cabanaIsend( send_subview, _comm_plan.neighborRank( n ), mpi_tag,
-                         _comm_plan.comm(), requests );
-
-        send_range.first = send_range.second;
-    }
-
-    // Wait on all non-blocking communication.
-    std::vector<MPI_Status> status( requests.size() );
-    const int ec =
-        MPI_Waitall( requests.size(), requests.data(), status.data() );
-    if ( MPI_SUCCESS != ec )
-        throw std::logic_error( "Cabana::scatter::apply (SliceType): "
-                                "Failed MPI Communication" );
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
+    MPIL_Wait( this->lrequest(), &status );
+    Kokkos::Profiling::popRegion();
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
@@ -352,11 +240,9 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    // MPI_Barrier( _comm_plan.comm() );
+    //  MPI_Barrier( _comm_plan.comm() );
 }
 
 } // end namespace Cabana
 
-//! \endcond
-
-#endif // end CABANA_HALO_MPI_HPP
+#endif // end CABANA_HALO_LOCALITYAWARE_HPP

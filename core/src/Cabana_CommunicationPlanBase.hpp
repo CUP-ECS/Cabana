@@ -968,6 +968,9 @@ class CommunicationData;
 // Include communication backends from what is enabled in CMake.
 #ifdef Cabana_ENABLE_MPI
 #include <impl/Cabana_CommunicationPlan_Mpi.hpp>
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+#include <impl/Cabana_CommunicationPlan_LocalityAware.hpp>
+#endif // Enable Locality aware
 #endif // Enable MPI
 
 #endif // end CABANA_COMMUNICATIONPLANBASE_HPP
