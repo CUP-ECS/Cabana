@@ -20,6 +20,7 @@
 #include <Cabana_Utils.hpp>
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Profiling_ScopedRegion.hpp>
 #include <Kokkos_ScatterView.hpp>
 #include <Kokkos_Sort.hpp>
 #include <Kokkos_UnorderedMap.hpp>

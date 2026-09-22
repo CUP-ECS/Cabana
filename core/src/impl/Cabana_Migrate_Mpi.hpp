@@ -108,8 +108,7 @@ void migrateData(
 
     // Post non-blocking receives.
     std::vector<MPI_Request> requests;
-    requests.reserve( 2 * num_n );
-
+    requests.reserve( num_n * 2 );
     std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
 
     for ( int n = 0; n < num_n; ++n )
@@ -121,13 +120,8 @@ void migrateData(
         {
             auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
 
-            requests.emplace_back(); // create slot
-
-            MPI_Irecv( recv_subview.data(),
-                       recv_subview.size() *
-                           sizeof( typename AoSoA_t::tuple_type ),
-                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
-                       distributor.comm(), &requests.back() );
+            cabanaIrecv( recv_subview, distributor.neighborRank( n ), mpi_tag,
+                         distributor.comm(), requests );
         }
 
         recv_range.first = recv_range.second;
@@ -145,19 +139,14 @@ void migrateData(
 
             auto send_subview = Kokkos::subview( send_buffer, send_range );
 
-            requests.emplace_back(); // create slot
-
-            MPI_Isend( send_subview.data(),
-                       send_subview.size() *
-                           sizeof( typename AoSoA_t::tuple_type ),
-                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
-                       distributor.comm(), &requests.back() );
+            cabanaIsend( send_subview, distributor.neighborRank( n ), mpi_tag,
+                         distributor.comm(), requests );
 
             send_range.first = send_range.second;
         }
     }
 
-    // Wait on all non-blocking ops (recv + send)
+    // Wait on all non-blocking communication.
     std::vector<MPI_Status> status( requests.size() );
 
     int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );
@@ -285,8 +274,7 @@ void migrateSlice(
 
     // Post non-blocking receives.
     std::vector<MPI_Request> requests;
-    requests.reserve( 2 * num_n );
-
+    requests.reserve( num_n * 2 );
     std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
 
     for ( int n = 0; n < num_n; ++n )
@@ -299,13 +287,8 @@ void migrateSlice(
             auto recv_subview =
                 Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
-            requests.emplace_back();
-
-            MPI_Irecv( recv_subview.data(),
-                       recv_subview.size() *
-                           sizeof( typename Slice_t::value_type ),
-                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
-                       distributor.comm(), &requests.back() );
+            cabanaIrecv( recv_subview, distributor.neighborRank( n ), mpi_tag,
+                         distributor.comm(), requests );
         }
 
         recv_range.first = recv_range.second;
@@ -324,19 +307,14 @@ void migrateSlice(
             auto send_subview =
                 Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
-            requests.emplace_back();
-
-            MPI_Isend( send_subview.data(),
-                       send_subview.size() *
-                           sizeof( typename Slice_t::value_type ),
-                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
-                       distributor.comm(), &requests.back() );
+            cabanaIsend( send_subview, distributor.neighborRank( n ), mpi_tag,
+                         distributor.comm(), requests );
 
             send_range.first = send_range.second;
         }
     }
 
-    // Wait on all non-blocking operations
+    // Wait on all non-blocking communication.
     std::vector<MPI_Status> status( requests.size() );
 
     int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );

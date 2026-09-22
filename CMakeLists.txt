@@ -14,8 +14,8 @@
 #------------------------------------------------------------------------------#
 cmake_minimum_required(VERSION 3.16)
 
-project(Cabana LANGUAGES C CXX)
-set(PROJECT_VERSION "0.8.0-dev")
+project(Cabana LANGUAGES CXX)
+set(PROJECT_VERSION "0.8.99-dev")
 
 # If the user doesn't provide a build type default to release
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CXX_FLAGS)
@@ -41,11 +41,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # find kokkos
 find_package(Kokkos 4.1 REQUIRED)
 
-# FIXME: remove when custom layout support with mdspan Views is added.
-if(Kokkos_VERSION VERSION_GREATER_EQUAL 4.6.99 AND NOT Kokkos_ENABLE_IMPL_VIEW_LEGACY)
-  message(FATAL_ERROR "Current Kokkos does not support custom View layouts needed for AoSoA unless "
-          "Kokkos is built with Kokkos_ENABLE_IMPL_VIEW_LEGACY=ON.")
-endif()
+# The AoSoA slice layout has two implementations: a legacy Kokkos array layout
+# with a ViewOffset plugin (Kokkos < 4.7, or Kokkos built with
+# Kokkos_ENABLE_IMPL_VIEW_LEGACY=ON) and an mdspan layout policy (Kokkos >= 4.7
+# with the mdspan-based View). Both are selected automatically in
+# Cabana_Slice.hpp.
 
 # set supported kokkos devices
 set(CABANA_SUPPORTED_DEVICES SERIAL THREADS OPENMP CUDA HIP SYCL OPENMPTARGET)
@@ -57,11 +57,6 @@ foreach(_device ${CABANA_SUPPORTED_DEVICES})
     kokkos_check( DEVICES ${_device} )
   endif()
 endforeach()
-
-# ensure that we can use lambdas
-if(Kokkos_ENABLE_CUDA)
-  kokkos_check(OPTIONS CUDA_LAMBDA)
-endif()
 
 # standard dependency macro
 macro(Cabana_add_dependency)
@@ -78,8 +73,8 @@ macro(Cabana_add_dependency)
 endmacro()
 
 # find MPI
-if(Cabana_REQUIRE_HDF5)
-  # Workaround for using HDF5 C-bindings
+if(Cabana_REQUIRE_HDF5 OR Cabana_REQUIRE_LOCALITY_AWARE)
+  # Workaround for using the HDF5 and locality-aware (MPI Advance) C-bindings
   enable_language(C)
   Cabana_add_dependency( PACKAGE MPI COMPONENTS C CXX ) 
 else()

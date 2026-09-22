@@ -607,11 +607,11 @@ void test7( const bool use_topology )
 }
 
 //---------------------------------------------------------------------------//
-template <class TEST_COMMSPACE>
+template <class TestCommSpace>
 void testExport8( const bool use_topology )
 {
     // Make a communication plan.
-    CommSpaceTester<TEST_COMMSPACE> comm_plan( MPI_COMM_WORLD );
+    CommSpaceTester<TestCommSpace> comm_plan( MPI_COMM_WORLD );
 
     // Get my rank.
     int my_rank = -1;
@@ -1096,7 +1096,12 @@ class CommunicationPlanTypedTest : public ::testing::Test
 };
 
 // Add additional backends to test when implemented.
-using CommSpaceTypes = ::testing::Types<Cabana::Mpi, Cabana::LocalityAware>;
+using CommSpaceTypes = ::testing::Types<Cabana::Mpi
+#ifdef Cabana_ENABLE_LOCALITY_AWARE
+                                        ,
+                                        Cabana::LocalityAware
+#endif
+                                        >;
 
 // Need a trailing comma
 // to avoid an error when compiling with clang++

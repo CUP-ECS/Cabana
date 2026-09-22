@@ -403,7 +403,32 @@ inline void deep_copy( Slice_t& slice,
 {
     static_assert( is_slice<Slice_t>::value,
                    "Cabana::deep_copy: Only slices can be assigned scalars" );
-    Kokkos::deep_copy( slice.view(), scalar );
+
+    // Note that Kokkos::deep_copy() cannot be used on the slice view: it fills
+    // through an all-dynamic LayoutRight mirror of the view type, which is not
+    // constructible from the Cabana slice layout.
+
+    // Get the number of components in each slice element.
+    std::size_t num_comp = 1;
+    for ( std::size_t d = 2; d < slice.viewRank(); ++d )
+        num_comp *= slice.extent( d );
+
+    // Fill each component of every element.
+    auto data = slice.data();
+    if ( data == nullptr )
+        return;
+    const auto soa_stride = slice.stride( 0 );
+    auto fill_func = KOKKOS_LAMBDA( const std::size_t i )
+    {
+        auto offset = Slice_t::index_type::s( i ) * soa_stride +
+                      Slice_t::index_type::a( i );
+        for ( std::size_t n = 0; n < num_comp; ++n )
+            data[offset + Slice_t::vector_length * n] = scalar;
+    };
+    Kokkos::RangePolicy<typename Slice_t::execution_space> fill_policy(
+        0, slice.size() );
+    Kokkos::parallel_for( "Cabana::deep_copy::fill", fill_policy, fill_func );
+    Kokkos::fence();
 }
 
 //---------------------------------------------------------------------------//
