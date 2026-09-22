@@ -532,7 +532,7 @@ struct MySoA
     double m3[D1][D2][VLEN];
 
     KOKKOS_INLINE_FUNCTION
-    MySoA() {};
+    MySoA(){};
 };
 
 // Test an unmanaged AoSoA.

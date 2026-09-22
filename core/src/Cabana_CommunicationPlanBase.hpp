@@ -340,8 +340,7 @@ auto countSendsAndCreateSteering( ExecutionSpace,
                 size_type thread_offset = 0;
                 Kokkos::parallel_reduce(
                     Kokkos::TeamThreadRange( team, dup_thread ),
-                    [&]( const index_type thread_id, size_type& result )
-                    {
+                    [&]( const index_type thread_id, size_type& result ) {
                         result += neighbor_counts_dup(
                             thread_id, element_export_ranks( i ) );
                     },

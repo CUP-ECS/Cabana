@@ -352,7 +352,7 @@ void interpolationExample()
 
     P2GExampleFunctor<Kokkos::View<double*, MemorySpace>,
                       Kokkos::View<double* [2], MemorySpace>>
-        example_p2g{ scalar_particle_field, vector_particle_field };
+        example_p2g { scalar_particle_field, vector_particle_field };
     Cabana::Grid::p2g( example_p2g, particle_positions, num_particles,
                        Cabana::Grid::Spline<1>(), *scalar_halo,
                        *scalar_grid_field );
@@ -457,7 +457,7 @@ void interpolationExample()
      * *************************************************************************/
     G2PExampleFunctor<Kokkos::View<double*, MemorySpace>,
                       Kokkos::View<double* [2][2], MemorySpace>>
-        example_g2p{ scalar_particle_field, tensor_particle_field };
+        example_g2p { scalar_particle_field, tensor_particle_field };
     Cabana::Grid::g2p( *vector_grid_field, *vector_halo, particle_positions,
                        num_particles, Cabana::Grid::Spline<1>(), example_g2p );
 }
