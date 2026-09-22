@@ -248,7 +248,7 @@ class SparseArrayLayout
     Kokkos::Array<scalar_type, 3> _global_low_corner;
     //! Sparse local grid
     std::shared_ptr<LocalGrid<MeshType>> _local_grid;
-    //！ sparse map
+    // ！ sparse map
     sparse_map_type _map;
 }; // end class SparseArrayLayout
 

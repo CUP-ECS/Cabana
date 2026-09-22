@@ -41,7 +41,7 @@ Gather<HaloType, AoSoAType,
        typename std::enable_if<is_aosoa<AoSoAType>::value>::type>::
     applyImpl( ExecutionSpace, CommSpaceType )
 {
-    Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
+    Kokkos::Profiling::ScopedRegion region( "Cabana::gather (LocalityAware)" );
 
     // Setup persistent communication if not already done
     this->updateBuffers();
@@ -64,9 +64,15 @@ Gather<HaloType, AoSoAType,
     Kokkos::fence();
 
     // Communicate data
+
     MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
     MPIL_Start( this->lrequest() );
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
     MPIL_Wait( this->lrequest(), &status );
+    Kokkos::Profiling::popRegion();
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -81,7 +87,7 @@ Gather<HaloType, AoSoAType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
@@ -130,8 +136,13 @@ Gather<HaloType, SliceType,
 
     // Communicate data
     MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
     MPIL_Start( this->lrequest() );
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
     MPIL_Wait( this->lrequest(), &status );
+    Kokkos::Profiling::popRegion();
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -151,7 +162,7 @@ Gather<HaloType, SliceType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 /**********
@@ -201,8 +212,13 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
 
     // Communicate data
     MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
     MPIL_Start( this->lrequest() );
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
     MPIL_Wait( this->lrequest(), &status );
+    Kokkos::Profiling::popRegion();
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
@@ -224,7 +240,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    MPI_Barrier( _comm_plan.comm() );
+    //  MPI_Barrier( _comm_plan.comm() );
 }
 
 } // end namespace Cabana
