@@ -23,14 +23,13 @@ typedef Kokkos::View<float[CABANA_PERFORMANCE_VECLENGTH],
 #if defined( __GNUC__ )
 __attribute__( ( noinline ) )
 #endif
-view_type
-axpy_10( const view_type& __restrict__ a, const view_type& __restrict__ x0,
-         const view_type& __restrict__ x1, const view_type& __restrict__ x2,
-         const view_type& __restrict__ x3, const view_type& __restrict__ x4,
-         const view_type& __restrict__ x5, const view_type& __restrict__ x6,
-         const view_type& __restrict__ x7, const view_type& __restrict__ x8,
-         const view_type& __restrict__ x9, const view_type& __restrict__ c,
-         long n )
+view_type axpy_10(
+    const view_type& __restrict__ a, const view_type& __restrict__ x0,
+    const view_type& __restrict__ x1, const view_type& __restrict__ x2,
+    const view_type& __restrict__ x3, const view_type& __restrict__ x4,
+    const view_type& __restrict__ x5, const view_type& __restrict__ x6,
+    const view_type& __restrict__ x7, const view_type& __restrict__ x8,
+    const view_type& __restrict__ x9, const view_type& __restrict__ c, long n )
 {
     long i;
     int j;

@@ -59,8 +59,9 @@ generateRandomTileSequence( int tiles_per_dim )
 }
 
 // generate average partitioner
-std::array<std::vector<int>, 3> computeAveragePartition(
-    const int tile_per_dim, const std::array<int, 3>& ranks_per_dim )
+std::array<std::vector<int>, 3>
+computeAveragePartition( const int tile_per_dim,
+                         const std::array<int, 3>& ranks_per_dim )
 {
     std::array<std::vector<int>, 3> rec_partitions;
     for ( int d = 0; d < 3; ++d )

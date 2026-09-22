@@ -58,15 +58,15 @@ struct data_t
 // NOTE: noinline gives better performance for GCC (the inlined version is
 // poorly optimized?)
 #if defined( __GNUC__ )
-__attribute__ ((noinline))
+__attribute__( ( noinline ) )
 #endif
-void movePx(data_t *__restrict__ a,  data_t *__restrict__ x0,
-            data_t *__restrict__ x1, data_t *__restrict__ x2,
-            data_t *__restrict__ x3, data_t *__restrict__ x4,
-            data_t *__restrict__ x5, data_t *__restrict__ x6,
-            data_t *__restrict__ x7, data_t *__restrict__ x8,
-            data_t *__restrict__ x9, data_t *__restrict__ c,
-            long n, int num_struct )
+void movePx( data_t* __restrict__ a, data_t* __restrict__ x0,
+             data_t* __restrict__ x1, data_t* __restrict__ x2,
+             data_t* __restrict__ x3, data_t* __restrict__ x4,
+             data_t* __restrict__ x5, data_t* __restrict__ x6,
+             data_t* __restrict__ x7, data_t* __restrict__ x8,
+             data_t* __restrict__ x9, data_t* __restrict__ c, long n,
+             int num_struct )
 {
     long i;
     int s;
@@ -107,13 +107,13 @@ void movePx(data_t *__restrict__ a,  data_t *__restrict__ x0,
 }
 
 #if defined( __GNUC__ )
-__attribute__ ((noinline))
+__attribute__( ( noinline ) )
 #endif
-void move_AoSoA(
-        ParticleList& a,  ParticleList& x0, ParticleList& x1, ParticleList& x2,
-        ParticleList& x3, ParticleList& x4, ParticleList& x5, ParticleList& x6,
-        ParticleList& x7, ParticleList& x8, ParticleList& x9, ParticleList& c,
-        long n, int num_struct )
+void move_AoSoA( ParticleList& a, ParticleList& x0, ParticleList& x1,
+                 ParticleList& x2, ParticleList& x3, ParticleList& x4,
+                 ParticleList& x5, ParticleList& x6, ParticleList& x7,
+                 ParticleList& x8, ParticleList& x9, ParticleList& c, long n,
+                 int num_struct )
 {
     long i;
     int s;
@@ -176,14 +176,15 @@ void move_AoSoA(
 
 //---------------------------------------------------------------------------/
 // Move function using struct and array indices and slice syntax.
-template<typename SliceType>
+template <typename SliceType>
 #if defined( __GNUC__ )
-__attribute__ ((noinline))
+__attribute__( ( noinline ) )
 #endif
-void moveSlicesWithAccess(SliceType a,  SliceType x0, SliceType x1, SliceType x2,
-                         SliceType x3, SliceType x4, SliceType x5, SliceType x6,
-                         SliceType x7, SliceType x8, SliceType x9, SliceType c,
-                         long n, int num_struct )
+void moveSlicesWithAccess( SliceType a, SliceType x0, SliceType x1,
+                           SliceType x2, SliceType x3, SliceType x4,
+                           SliceType x5, SliceType x6, SliceType x7,
+                           SliceType x8, SliceType x9, SliceType c, long n,
+                           int num_struct )
 {
     long i;
     int s;

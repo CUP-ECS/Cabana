@@ -716,7 +716,7 @@ class SparseDimPartitioner : public BlockPartitioner<NumSpaceDim>
                         break;
                     }
                 } // end while (optimization for the current rank)
-            }     // end for (all partition/rank in the optimized dimension)
+            } // end for (all partition/rank in the optimized dimension)
             Kokkos::deep_copy( _rectangle_partition_dev, rec_mirror );
         } // end for (3 dimensions)
     }

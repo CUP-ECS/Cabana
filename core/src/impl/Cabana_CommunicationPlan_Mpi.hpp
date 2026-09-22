@@ -147,62 +147,62 @@ class CommunicationPlan<MemorySpace, Mpi>
         // Get the export counts.
         for ( int n = 0; n < num_n; ++n )
             this->_num_export[n] = neighbor_counts_host( this->_neighbors[n] );
-Kokkos::Profiling::pushRegion("createWithTopology MPI sends");
-// code you want to profile
+        Kokkos::Profiling::pushRegion( "createWithTopology MPI sends" );
+        // code you want to profile
 
-      std::vector<MPI_Request> requests;
-requests.reserve(2 * num_n);
+        std::vector<MPI_Request> requests;
+        requests.reserve( 2 * num_n );
 
-// Post non-blocking receives
-for (int n = 0; n < num_n; ++n)
-{
-    if (my_rank != this->_neighbors[n])
-    {
-        requests.emplace_back();
+        // Post non-blocking receives
+        for ( int n = 0; n < num_n; ++n )
+        {
+            if ( my_rank != this->_neighbors[n] )
+            {
+                requests.emplace_back();
 
-        MPI_Irecv(&this->_num_import[n], 1, MPI_UNSIGNED_LONG,
-                  this->_neighbors[n], mpi_tag, this->comm(),
-                  &requests.back());
-    }
-    else
-    {
-        this->_num_import[n] = this->_num_export[n];
-    }
-}
+                MPI_Irecv( &this->_num_import[n], 1, MPI_UNSIGNED_LONG,
+                           this->_neighbors[n], mpi_tag, this->comm(),
+                           &requests.back() );
+            }
+            else
+            {
+                this->_num_import[n] = this->_num_export[n];
+            }
+        }
 
-// Post non-blocking sends
-for (int n = 0; n < num_n; ++n)
-{
-    if (my_rank != this->_neighbors[n])
-    {
-        requests.emplace_back();
+        // Post non-blocking sends
+        for ( int n = 0; n < num_n; ++n )
+        {
+            if ( my_rank != this->_neighbors[n] )
+            {
+                requests.emplace_back();
 
-        MPI_Isend(&this->_num_export[n], 1, MPI_UNSIGNED_LONG,
-                  this->_neighbors[n], mpi_tag, this->comm(),
-                  &requests.back());
-    }
-}
-// Wait on all communication (recv + send)
-std::vector<MPI_Status> status(requests.size());
+                MPI_Isend( &this->_num_export[n], 1, MPI_UNSIGNED_LONG,
+                           this->_neighbors[n], mpi_tag, this->comm(),
+                           &requests.back() );
+            }
+        }
+        // Wait on all communication (recv + send)
+        std::vector<MPI_Status> status( requests.size() );
 
-int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
-if (MPI_SUCCESS != ec)
-{
-    throw std::logic_error(
-        "Cabana::CommunicationPlan::createFromExportsAndTopology: "
-        "Failed MPI Communication");
-}
-Kokkos::Profiling::popRegion();
-Kokkos::Profiling::pushRegion("createWithTopology  total_num_export and total_num_import");
-   this->_total_num_export =
+        int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );
+        if ( MPI_SUCCESS != ec )
+        {
+            throw std::logic_error(
+                "Cabana::CommunicationPlan::createFromExportsAndTopology: "
+                "Failed MPI Communication" );
+        }
+        Kokkos::Profiling::popRegion();
+        Kokkos::Profiling::pushRegion(
+            "createWithTopology  total_num_export and total_num_import" );
+        this->_total_num_export =
             std::accumulate( this->_num_export.begin(), this->_num_export.end(),
                              std::size_t{ 0u } );
         this->_total_num_import =
             std::accumulate( this->_num_import.begin(), this->_num_import.end(),
                              std::size_t{ 0u } );
-Kokkos::Profiling::popRegion();
+        Kokkos::Profiling::popRegion();
         // Get the total number of imports/exports.
-
 
         // No barrier is needed because all ranks know who they are receiving
         // and sending to.
@@ -748,7 +748,7 @@ Kokkos::Profiling::popRegion();
                       Kokkos::View<int*, typename RankViewType::memory_space>,
                       Kokkos::View<int*, typename IdViewType::memory_space>>
     {
-	    Kokkos::Profiling::ScopedRegion region( "createWithoutTopology (MPI)" );
+        Kokkos::Profiling::ScopedRegion region( "createWithoutTopology (MPI)" );
 
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 

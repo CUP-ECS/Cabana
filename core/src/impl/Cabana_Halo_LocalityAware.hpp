@@ -66,11 +66,11 @@ Gather<HaloType, AoSoAType,
     // Communicate data
 
     MPI_Status status;
-    Kokkos::Profiling::pushRegion("MPIL_Start");
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
     MPIL_Start( this->lrequest() );
-   	Kokkos::Profiling::popRegion();
+    Kokkos::Profiling::popRegion();
 
-    Kokkos::Profiling::pushRegion("MPIL_Wait");
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
     MPIL_Wait( this->lrequest(), &status );
     Kokkos::Profiling::popRegion();
 
@@ -87,7 +87,7 @@ Gather<HaloType, AoSoAType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-   // MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
@@ -135,12 +135,12 @@ Gather<HaloType, SliceType,
     Kokkos::fence();
 
     // Communicate data
-   	MPI_Status status;
-    Kokkos::Profiling::pushRegion("MPIL_Start");
+    MPI_Status status;
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
     MPIL_Start( this->lrequest() );
-   	Kokkos::Profiling::popRegion();
+    Kokkos::Profiling::popRegion();
 
-    Kokkos::Profiling::pushRegion("MPIL_Wait");
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
     MPIL_Wait( this->lrequest(), &status );
     Kokkos::Profiling::popRegion();
 
@@ -162,7 +162,7 @@ Gather<HaloType, SliceType,
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-   // MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 /**********
@@ -209,14 +209,14 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::parallel_for( "Cabana::scatter::extract_send_buffer", send_policy,
                           extract_send_buffer_func );
     Kokkos::fence();
-    
+
     // Communicate data
     MPI_Status status;
-    Kokkos::Profiling::pushRegion("MPIL_Start");
+    Kokkos::Profiling::pushRegion( "MPIL_Start" );
     MPIL_Start( this->lrequest() );
-   	Kokkos::Profiling::popRegion();
+    Kokkos::Profiling::popRegion();
 
-    Kokkos::Profiling::pushRegion("MPIL_Wait");
+    Kokkos::Profiling::pushRegion( "MPIL_Wait" );
     MPIL_Wait( this->lrequest(), &status );
     Kokkos::Profiling::popRegion();
 
@@ -240,7 +240,7 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-  //  MPI_Barrier( _comm_plan.comm() );
+    //  MPI_Barrier( _comm_plan.comm() );
 }
 
 } // end namespace Cabana

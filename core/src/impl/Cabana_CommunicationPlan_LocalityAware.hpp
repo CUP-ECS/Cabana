@@ -622,7 +622,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
                       Kokkos::View<int*, typename RankViewType::memory_space>,
                       Kokkos::View<int*, typename IdViewType::memory_space>>
     {
-        Kokkos::Profiling::ScopedRegion region( "createWithTopology (LocalityAware)" );
+        Kokkos::Profiling::ScopedRegion region(
+            "createWithTopology (LocalityAware)" );
         static_assert( is_accessible_from<memory_space, ExecutionSpace>{}, "" );
 
         if ( element_import_ids.size() != element_import_ranks.size() )
@@ -976,7 +977,8 @@ class CommunicationPlan<MemorySpace, LocalityAware>
 
         if ( element_import_ids.size() != element_import_ranks.size() )
             throw std::runtime_error( "Export ids and ranks different sizes!" );
-        Kokkos::Profiling::ScopedRegion region( "createWithoutTopology (LocalityAware)" );
+        Kokkos::Profiling::ScopedRegion region(
+            "createWithoutTopology (LocalityAware)" );
         // Get the size of this communicator.
         int comm_size = -1;
         MPI_Comm_size( this->comm(), &comm_size );
@@ -1203,7 +1205,7 @@ class CommunicationPlan<MemorySpace, LocalityAware>
         _linfo_ptr = make_raw_ptr_shared( xinfo1, MPIL_Info_free );
 
         // Barrier before continuing to ensure synchronization.
-        //MPI_Barrier( this->comm() );
+        // MPI_Barrier( this->comm() );
 
         return std::tuple{ counts_and_ids2.second, element_export_ranks,
                            export_indices };
@@ -1297,7 +1299,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         , _send_buffer_ptr( nullptr )
         , _recv_buffer_ptr( nullptr )
     {
-        Kokkos::Profiling::ScopedRegion region( "CommunicationData (LocalityAware)" );
+        Kokkos::Profiling::ScopedRegion region(
+            "CommunicationData (LocalityAware)" );
         /**
          * Setup persistent communication for the communication plan associated
          * with this CommunicationData.
@@ -1349,7 +1352,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
      */
     void updateBuffers()
     {
-        Kokkos::Profiling::ScopedRegion region( "updateBuffers (LocalityAware)" );
+        Kokkos::Profiling::ScopedRegion region(
+            "updateBuffers (LocalityAware)" );
 
         data_type* send_ptr = this->getSendBuffer().data();
         data_type* recv_ptr = this->getReceiveBuffer().data();
@@ -1372,7 +1376,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
     void initializeNeighborAlltoallvTopo()
     {
-        Kokkos::Profiling::ScopedRegion region( "initializeNeighborAlltoallvTopo (LocalityAware)" );
+        Kokkos::Profiling::ScopedRegion region(
+            "initializeNeighborAlltoallvTopo (LocalityAware)" );
 
         // Clear request pointer if set
         _lrequest_ptr = nullptr;

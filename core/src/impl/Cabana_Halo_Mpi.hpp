@@ -51,42 +51,39 @@ Gather<HaloType, AoSoAType,
     auto send_buffer = this->getSendBuffer();
     auto recv_buffer = this->getReceiveBuffer();
     auto aosoa = this->getData();
-	int num_n = _comm_plan.numNeighbor();
+    int num_n = _comm_plan.numNeighbor();
 
-std::vector<MPI_Request> requests_recvs;
-requests_recvs.reserve( num_n);
+    std::vector<MPI_Request> requests_recvs;
+    requests_recvs.reserve( num_n );
     const int mpi_tag = 2345;
 
-std::pair<std::size_t, std::size_t> recv_range = {0, 0};
-for (int n = 0; n < num_n; ++n)
-{
-    recv_range.second = recv_range.first + _comm_plan.numImport(n);
-
-    auto recv_subview = Kokkos::subview(recv_buffer, recv_range);
-
-    if (recv_subview.size() > 0)
+    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
+    for ( int n = 0; n < num_n; ++n )
     {
-        MPI_Request req;
-        MPI_Irecv(recv_subview.data(),
-                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
-                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-                  &req);
-        requests_recvs.push_back(req);
+        recv_range.second = recv_range.first + _comm_plan.numImport( n );
+
+        auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
+
+        if ( recv_subview.size() > 0 )
+        {
+            MPI_Request req;
+            MPI_Irecv( recv_subview.data(),
+                       recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                       _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
+                       &req );
+            requests_recvs.push_back( req );
+        }
+
+        recv_range.first = recv_range.second;
     }
-
-    recv_range.first = recv_range.second;
-}
-
-
-
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
     // Gather from the local data into a tuple-contiguous send buffer.
     auto gather_send_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
     {
-  		const auto idx = steering(i);
-   		send_buffer(i) = aosoa.getTuple(idx);
+        const auto idx = steering( i );
+        send_buffer( i ) = aosoa.getTuple( idx );
     };
     Kokkos::RangePolicy<ExecutionSpace> send_policy( 0, _send_size );
     Kokkos::parallel_for( "Cabana::gather::gather_send_buffer", send_policy,
@@ -95,60 +92,57 @@ for (int n = 0; n < num_n; ++n)
 
     // The halo has it's own communication space so choose any mpi tag.
 
-std::vector<MPI_Request> requests_sends;
-requests_sends.reserve( num_n);
+    std::vector<MPI_Request> requests_sends;
+    requests_sends.reserve( num_n );
 
+    // Post all Irecv
 
+    // Post all Isend
+    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
 
-// Post all Irecv
-
-
-// Post all Isend
-std::pair<std::size_t, std::size_t> send_range = {0, 0};
-
-for (int n = 0; n < num_n; ++n)
-{
-    send_range.second = send_range.first + _comm_plan.numExport(n);
-
-    auto send_subview = Kokkos::subview(send_buffer, send_range);
-
-    if (send_subview.size() > 0)
+    for ( int n = 0; n < num_n; ++n )
     {
-        MPI_Request req;
-        MPI_Isend(send_subview.data(),
-                  send_subview.size() * sizeof(data_type), MPI_BYTE,
-                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-                  &req);
-        requests_sends.push_back(req);
+        send_range.second = send_range.first + _comm_plan.numExport( n );
+
+        auto send_subview = Kokkos::subview( send_buffer, send_range );
+
+        if ( send_subview.size() > 0 )
+        {
+            MPI_Request req;
+            MPI_Isend( send_subview.data(),
+                       send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                       _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
+                       &req );
+            requests_sends.push_back( req );
+        }
+
+        send_range.first = send_range.second;
     }
 
-    send_range.first = send_range.second;
-}
+    // Wait only on actual requests
+    std::vector<MPI_Status> status_recvs( requests_recvs.size() );
 
-// Wait only on actual requests
-std::vector<MPI_Status> status_recvs(requests_recvs.size());
+    int ecR = MPI_Waitall( requests_recvs.size(), requests_recvs.data(),
+                           status_recvs.data() );
+    if ( MPI_SUCCESS != ecR )
+    {
+        throw std::logic_error(
+            "Cabana::Gather::apply: Failed MPI Communication" );
+    }
 
-int ecR = MPI_Waitall(requests_recvs.size(), requests_recvs.data(), status_recvs.data());
-if (MPI_SUCCESS != ecR)
-{
-    throw std::logic_error(
-        "Cabana::Gather::apply: Failed MPI Communication");
-}
+    std::vector<MPI_Status> status_sends( requests_sends.size() );
 
-std::vector<MPI_Status> status_sends(requests_sends.size());
+    int ecS = MPI_Waitall( requests_sends.size(), requests_sends.data(),
+                           status_sends.data() );
+    if ( MPI_SUCCESS != ecS )
+    {
+        throw std::logic_error(
+            "Cabana::Gather::apply: Failed MPI Communication" );
+    }
 
-int ecS = MPI_Waitall(requests_sends.size(), requests_sends.data(), status_sends.data());
-if (MPI_SUCCESS != ecS)
-{
-    throw std::logic_error(
-        "Cabana::Gather::apply: Failed MPI Communication");
-}
+    // code you want to profile
 
-
-
-// code you want to profile
-
-Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
+    Kokkos::Profiling::pushRegion( "Cabana::gather::MPI_Waitall" );
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -161,9 +155,9 @@ Kokkos::Profiling::pushRegion("Cabana::gather::MPI_Waitall");
     Kokkos::parallel_for( "Cabana::gather::apply::extract_recv_buffer",
                           recv_policy, extract_recv_buffer_func );
     Kokkos::fence();
-Kokkos::Profiling::popRegion();
+    Kokkos::Profiling::popRegion();
     // Barrier before completing to ensure synchronization.
-   // MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 /*!
@@ -212,72 +206,70 @@ Gather<HaloType, SliceType,
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
 
-int num_n = _comm_plan.numNeighbor();
+    int num_n = _comm_plan.numNeighbor();
 
-// Requests for both recv + send
-std::vector<MPI_Request> requests(2 * num_n);
+    // Requests for both recv + send
+    std::vector<MPI_Request> requests( 2 * num_n );
 
-std::pair<std::size_t, std::size_t> recv_range = {0, 0};
+    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
 
-// Post all Irecv
-for (int n = 0; n < num_n; ++n)
-{
-    recv_range.second = recv_range.first + _comm_plan.numImport(n);
-
-    auto recv_subview =
-        Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
-
-    if (recv_subview.size() == 0)
+    // Post all Irecv
+    for ( int n = 0; n < num_n; ++n )
     {
-        requests[n] = MPI_REQUEST_NULL;
-    }
-    else
-    {
-        MPI_Irecv(recv_subview.data(),
-                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
-                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-                  &requests[n]);
-    }
+        recv_range.second = recv_range.first + _comm_plan.numImport( n );
 
-    recv_range.first = recv_range.second;
-}
+        auto recv_subview =
+            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
-// Post all Isend
-std::pair<std::size_t, std::size_t> send_range = {0, 0};
+        if ( recv_subview.size() == 0 )
+        {
+            requests[n] = MPI_REQUEST_NULL;
+        }
+        else
+        {
+            MPI_Irecv( recv_subview.data(),
+                       recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                       _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
+                       &requests[n] );
+        }
 
-for (int n = 0; n < num_n; ++n)
-{
-    send_range.second = send_range.first + _comm_plan.numExport(n);
-
-    auto send_subview =
-        Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
-
-    if (send_subview.size() == 0)
-    {
-        requests[num_n + n] = MPI_REQUEST_NULL;
-    }
-    else
-    {
-        MPI_Isend(send_subview.data(),
-                  send_subview.size() * sizeof(data_type), MPI_BYTE,
-                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-                  &requests[num_n + n]);
+        recv_range.first = recv_range.second;
     }
 
-    send_range.first = send_range.second;
-}
+    // Post all Isend
+    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
 
-// Wait on all non-blocking ops
-std::vector<MPI_Status> status(2 * num_n);
+    for ( int n = 0; n < num_n; ++n )
+    {
+        send_range.second = send_range.first + _comm_plan.numExport( n );
 
-int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
-if (MPI_SUCCESS != ec)
-{
-    throw std::logic_error(
-        "Cabana::gather::apply (SliceType): Failed MPI Communication");
-}
+        auto send_subview =
+            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
+        if ( send_subview.size() == 0 )
+        {
+            requests[num_n + n] = MPI_REQUEST_NULL;
+        }
+        else
+        {
+            MPI_Isend( send_subview.data(),
+                       send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                       _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
+                       &requests[num_n + n] );
+        }
 
+        send_range.first = send_range.second;
+    }
+
+    // Wait on all non-blocking ops
+    std::vector<MPI_Status> status( 2 * num_n );
+
+    int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );
+    if ( MPI_SUCCESS != ec )
+    {
+        throw std::logic_error(
+            "Cabana::gather::apply (SliceType): Failed MPI Communication" );
+    }
 
     // Extract the receive buffer into the ghosted elements.
     std::size_t num_local = _comm_plan.numLocal();
@@ -297,7 +289,7 @@ if (MPI_SUCCESS != ec)
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    //MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 /**********
@@ -350,71 +342,70 @@ Scatter<HaloType, SliceType>::applyImpl( ExecutionSpace, CommSpaceType )
     // The halo has it's own communication space so choose any mpi tag.
     const int mpi_tag = 2345;
 
-int num_n = _comm_plan.numNeighbor();
+    int num_n = _comm_plan.numNeighbor();
 
+    // One request per recv + one per send
+    std::vector<MPI_Request> requests( 2 * num_n );
 
-// One request per recv + one per send
-std::vector<MPI_Request> requests(2 * num_n);
+    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
 
-std::pair<std::size_t, std::size_t> recv_range = {0, 0};
-
-// Post all Irecv
-for (int n = 0; n < num_n; ++n)
-{
-    recv_range.second = recv_range.first + _comm_plan.numExport(n);
-
-    auto recv_subview =
-        Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
-
-    if (recv_subview.size() == 0)
+    // Post all Irecv
+    for ( int n = 0; n < num_n; ++n )
     {
-        requests[n] = MPI_REQUEST_NULL;
-    }
-    else
-    {
-        MPI_Irecv(recv_subview.data(),
-                  recv_subview.size() * sizeof(data_type), MPI_BYTE,
-                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-                  &requests[n]);
-    }
+        recv_range.second = recv_range.first + _comm_plan.numExport( n );
 
-    recv_range.first = recv_range.second;
-}
+        auto recv_subview =
+            Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
-// Post all Isend
-std::pair<std::size_t, std::size_t> send_range = {0, 0};
+        if ( recv_subview.size() == 0 )
+        {
+            requests[n] = MPI_REQUEST_NULL;
+        }
+        else
+        {
+            MPI_Irecv( recv_subview.data(),
+                       recv_subview.size() * sizeof( data_type ), MPI_BYTE,
+                       _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
+                       &requests[n] );
+        }
 
-for (int n = 0; n < num_n; ++n)
-{
-    send_range.second = send_range.first + _comm_plan.numImport(n);
-
-    auto send_subview =
-        Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
-
-    if (send_subview.size() == 0)
-    {
-        requests[num_n + n] = MPI_REQUEST_NULL;
-    }
-    else
-    {
-        MPI_Isend(send_subview.data(),
-                  send_subview.size() * sizeof(data_type), MPI_BYTE,
-                  _comm_plan.neighborRank(n), mpi_tag, _comm_plan.comm(),
-                  &requests[num_n + n]);
+        recv_range.first = recv_range.second;
     }
 
-    send_range.first = send_range.second;
-}
+    // Post all Isend
+    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
 
-// Wait for all communication to complete
-std::vector<MPI_Status> status(2 * num_n);
+    for ( int n = 0; n < num_n; ++n )
+    {
+        send_range.second = send_range.first + _comm_plan.numImport( n );
 
-int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
-if (MPI_SUCCESS != ec)
-{
-    throw std::logic_error("Cabana::scatter::apply (SliceType): "
-                           "Failed MPI Communication");
-}
+        auto send_subview =
+            Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
+
+        if ( send_subview.size() == 0 )
+        {
+            requests[num_n + n] = MPI_REQUEST_NULL;
+        }
+        else
+        {
+            MPI_Isend( send_subview.data(),
+                       send_subview.size() * sizeof( data_type ), MPI_BYTE,
+                       _comm_plan.neighborRank( n ), mpi_tag, _comm_plan.comm(),
+                       &requests[num_n + n] );
+        }
+
+        send_range.first = send_range.second;
+    }
+
+    // Wait for all communication to complete
+    std::vector<MPI_Status> status( 2 * num_n );
+
+    int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );
+    if ( MPI_SUCCESS != ec )
+    {
+        throw std::logic_error( "Cabana::scatter::apply (SliceType): "
+                                "Failed MPI Communication" );
+    }
 
     // Get the steering vector for the sends.
     auto steering = _comm_plan.getExportSteering();
@@ -436,7 +427,7 @@ if (MPI_SUCCESS != ec)
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-    //MPI_Barrier( _comm_plan.comm() );
+    // MPI_Barrier( _comm_plan.comm() );
 }
 
 } // end namespace Cabana

@@ -107,65 +107,65 @@ void migrateData(
     const int mpi_tag = 1234;
 
     // Post non-blocking receives.
-std::vector<MPI_Request> requests;
-requests.reserve(2 * num_n);
+    std::vector<MPI_Request> requests;
+    requests.reserve( 2 * num_n );
 
-std::pair<std::size_t, std::size_t> recv_range = {0, 0};
+    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
 
-for (int n = 0; n < num_n; ++n)
-{
-    recv_range.second = recv_range.first + distributor.numImport(n);
-
-    if ((distributor.numImport(n) > 0) &&
-        (distributor.neighborRank(n) != my_rank))
+    for ( int n = 0; n < num_n; ++n )
     {
-        auto recv_subview = Kokkos::subview(recv_buffer, recv_range);
+        recv_range.second = recv_range.first + distributor.numImport( n );
 
-        requests.emplace_back(); // create slot
+        if ( ( distributor.numImport( n ) > 0 ) &&
+             ( distributor.neighborRank( n ) != my_rank ) )
+        {
+            auto recv_subview = Kokkos::subview( recv_buffer, recv_range );
 
-        MPI_Irecv(recv_subview.data(),
-                  recv_subview.size() *
-                      sizeof(typename AoSoA_t::tuple_type),
-                  MPI_BYTE, distributor.neighborRank(n), mpi_tag,
-                  distributor.comm(), &requests.back());
+            requests.emplace_back(); // create slot
+
+            MPI_Irecv( recv_subview.data(),
+                       recv_subview.size() *
+                           sizeof( typename AoSoA_t::tuple_type ),
+                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
+                       distributor.comm(), &requests.back() );
+        }
+
+        recv_range.first = recv_range.second;
     }
 
-    recv_range.first = recv_range.second;
-}
+    // Post non-blocking sends.
+    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
 
-// Post non-blocking sends.
-std::pair<std::size_t, std::size_t> send_range = {0, 0};
-
-for (int n = 0; n < num_n; ++n)
-{
-    if ((distributor.numExport(n) > 0) &&
-        (distributor.neighborRank(n) != my_rank))
+    for ( int n = 0; n < num_n; ++n )
     {
-        send_range.second = send_range.first + distributor.numExport(n);
+        if ( ( distributor.numExport( n ) > 0 ) &&
+             ( distributor.neighborRank( n ) != my_rank ) )
+        {
+            send_range.second = send_range.first + distributor.numExport( n );
 
-        auto send_subview = Kokkos::subview(send_buffer, send_range);
+            auto send_subview = Kokkos::subview( send_buffer, send_range );
 
-        requests.emplace_back(); // create slot
+            requests.emplace_back(); // create slot
 
-        MPI_Isend(send_subview.data(),
-                  send_subview.size() *
-                      sizeof(typename AoSoA_t::tuple_type),
-                  MPI_BYTE, distributor.neighborRank(n), mpi_tag,
-                  distributor.comm(), &requests.back());
+            MPI_Isend( send_subview.data(),
+                       send_subview.size() *
+                           sizeof( typename AoSoA_t::tuple_type ),
+                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
+                       distributor.comm(), &requests.back() );
 
-        send_range.first = send_range.second;
+            send_range.first = send_range.second;
+        }
     }
-}
 
-// Wait on all non-blocking ops (recv + send)
-std::vector<MPI_Status> status(requests.size());
+    // Wait on all non-blocking ops (recv + send)
+    std::vector<MPI_Status> status( requests.size() );
 
-int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
-if (MPI_SUCCESS != ec)
-{
-    throw std::logic_error(
-        "Cabana::Distributor: Failed MPI Communication");
-}
+    int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );
+    if ( MPI_SUCCESS != ec )
+    {
+        throw std::logic_error(
+            "Cabana::Distributor: Failed MPI Communication" );
+    }
 
     // Extract the receive buffer into the destination AoSoA.
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
@@ -180,7 +180,7 @@ if (MPI_SUCCESS != ec)
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-   // MPI_Barrier( distributor.comm() );
+    // MPI_Barrier( distributor.comm() );
 }
 
 //---------------------------------------------------------------------------//
@@ -283,67 +283,67 @@ void migrateSlice(
     // The distributor has its own communication space so choose any tag.
     const int mpi_tag = 1234;
 
-// Post non-blocking receives.
-std::vector<MPI_Request> requests;
-requests.reserve(2 * num_n);
+    // Post non-blocking receives.
+    std::vector<MPI_Request> requests;
+    requests.reserve( 2 * num_n );
 
-std::pair<std::size_t, std::size_t> recv_range = {0, 0};
+    std::pair<std::size_t, std::size_t> recv_range = { 0, 0 };
 
-for (int n = 0; n < num_n; ++n)
-{
-    recv_range.second = recv_range.first + distributor.numImport(n);
-
-    if ((distributor.numImport(n) > 0) &&
-        (distributor.neighborRank(n) != my_rank))
+    for ( int n = 0; n < num_n; ++n )
     {
-        auto recv_subview =
-            Kokkos::subview(recv_buffer, recv_range, Kokkos::ALL);
+        recv_range.second = recv_range.first + distributor.numImport( n );
 
-        requests.emplace_back();
+        if ( ( distributor.numImport( n ) > 0 ) &&
+             ( distributor.neighborRank( n ) != my_rank ) )
+        {
+            auto recv_subview =
+                Kokkos::subview( recv_buffer, recv_range, Kokkos::ALL );
 
-        MPI_Irecv(recv_subview.data(),
-                  recv_subview.size() *
-                      sizeof(typename Slice_t::value_type),
-                  MPI_BYTE, distributor.neighborRank(n), mpi_tag,
-                  distributor.comm(), &requests.back());
+            requests.emplace_back();
+
+            MPI_Irecv( recv_subview.data(),
+                       recv_subview.size() *
+                           sizeof( typename Slice_t::value_type ),
+                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
+                       distributor.comm(), &requests.back() );
+        }
+
+        recv_range.first = recv_range.second;
     }
 
-    recv_range.first = recv_range.second;
-}
+    // Post non-blocking sends.
+    std::pair<std::size_t, std::size_t> send_range = { 0, 0 };
 
-// Post non-blocking sends.
-std::pair<std::size_t, std::size_t> send_range = {0, 0};
-
-for (int n = 0; n < num_n; ++n)
-{
-    if ((distributor.numExport(n) > 0) &&
-        (distributor.neighborRank(n) != my_rank))
+    for ( int n = 0; n < num_n; ++n )
     {
-        send_range.second = send_range.first + distributor.numExport(n);
+        if ( ( distributor.numExport( n ) > 0 ) &&
+             ( distributor.neighborRank( n ) != my_rank ) )
+        {
+            send_range.second = send_range.first + distributor.numExport( n );
 
-        auto send_subview =
-            Kokkos::subview(send_buffer, send_range, Kokkos::ALL);
+            auto send_subview =
+                Kokkos::subview( send_buffer, send_range, Kokkos::ALL );
 
-        requests.emplace_back();
+            requests.emplace_back();
 
-        MPI_Isend(send_subview.data(),
-                  send_subview.size() *
-                      sizeof(typename Slice_t::value_type),
-                  MPI_BYTE, distributor.neighborRank(n), mpi_tag,
-                  distributor.comm(), &requests.back());
+            MPI_Isend( send_subview.data(),
+                       send_subview.size() *
+                           sizeof( typename Slice_t::value_type ),
+                       MPI_BYTE, distributor.neighborRank( n ), mpi_tag,
+                       distributor.comm(), &requests.back() );
 
-        send_range.first = send_range.second;
+            send_range.first = send_range.second;
+        }
     }
-}
 
-// Wait on all non-blocking operations
-std::vector<MPI_Status> status(requests.size());
+    // Wait on all non-blocking operations
+    std::vector<MPI_Status> status( requests.size() );
 
-int ec = MPI_Waitall(requests.size(), requests.data(), status.data());
-if (MPI_SUCCESS != ec)
-{
-    throw std::logic_error("Cabana::migrate: Failed MPI Communication");
-}
+    int ec = MPI_Waitall( requests.size(), requests.data(), status.data() );
+    if ( MPI_SUCCESS != ec )
+    {
+        throw std::logic_error( "Cabana::migrate: Failed MPI Communication" );
+    }
 
     // Extract the data from the receive buffer into the destination Slice.
     auto extract_recv_buffer_func = KOKKOS_LAMBDA( const std::size_t i )
@@ -363,7 +363,7 @@ if (MPI_SUCCESS != ec)
     Kokkos::fence();
 
     // Barrier before completing to ensure synchronization.
-   // MPI_Barrier( distributor.comm() );
+    // MPI_Barrier( distributor.comm() );
 }
 
 //---------------------------------------------------------------------------//
