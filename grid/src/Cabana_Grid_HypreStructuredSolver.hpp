@@ -95,7 +95,8 @@ class HypreStructuredSolver
             // setting up the grid like this, HYPRE will then want layout-right
             // data indexed as (i,j,k) or (i,j,k,l) which will allow us to
             // directly use Kokkos::deep_copy to move data between arrays and
-            // HYPRE data structures.
+            // HYPRE data structures. setMatrixStencil() reorders the stencil
+            // offsets to KJI to match.
             auto global_space = layout.indexSpace( Own(), Global() );
             _lower.resize( num_space_dim );
             _upper.resize( num_space_dim );
@@ -205,7 +206,7 @@ class HypreStructuredSolver
         for ( unsigned n = 0; n < stencil.size(); ++n )
         {
             for ( std::size_t d = 0; d < NumSpaceDim; ++d )
-                offset[d] = stencil[n][d];
+                offset[d] = stencil[n][NumSpaceDim - d - 1];
             error = HYPRE_StructStencilSetElement( _stencil, n, offset.data() );
             checkHypreError( error );
         }
