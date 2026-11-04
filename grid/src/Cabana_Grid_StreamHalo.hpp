@@ -175,7 +175,9 @@ class StreamHalo;
 #endif // MPICH
 
 #ifdef Cabana_ENABLE_CRAYMPI
-#include <impl/Cabana_Grid_CrayMpiStreamHalo.hpp>
+// No Cray MPI StreamHalo implementation exists yet
+// (impl/Cabana_Grid_CrayMpiStreamHalo.hpp was never added).
+#error "Cabana_ENABLE_CRAYMPI is ON, but there is no Cray MPI StreamHalo implementation yet"
 #endif // CRAY_MPI
 
 #ifdef Cabana_ENABLE_STREAM_TRIGGERING

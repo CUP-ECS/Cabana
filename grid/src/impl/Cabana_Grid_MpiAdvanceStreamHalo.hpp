@@ -141,7 +141,9 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         // do sends which are the last half of _gather_requests
         MPIS_Enqueue_startall( _my_queue, num_n,
                                &_gather_requests[_halo_phase][num_n] );
-        MPIS_Enqueue_waitall( _my_queue );
+        MPIS_Enqueue_waitall( _my_queue, 2 * num_n,
+                              &_gather_requests[_halo_phase][0],
+                              MPI_STATUSES_IGNORE );
 
         // Unpack receive buffers.
         this->enqueueUnpackBuffers(
@@ -183,7 +185,9 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         MPIS_Enqueue_startall( _my_queue, num_n,
                                &_scatter_requests[_halo_phase][num_n] );
 
-        MPIS_Enqueue_waitall( _my_queue );
+        MPIS_Enqueue_waitall( _my_queue, 2 * num_n,
+                              &_scatter_requests[_halo_phase][0],
+                              MPI_STATUSES_IGNORE );
 
         this->enqueueUnpackBuffers(
             reduce_op, _stream_owned_buffers[_halo_phase],
@@ -276,7 +280,7 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
         {
             backend = CXI;
         }
-        MPIS_Queue_init( &_my_queue, backend, &_my_stream );
+        MPIS_Queue_create( &_my_queue, backend, MPI_INFO_NULL, &_my_stream );
 
         // scatter
         for ( int p = 0; p < 2; ++p )
@@ -356,18 +360,33 @@ class StreamHalo<ExecutionSpace, MemorySpace, Cabana::CommSpace::MpiAdvance>
             }
         }
 
-        // match requests = count of gather + count of scatter, 4*num_n
-        std::vector<MPIS_Request> match_requests( 8 * num_n,
-                                                  MPIS_REQUEST_NULL );
+        // Match every request (2 phases x {scatter, gather} x 2*num_n). The
+        // match calls return new handles and leave the originals unmatched,
+        // so match them all at once, free the originals, and put the matched
+        // handles back in their slots. The flattened order is the same one
+        // the old per-request MPIS_Imatch loop used, so every rank starts
+        // matching in the same order.
+        std::array<MPIS_Request*, 4> slots_of = {
+            _scatter_requests[0].data(), _gather_requests[0].data(),
+            _scatter_requests[1].data(), _gather_requests[1].data() };
+        std::vector<MPIS_Request> originals;
+        originals.reserve( 8 * num_n );
+        for ( int n = 0; n < 2 * num_n; ++n )
+            for ( auto* slots : slots_of )
+                originals.push_back( slots[n] );
 
-        for ( int n = 0, m = 0; n < 2 * num_n; ++n, m += 4 )
-        {
-            MPIS_Imatch( &_scatter_requests[0][n], &match_requests[m] );
-            MPIS_Imatch( &_gather_requests[0][n], &match_requests[m + 1] );
-            MPIS_Imatch( &_scatter_requests[1][n], &match_requests[m + 2] );
-            MPIS_Imatch( &_gather_requests[1][n], &match_requests[m + 3] );
-        }
-        MPIS_Waitall( 8 * num_n, &match_requests[0], MPI_STATUSES_IGNORE );
+        std::vector<MPIS_Request> matched( originals.size(),
+                                           MPIS_REQUEST_NULL );
+        if ( originals.empty() )
+            return;
+        MPIS_Matchall( static_cast<int>( originals.size() ), originals.data(),
+                       matched.data(), MPI_INFO_NULL );
+        MPIS_Request_freeall( static_cast<int>( originals.size() ),
+                              originals.data() );
+
+        for ( int n = 0, m = 0; n < 2 * num_n; ++n )
+            for ( auto* slots : slots_of )
+                slots[n] = matched[m++];
     }
 
     ~StreamHalo()
