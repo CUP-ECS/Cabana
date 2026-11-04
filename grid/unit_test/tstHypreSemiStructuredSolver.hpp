@@ -37,14 +37,16 @@ namespace Test
 // time. Once they have a run-time switch we can use that instead.
 template <class MemorySpace>
 std::enable_if_t<!HypreIsCompatibleWithMemorySpace<MemorySpace>::value, void>
-poissonTest( const std::string&, const std::string&, MemorySpace )
+poissonTest( const std::string&, const std::string&, MemorySpace,
+             const std::array<double, 3> = { 1.0, 1.0, 1.0 } )
 {
 }
 
 template <class MemorySpace>
 std::enable_if_t<HypreIsCompatibleWithMemorySpace<MemorySpace>::value, void>
 poissonTest( const std::string& solver_type, const std::string& precond_type,
-             MemorySpace )
+             MemorySpace,
+             const std::array<double, 3> weight = { 1.0, 1.0, 1.0 } )
 {
     // Create the global grid.
     double cell_size = 0.25;
@@ -72,6 +74,13 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
     auto lhs = createArray<double, MemorySpace>( "lhs", vector_layout );
     ArrayOp::assign( *lhs, 0.0, Own() );
 
+    // Weight the stencil per dimension so an operator that mixes up the
+    // dimensions solves a different system.
+    double w_i = weight[Dim::I];
+    double w_j = weight[Dim::J];
+    double w_k = weight[Dim::K];
+    double diag = 2.0 * ( w_i + w_j + w_k );
+
     HYPRE_Init();
 
     // Create a solver.
@@ -96,13 +105,13 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
         "fill_matrix_entries",
         createExecutionPolicy( owned_space, TEST_EXECSPACE() ),
         KOKKOS_LAMBDA( const int i, const int j, const int k ) {
-            entry_view( i, j, k, 0 ) = 6.0;
-            entry_view( i, j, k, 1 ) = -1.0;
-            entry_view( i, j, k, 2 ) = -1.0;
-            entry_view( i, j, k, 3 ) = -1.0;
-            entry_view( i, j, k, 4 ) = -1.0;
-            entry_view( i, j, k, 5 ) = -1.0;
-            entry_view( i, j, k, 6 ) = -1.0;
+            entry_view( i, j, k, 0 ) = diag;
+            entry_view( i, j, k, 1 ) = -w_i;
+            entry_view( i, j, k, 2 ) = -w_i;
+            entry_view( i, j, k, 3 ) = -w_j;
+            entry_view( i, j, k, 4 ) = -w_j;
+            entry_view( i, j, k, 5 ) = -w_k;
+            entry_view( i, j, k, 6 ) = -w_k;
         } );
 
     solver->setMatrixValues( *matrix_entries, 0, 0 );
@@ -151,13 +160,13 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
             int gi = i + global_space.min( Dim::I ) - owned_space.min( Dim::I );
             int gj = j + global_space.min( Dim::J ) - owned_space.min( Dim::J );
             int gk = k + global_space.min( Dim::K ) - owned_space.min( Dim::K );
-            matrix_view( i, j, k, 0 ) = 6.0;
-            matrix_view( i, j, k, 1 ) = ( gi - 1 >= 0 ) ? -1.0 : 0.0;
-            matrix_view( i, j, k, 2 ) = ( gi + 1 < ncell_i ) ? -1.0 : 0.0;
-            matrix_view( i, j, k, 3 ) = ( gj - 1 >= 0 ) ? -1.0 : 0.0;
-            matrix_view( i, j, k, 4 ) = ( gj + 1 < ncell_j ) ? -1.0 : 0.0;
-            matrix_view( i, j, k, 5 ) = ( gk - 1 >= 0 ) ? -1.0 : 0.0;
-            matrix_view( i, j, k, 6 ) = ( gk + 1 < ncell_k ) ? -1.0 : 0.0;
+            matrix_view( i, j, k, 0 ) = diag;
+            matrix_view( i, j, k, 1 ) = ( gi - 1 >= 0 ) ? -w_i : 0.0;
+            matrix_view( i, j, k, 2 ) = ( gi + 1 < ncell_i ) ? -w_i : 0.0;
+            matrix_view( i, j, k, 3 ) = ( gj - 1 >= 0 ) ? -w_j : 0.0;
+            matrix_view( i, j, k, 4 ) = ( gj + 1 < ncell_j ) ? -w_j : 0.0;
+            matrix_view( i, j, k, 5 ) = ( gk - 1 >= 0 ) ? -w_k : 0.0;
+            matrix_view( i, j, k, 6 ) = ( gk + 1 < ncell_k ) ? -w_k : 0.0;
         } );
 
     std::vector<std::array<int, 3>> diag_stencil = { { 0, 0, 0 } };
@@ -168,7 +177,7 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
         "fill_preconditioner_entries",
         createExecutionPolicy( owned_space, TEST_EXECSPACE() ),
         KOKKOS_LAMBDA( const int i, const int j, const int k ) {
-            preconditioner_view( i, j, k, 0 ) = 1.0 / 6.0;
+            preconditioner_view( i, j, k, 0 ) = 1.0 / diag;
         } );
 
     ref_solver->setTolerance( 1.0e-11 );
@@ -251,6 +260,16 @@ TEST( HypreSemiStructuredSolver, GMRESdiag )
 TEST( HypreSemiStructuredSolver, BiCGSTABdiag )
 {
     poissonTest( "BiCGSTAB", "Diagonal", TEST_MEMSPACE{} );
+}
+
+TEST( HypreSemiStructuredSolver, PCGnoneAnisotropic )
+{
+    poissonTest( "PCG", "none", TEST_MEMSPACE{}, { 1.0, 4.0, 16.0 } );
+}
+
+TEST( HypreSemiStructuredSolver, GMRESdiagAnisotropic )
+{
+    poissonTest( "GMRES", "Diagonal", TEST_MEMSPACE{}, { 1.0, 4.0, 16.0 } );
 }
 
 //---------------------------------------------------------------------------//
