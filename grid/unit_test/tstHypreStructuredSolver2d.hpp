@@ -36,14 +36,15 @@ namespace Test
 // time. Once they have a run-time switch we can use that instead.
 template <class MemorySpace>
 std::enable_if_t<!HypreIsCompatibleWithMemorySpace<MemorySpace>::value, void>
-poissonTest( const std::string&, const std::string&, MemorySpace )
+poissonTest( const std::string&, const std::string&, MemorySpace,
+             const std::array<double, 2> = { 1.0, 1.0 } )
 {
 }
 
 template <class MemorySpace>
 std::enable_if_t<HypreIsCompatibleWithMemorySpace<MemorySpace>::value, void>
 poissonTest( const std::string& solver_type, const std::string& precond_type,
-             MemorySpace )
+             MemorySpace, const std::array<double, 2> weight = { 1.0, 1.0 } )
 {
     // Create the global grid.
     double cell_size = 0.2;
@@ -71,6 +72,12 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
     auto lhs = createArray<double, MemorySpace>( "lhs", vector_layout );
     ArrayOp::assign( *lhs, 0.0, Own() );
 
+    // Weight the stencil per dimension so an operator that mixes up the
+    // dimensions solves a different system.
+    double w_i = weight[Dim::I];
+    double w_j = weight[Dim::J];
+    double diag = 2.0 * ( w_i + w_j );
+
     HYPRE_Init();
     {
         // Create a solver.
@@ -91,11 +98,11 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
             "fill_matrix_entries",
             createExecutionPolicy( owned_space, TEST_EXECSPACE() ),
             KOKKOS_LAMBDA( const int i, const int j ) {
-                entry_view( i, j, 0 ) = 4.0;
-                entry_view( i, j, 1 ) = -1.0;
-                entry_view( i, j, 2 ) = -1.0;
-                entry_view( i, j, 3 ) = -1.0;
-                entry_view( i, j, 4 ) = -1.0;
+                entry_view( i, j, 0 ) = diag;
+                entry_view( i, j, 1 ) = -w_i;
+                entry_view( i, j, 2 ) = -w_i;
+                entry_view( i, j, 3 ) = -w_j;
+                entry_view( i, j, 4 ) = -w_j;
             } );
 
         solver->setMatrixValues( *matrix_entries );
@@ -145,11 +152,11 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
                     i + global_space.min( Dim::I ) - owned_space.min( Dim::I );
                 int gj =
                     j + global_space.min( Dim::J ) - owned_space.min( Dim::J );
-                matrix_view( i, j, 0 ) = 4.0;
-                matrix_view( i, j, 1 ) = ( gi > 0 ) ? -1.0 : 0.0;
-                matrix_view( i, j, 2 ) = ( gi < ncell_i - 1 ) ? -1.0 : 0.0;
-                matrix_view( i, j, 3 ) = ( gj > 0 ) ? -1.0 : 0.0;
-                matrix_view( i, j, 4 ) = ( gj < ncell_j - 1 ) ? -1.0 : 0.0;
+                matrix_view( i, j, 0 ) = diag;
+                matrix_view( i, j, 1 ) = ( gi > 0 ) ? -w_i : 0.0;
+                matrix_view( i, j, 2 ) = ( gi < ncell_i - 1 ) ? -w_i : 0.0;
+                matrix_view( i, j, 3 ) = ( gj > 0 ) ? -w_j : 0.0;
+                matrix_view( i, j, 4 ) = ( gj < ncell_j - 1 ) ? -w_j : 0.0;
             } );
 
         std::vector<std::array<int, 2>> diag_stencil = { { 0, 0 } };
@@ -161,7 +168,7 @@ poissonTest( const std::string& solver_type, const std::string& precond_type,
             "fill_preconditioner_entries",
             createExecutionPolicy( owned_space, TEST_EXECSPACE() ),
             KOKKOS_LAMBDA( const int i, const int j ) {
-                preconditioner_view( i, j, 0 ) = 1.0 / 4.0;
+                preconditioner_view( i, j, 0 ) = 1.0 / diag;
             } );
 
         ref_solver->setTolerance( 1.0e-11 );
@@ -258,6 +265,21 @@ TEST( HypreStructuredSolver, GMRESjacobi2d )
 TEST( HypreStructuredSolver, BiCGSTABjacobi2d )
 {
     poissonTest( "BiCGSTAB", "Jacobi", TEST_MEMSPACE{} );
+}
+
+TEST( HypreStructuredSolver, PCGnoneAnisotropic2d )
+{
+    poissonTest( "PCG", "none", TEST_MEMSPACE{}, { 1.0, 10.0 } );
+}
+
+TEST( HypreStructuredSolver, PFMGnoneAnisotropic2d )
+{
+    poissonTest( "PFMG", "none", TEST_MEMSPACE{}, { 1.0, 10.0 } );
+}
+
+TEST( HypreStructuredSolver, GMRESjacobiAnisotropic2d )
+{
+    poissonTest( "GMRES", "Jacobi", TEST_MEMSPACE{}, { 1.0, 10.0 } );
 }
 
 //---------------------------------------------------------------------------//
