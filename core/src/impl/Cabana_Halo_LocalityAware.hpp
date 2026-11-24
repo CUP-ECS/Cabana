@@ -43,8 +43,10 @@ Gather<HaloType, AoSoAType,
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather (LocalityAware)" );
 
-    // Setup persistent communication if not already done
-    this->updateBuffers();
+    // Setup persistent communication if not already done. A gather sends
+    // the same value for every copy of an element, so MPI Advance may send
+    // it once per region.
+    this->updateBuffers( true );
 
     // Get the buffers and particle data (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();
@@ -102,8 +104,10 @@ Gather<HaloType, SliceType,
 {
     Kokkos::Profiling::ScopedRegion region( "Cabana::gather" );
 
-    // Setup persistent communication if not already done
-    this->updateBuffers();
+    // Setup persistent communication if not already done. A gather sends
+    // the same value for every copy of an element, so MPI Advance may send
+    // it once per region.
+    this->updateBuffers( true );
 
     // Get the buffers (local copies for lambdas below).
     auto send_buffer = this->getSendBuffer();

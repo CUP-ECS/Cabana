@@ -1367,8 +1367,10 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     /**
      * Check that the locations and send and recieve bufers have not changed. If
      * so, reinitialize persistent communication.
+     *
+     * \param remove_duplicates See initializeNeighborAlltoallvTopo.
      */
-    void updateBuffers()
+    void updateBuffers( const bool remove_duplicates = false )
     {
         Kokkos::Profiling::ScopedRegion region(
             "updateBuffers (LocalityAware)" );
@@ -1389,10 +1391,16 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         }
 
         if ( is_changed )
-            initializeNeighborAlltoallvTopo();
+            initializeNeighborAlltoallvTopo( remove_duplicates );
     }
 
-    void initializeNeighborAlltoallvTopo()
+    /**
+     * \param remove_duplicates Give MPI Advance a global id for every sent
+     * entry, so its locality path sends a value once per region even when
+     * several ranks there need it. Only correct for a gather, where every
+     * copy of an element carries the same value; a scatter sums its copies.
+     */
+    void initializeNeighborAlltoallvTopo( const bool remove_duplicates = false )
     {
         Kokkos::Profiling::ScopedRegion region(
             "initializeNeighborAlltoallvTopo (LocalityAware)" );
@@ -1402,12 +1410,27 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
 
         // Create new topo init
         MPIL_Request* neighbor_request = nullptr;
-        MPIL_Neighbor_alltoallv_init_topo(
-            _send_buffer_ptr, _send_counts.data(), _send_displs.data(),
-            *_element_type_ptr, _recv_buffer_ptr, _recv_counts.data(),
-            _recv_displs.data(), *_element_type_ptr, this->_comm_plan.ltopo(),
-            this->_comm_plan.lcomm(), this->_comm_plan.linfo(),
-            &neighbor_request );
+        if ( remove_duplicates )
+        {
+            std::vector<long> send_ids, recv_ids;
+            globalIds( send_ids, recv_ids );
+            MPIL_Neighbor_alltoallv_init_ext_topo(
+                _send_buffer_ptr, _send_counts.data(), _send_displs.data(),
+                send_ids.data(), *_element_type_ptr, _recv_buffer_ptr,
+                _recv_counts.data(), _recv_displs.data(), recv_ids.data(),
+                *_element_type_ptr, this->_comm_plan.ltopo(),
+                this->_comm_plan.lcomm(), this->_comm_plan.linfo(),
+                &neighbor_request );
+        }
+        else
+        {
+            MPIL_Neighbor_alltoallv_init_topo(
+                _send_buffer_ptr, _send_counts.data(), _send_displs.data(),
+                *_element_type_ptr, _recv_buffer_ptr, _recv_counts.data(),
+                _recv_displs.data(), *_element_type_ptr,
+                this->_comm_plan.ltopo(), this->_comm_plan.lcomm(),
+                this->_comm_plan.linfo(), &neighbor_request );
+        }
 
         // Save request object for start/wait
         _lrequest_ptr =
@@ -1422,6 +1445,48 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     MPIL_Request* lrequest() const { return _lrequest_ptr.get(); }
 
   private:
+    // Send entry i * num_comp + n holds component n of local element
+    // steering( i ) (the buffers are LayoutRight). Its id is that element's
+    // global index (an exclusive scan of numLocal() over ranks) times num_comp
+    // plus n. The receivers get their entries' ids with one neighbor
+    // alltoallv, as MPI Advance's own init_topo does internally.
+    void globalIds( std::vector<long>& send_ids, std::vector<long>& recv_ids )
+    {
+        long num_comp = this->getSliceComponents();
+        if ( num_comp == 0 )
+            num_comp = 1;
+        long num_local = static_cast<long>( this->_comm_plan.numLocal() );
+        long offset = 0;
+        MPI_Exscan( &num_local, &offset, 1, MPI_LONG, MPI_SUM,
+                    this->_comm_plan.comm() );
+        int rank;
+        MPI_Comm_rank( this->_comm_plan.comm(), &rank );
+        if ( rank == 0 )
+            offset = 0;
+
+        auto steering = Kokkos::create_mirror_view_and_copy(
+            Kokkos::HostSpace(), this->_comm_plan.getExportSteering() );
+        long num_send =
+            std::accumulate( _send_counts.begin(), _send_counts.end(), 0L );
+        long num_recv =
+            std::accumulate( _recv_counts.begin(), _recv_counts.end(), 0L );
+        if ( num_send != static_cast<long>( steering.extent( 0 ) ) * num_comp )
+            throw std::runtime_error(
+                "Send counts do not match the export steering!" );
+
+        send_ids.resize( num_send );
+        recv_ids.resize( num_recv );
+        for ( std::size_t i = 0; i < steering.extent( 0 ); ++i )
+            for ( long n = 0; n < num_comp; ++n )
+                send_ids[i * num_comp + n] =
+                    ( offset + static_cast<long>( steering( i ) ) ) * num_comp +
+                    n;
+        MPIL_Neighbor_alltoallv_topo(
+            send_ids.data(), _send_counts.data(), _send_displs.data(), MPI_LONG,
+            recv_ids.data(), _recv_counts.data(), _recv_displs.data(), MPI_LONG,
+            this->_comm_plan.ltopo(), this->_comm_plan.lcomm() );
+    }
+
     // Raw pointers associated with the persistent communication buffers.
     data_type* _send_buffer_ptr;
     data_type* _recv_buffer_ptr;
