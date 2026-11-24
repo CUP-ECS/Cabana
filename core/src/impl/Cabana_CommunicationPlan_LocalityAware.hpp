@@ -1319,7 +1319,24 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         if ( num_comp == 0 )
             num_comp = 1;
 
-        std::size_t datatype_size = sizeof( data_type );
+        // Count in elements of one contiguous MPI type per data_type, not in
+        // bytes: MPI Advance's locality path keeps an index per counted item
+        // and copies item by item, so byte counts multiply that work by
+        // sizeof( data_type ).
+        MPI_Datatype* element_type = new MPI_Datatype;
+        MPI_Type_contiguous( static_cast<int>( sizeof( data_type ) ), MPI_BYTE,
+                             element_type );
+        MPI_Type_commit( element_type );
+        _element_type_ptr =
+            std::shared_ptr<MPI_Datatype>( element_type,
+                                           []( MPI_Datatype* t )
+                                           {
+                                               int finalized = 0;
+                                               MPI_Finalized( &finalized );
+                                               if ( !finalized )
+                                                   MPI_Type_free( t );
+                                               delete t;
+                                           } );
 
         std::size_t send_offset = 0, recv_offset = 0;
         int new_n_r = 0;
@@ -1330,7 +1347,7 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
             if ( this->_comm_plan.numImport( n ) != 0 )
             {
                 _recv_counts[new_n_r] =
-                    this->_comm_plan.numImport( n ) * datatype_size * num_comp;
+                    this->_comm_plan.numImport( n ) * num_comp;
                 _recv_displs[new_n_r] = recv_offset;
                 recv_offset += _recv_counts[new_n_r];
                 new_n_r++;
@@ -1338,7 +1355,7 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
             if ( this->_comm_plan.numExport( n ) != 0 )
             {
                 _send_counts[new_n_s] =
-                    this->_comm_plan.numExport( n ) * datatype_size * num_comp;
+                    this->_comm_plan.numExport( n ) * num_comp;
                 _send_displs[new_n_s] = send_offset;
                 send_offset += _send_counts[new_n_s];
                 new_n_s++;
@@ -1387,8 +1404,8 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
         MPIL_Request* neighbor_request = nullptr;
         MPIL_Neighbor_alltoallv_init_topo(
             _send_buffer_ptr, _send_counts.data(), _send_displs.data(),
-            MPI_BYTE, _recv_buffer_ptr, _recv_counts.data(),
-            _recv_displs.data(), MPI_BYTE, this->_comm_plan.ltopo(),
+            *_element_type_ptr, _recv_buffer_ptr, _recv_counts.data(),
+            _recv_displs.data(), *_element_type_ptr, this->_comm_plan.ltopo(),
             this->_comm_plan.lcomm(), this->_comm_plan.linfo(),
             &neighbor_request );
 
@@ -1412,6 +1429,10 @@ class CommunicationData<CommPlanType, CommDataType, LocalityAware>
     // Send and receive counts and displacements
     std::vector<int> _send_counts, _recv_counts;
     std::vector<int> _send_displs, _recv_displs;
+
+    // Element type for the counts above. Declared before the request so the
+    // request is freed first.
+    std::shared_ptr<MPI_Datatype> _element_type_ptr;
 
     // Request object associated with this persistent communication
     std::shared_ptr<MPIL_Request> _lrequest_ptr;
