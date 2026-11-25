@@ -217,25 +217,14 @@ void migrateSlice(
     auto src_data = src.data();
     auto dst_data = dst.data();
 
-    // Get the MPI rank we are currently on.
-    int my_rank = -1;
-    MPI_Comm_rank( distributor.comm(), &my_rank );
-
     // Get the number of neighbors.
     int num_n = distributor.numNeighbor();
 
-    // Calculate the number of elements that are staying on this rank and
-    // therefore can be directly copied. If any of the neighbor ranks are this
-    // rank it will be stored in first position (i.e. the first neighbor in
-    // the local list is always yourself if you are sending to yourself).
-    std::size_t num_stay =
-        ( num_n > 0 && distributor.neighborRank( 0 ) == my_rank )
-            ? distributor.numExport( 0 )
-            : 0;
-
     // Allocate a send buffer. Note this one is layout right so the components
-    // of each element are consecutive in memory.
-    std::size_t num_send = distributor.totalNumExport() - num_stay;
+    // of each element are consecutive in memory. As in migrateData, self-sends
+    // stay in the send buffer: the plan's MPI Advance topology lists this rank
+    // as a neighbor when it sends to itself, so MPI Advance delivers them.
+    std::size_t num_send = distributor.totalNumExport();
     Kokkos::View<typename Slice_t::value_type**, Kokkos::LayoutRight,
                  typename Distributor_t::memory_space>
         send_buffer( Kokkos::ViewAllocateWithoutInitializing(
@@ -254,48 +243,42 @@ void migrateSlice(
     auto steering = distributor.getExportSteering();
     Kokkos::parallel_for(
         "Cabana::migrate::build_send_buffer",
-        Kokkos::RangePolicy<ExecutionSpace>( 0, distributor.totalNumExport() ),
+        Kokkos::RangePolicy<ExecutionSpace>( 0, num_send ),
         KOKKOS_LAMBDA( const std::size_t i ) {
             auto s_src = Slice_t::index_type::s( steering( i ) );
             auto a_src = Slice_t::index_type::a( steering( i ) );
             std::size_t src_offset = s_src * src.stride( 0 ) + a_src;
-            if ( i < num_stay )
-            {
-                for ( std::size_t n = 0; n < num_comp; ++n )
-                    recv_buffer( i, n ) =
-                        src_data[src_offset + n * Slice_t::vector_length];
-            }
-            else
-            {
-                for ( std::size_t n = 0; n < num_comp; ++n )
-                    send_buffer( i - num_stay, n ) =
-                        src_data[src_offset + n * Slice_t::vector_length];
-            }
+            for ( std::size_t n = 0; n < num_comp; ++n )
+                send_buffer( i, n ) =
+                    src_data[src_offset + n * Slice_t::vector_length];
         } );
     Kokkos::fence();
 
-    std::vector<int> send_counts( num_n ), recv_counts( num_n );
-    std::vector<int> send_displs( num_n ), recv_displs( num_n );
+    // Counts and displacements only for neighbors with a nonzero count, in
+    // neighbor order: the plan built its MPI Advance topology from exactly
+    // those neighbors, because locality-aware communication does not support
+    // zero-length messages.
+    std::vector<int> send_counts, recv_counts;
+    std::vector<int> send_displs, recv_displs;
+    const std::size_t element_size =
+        num_comp * sizeof( typename Slice_t::value_type );
 
     std::size_t send_offset = 0, recv_offset = 0;
     for ( int n = 0; n < num_n; ++n )
     {
-        recv_counts[n] = distributor.numImport( n ) * num_comp *
-                         sizeof( typename Slice_t::value_type );
-        recv_displs[n] = recv_offset;
-        recv_offset += recv_counts[n];
-
-        if ( distributor.neighborRank( n ) == my_rank )
+        if ( distributor.numImport( n ) != 0 )
         {
-            send_counts[n] = 0;
-            send_displs[n] = 0;
+            recv_counts.push_back(
+                static_cast<int>( distributor.numImport( n ) * element_size ) );
+            recv_displs.push_back( static_cast<int>( recv_offset ) );
+            recv_offset += distributor.numImport( n ) * element_size;
         }
-        else
+        if ( distributor.numExport( n ) != 0 )
         {
-            send_counts[n] = distributor.numExport( n ) * num_comp *
-                             sizeof( typename Slice_t::value_type );
-            send_displs[n] = send_offset;
-            send_offset += send_counts[n];
+            send_counts.push_back(
+                static_cast<int>( distributor.numExport( n ) * element_size ) );
+            send_displs.push_back( static_cast<int>( send_offset ) );
+            send_offset += distributor.numExport( n ) * element_size;
         }
     }
 
